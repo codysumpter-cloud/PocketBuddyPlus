@@ -1,12 +1,12 @@
 {
-  "name": "openpets-v2-workspace",
+  "name": "pocket-buddy-plus-workspace",
   "version": "3.3.0",
   "private": true,
-  "description": "OpenPets 2.0 workspace",
+  "description": "Pocket Buddy Plus desktop companion platform, derived from OpenPets.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alvinunreal/openpets.git"
+    "url": "git+https://github.com/codysumpter-cloud/PocketBuddy-.git"
   },
   "type": "module",
   "packageManager": "pnpm@11.0.8",
