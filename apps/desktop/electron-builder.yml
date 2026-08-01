@@ -1,12 +1,12 @@
-appId: dev.openpets.app
-productName: OpenPets
-executableName: openpets
-copyright: Copyright © 2026 OpenPets
+appId: dev.prismtek.pocketbuddyplus
+productName: Pocket Buddy Plus
+executableName: pocket-buddy-plus
+copyright: Copyright © 2026 Prismtek; OpenPets contributors
 
 directories:
   output: dist-electron
 
-artifactName: OpenPets-${version}-${os}-${arch}.${ext}
+artifactName: Pocket-Buddy-Plus-${version}-${os}-${arch}.${ext}
 
 files:
   - dist/**
@@ -51,7 +51,7 @@ win:
   verifyUpdateCodeSignature: false
 
 nsis:
-  artifactName: OpenPets-${version}-win-${arch}-setup.${ext}
+  artifactName: Pocket-Buddy-Plus-${version}-win-${arch}-setup.${ext}
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
@@ -63,4 +63,4 @@ linux:
     - rpm
     - tar.gz
   category: Utility
-  maintainer: OpenPets
+  maintainer: Prismtek
