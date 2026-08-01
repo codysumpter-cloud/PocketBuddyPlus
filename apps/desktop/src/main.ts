@@ -16,6 +16,8 @@ import { defaultPluginPetApi } from "./plugin-pet-api.js";
 import { initializePluginPlatformSettings } from "./plugin-platform-settings.js";
 import { ElectronPluginJsHost } from "./plugin-js-host.js";
 import { initializePluginService } from "./plugin-service.js";
+import { initializeBuddyHost } from "./buddy/buddy-host.js";
+import { openBuddyDock } from "./buddy/buddy-surfaces.js";
 import { APP_ID } from "./product.js";
 import { applyPlusUserDataPath, getRuntimeProductName, isPlusRuntime } from "./product-runtime.js";
 import { createAppTray, refreshTrayMenu } from "./tray.js";
@@ -108,6 +110,12 @@ if (!gotSingleInstanceLock) {
     powerMonitor.on("resume", () => pluginService.runtime.resyncSchedules());
     if (shouldOpenDefaultPetOnLaunch()) {
       showDefaultPet();
+    }
+    // Pocket Buddy Plus only: the durable Buddy host must be live before the
+    // attached menu or dock can ask it for a snapshot.
+    if (isPlusBuild) {
+      initializeBuddyHost();
+      openBuddyDock();
     }
     startLanController();
     refreshTrayMenu();

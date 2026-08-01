@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, "..");
 
-const preloadChecks = ["control-center-preload.cjs", "pet-preload.cjs", "plugin-sdk-preload.cjs", "panel-preload.cjs"];
+const preloadChecks = ["control-center-preload.cjs", "pet-preload.cjs", "plugin-sdk-preload.cjs", "panel-preload.cjs", "buddy-surface-preload.cjs"];
 const behaviorTests = [
   ".test-dist/tests/lease-manager.test.js",
   ".test-dist/tests/lease-manager-fixes.test.js",
@@ -24,6 +24,7 @@ const behaviorTests = [
   ".test-dist/tests/onboarding-state.test.js",
   ".test-dist/tests/buddy-foundation.test.js",
   ".test-dist/tests/product-identity.test.js",
+  ".test-dist/tests/buddy-menu-dock.test.js",
   ".test-dist/tests/update-version.test.js",
   ".test-dist/tests/reaction-animation-mapping.test.js",
   ".test-dist/tests/zip-safety.test.js",

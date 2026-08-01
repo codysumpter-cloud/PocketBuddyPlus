@@ -20,6 +20,7 @@ files:
   - plugin-sdk-preload.cjs
   - plugin-command-form-preload.cjs
   - panel-preload.cjs
+  - buddy-surface-preload.cjs
   - assets/**
   - package.json
 
