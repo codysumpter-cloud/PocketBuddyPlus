@@ -85,15 +85,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APP_PATH="$(find apps/desktop/dist-electron-plus -type d -name 'Pocket Buddy+.app' -print -quit)"
+          APP_PATH="$(find apps/desktop/dist-electron-plus -type d -name '*.app' -print -quit)"
           test -n "$APP_PATH"
-          test -f "$APP_PATH/Contents/Info.plist"
-          test -x "$APP_PATH/Contents/MacOS/pocket-buddy-plus"
-          BUNDLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$APP_PATH/Contents/Info.plist")"
+          test "$(basename "$APP_PATH")" = 'Pocket Buddy+.app'
+
+          PLIST_PATH="$APP_PATH/Contents/Info.plist"
+          test -f "$PLIST_PATH"
+          BUNDLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST_PATH")"
+          BUNDLE_EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST_PATH")"
+          echo "App bundle: $APP_PATH"
+          echo "CFBundleName: $BUNDLE_NAME"
+          echo "CFBundleExecutable: $BUNDLE_EXECUTABLE"
           test "$BUNDLE_NAME" = 'Pocket Buddy+'
 
+          EXECUTABLE_PATH="$APP_PATH/Contents/MacOS/$BUNDLE_EXECUTABLE"
+          test -x "$EXECUTABLE_PATH"
           LOG_PATH="$RUNNER_TEMP/pocket-buddy-plus-smoke.log"
-          OPENPETS_DISABLE_PLUGIN_CATALOG=1 "$APP_PATH/Contents/MacOS/pocket-buddy-plus" >"$LOG_PATH" 2>&1 &
+          OPENPETS_DISABLE_PLUGIN_CATALOG=1 "$EXECUTABLE_PATH" >"$LOG_PATH" 2>&1 &
           APP_PID=$!
           sleep 12
           if ! kill -0 "$APP_PID" 2>/dev/null; then
@@ -104,6 +112,7 @@ jobs:
           wait "$APP_PID" || true
 
       - name: Upload Pocket Buddy+ macOS package
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Pocket-Buddy+-macOS
