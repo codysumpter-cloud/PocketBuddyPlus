@@ -74,6 +74,7 @@ const releaseConfig = readFileSync(resolve(desktopDir, "electron-builder.pocket-
 assert.match(packageJson.scripts?.["package:plus"] ?? "", /electron-builder\.pocket-buddy-plus\.yml/);
 assert.match(packageJson.scripts?.["package:plus:dir"] ?? "", /electron-builder\.pocket-buddy-plus\.yml/);
 assert.match(releaseConfig, /^productName: Pocket Buddy\+$/m);
+assert.match(releaseConfig, /mac:\s*\n\s*executableName: Pocket Buddy\+/);
 assert.match(releaseConfig, /shortcutName: Pocket Buddy\+/);
 assert.match(releaseConfig, /uninstallDisplayName: Pocket Buddy\+/);
 assert.match(releaseConfig, /artifactName: Pocket-Buddy\+\-/);
