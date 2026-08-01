@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/codysumpter-cloud/PocketBuddy-.git"
+    "url": "git+https://github.com/codysumpter-cloud/PocketBuddyPlus.git"
   },
   "type": "module",
   "packageManager": "pnpm@11.0.8",
