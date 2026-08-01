@@ -6,7 +6,8 @@ import { hideDefaultPet, isDefaultPetVisible, setDefaultPetPaused, showDefaultPe
 import { t } from "./i18n/index.js";
 import { quitOpenPets } from "./lifecycle.js";
 import { info, openLogsFolder } from "./logger.js";
-import { PRODUCT_WEBSITE_URL, UPSTREAM_WEBSITE_URL, isPocketBuddyPlusBuild } from "./product.js";
+import { PRODUCT_WEBSITE_URL, UPSTREAM_WEBSITE_URL } from "./product.js";
+import { isPlusRuntime } from "./product-runtime.js";
 import { shellState, togglePaused } from "./state.js";
 import { getUpdateStatus, openUpdateReleasePage } from "./update-checker.js";
 import { openControlCenterWindow } from "./windows.js";
@@ -93,7 +94,7 @@ export function refreshTrayMenu(): void {
     { type: "separator" },
     {
       label: t("tray.website"),
-      click: () => { void shell.openExternal(isPocketBuddyPlusBuild(app.getName()) ? PRODUCT_WEBSITE_URL : UPSTREAM_WEBSITE_URL); },
+      click: () => { void shell.openExternal(isPlusRuntime() ? PRODUCT_WEBSITE_URL : UPSTREAM_WEBSITE_URL); },
     },
     {
       label: t("tray.openLogsFolder"),

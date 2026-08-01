@@ -11,7 +11,19 @@ const distDir = dirname(fileURLToPath(import.meta.url));
 const appDir = dirname(distDir);
 const repoRoot = resolve(appDir, "../..");
 const packageJson = JSON.parse(readFileSync(join(appDir, "package.json"), "utf8")) as { scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string>; description?: string; author?: string };
-const rootPackageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { scripts?: Record<string, string> };
+const rootPackageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { scripts?: Record<string, string>; name?: string };
+const plusBuilderConfig = readFileSync(join(appDir, "electron-builder.plus.yml"), "utf8");
+
+// electron-builder resolves the "project" to the pnpm workspace root, so an
+// `extraMetadata` block rewrites the root package.json in place and destroys the
+// workspace manifest. The Plus build is identified from executableName instead.
+assert.doesNotMatch(plusBuilderConfig, /^extraMetadata:/m, "electron-builder.plus.yml must not use extraMetadata: it rewrites the workspace-root package.json.");
+assert.match(plusBuilderConfig, /^executableName: pocket-buddy-plus$/m, "the Plus target must keep the executableName its runtime identity is derived from.");
+assert.match(plusBuilderConfig, /^appId: dev\.prismtek\.pocketbuddyplus$/m);
+assert.match(plusBuilderConfig, /^productName: Pocket Buddy Plus$/m);
+assert.match(plusBuilderConfig, /output: dist-electron-plus/, "Plus output must stay isolated from the inherited target.");
+// Guards the workspace manifest against being clobbered by a packaging run.
+assert.equal(rootPackageJson.name, "pocket-buddy-plus-workspace", "the workspace-root package.json must remain the workspace manifest.");
 const workspaceConfig = readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8");
 const builderConfigPath = join(appDir, "electron-builder.yml");
 const builderConfig = readFileSync(builderConfigPath, "utf8");

@@ -8,13 +8,10 @@ directories:
 
 artifactName: Pocket-Buddy-Plus-${version}-${os}-${arch}.${ext}
 
-# Electron derives app.getName() -- and therefore the userData directory -- from
-# the packaged package.json "name". Without this override the Plus build inherits
-# "@open-pets/desktop" and shares its entire user-data directory with the
-# inherited OpenPets build. The inherited target deliberately has no equivalent
-# override so existing OpenPets installs keep their current userData path.
-extraMetadata:
-  name: Pocket Buddy Plus
+# NOTE: do not add `extraMetadata` here. In this pnpm workspace electron-builder
+# resolves the "project" to the workspace root and rewrites the root package.json
+# in place, clobbering the workspace manifest. The Plus build is instead
+# identified at runtime from `executableName` below (see src/product.ts).
 
 files:
   - dist/**

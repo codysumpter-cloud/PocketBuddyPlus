@@ -8,23 +8,31 @@ export const UPSTREAM_PROJECT_NAME = "OpenPets";
 export const UPSTREAM_REPOSITORY_URL = "https://github.com/alvinunreal/openpets";
 export const UPSTREAM_WEBSITE_URL = "https://openpets.dev/";
 
+/** Matches `executableName` in electron-builder.plus.yml. */
+export const PLUS_EXECUTABLE_NAME = "pocket-buddy-plus";
+
 /**
  * Both electron-builder targets package this same main process, so the product
  * identity cannot be a compile-time constant: the inherited OpenPets build would
- * otherwise present itself as Pocket Buddy Plus and, worse, share its Electron
- * user-data directory with the Plus build.
+ * otherwise present itself as Pocket Buddy Plus and share its Electron user-data
+ * directory with the Plus build.
  *
- * electron-builder.plus.yml sets `extraMetadata.name` to PRODUCT_NAME, so the
- * packaged package.json -- which is what Electron derives both app.getName() and
- * the userData path from -- differs per target. The inherited target is left
- * untouched so existing OpenPets installs keep their current userData directory.
+ * Identity is taken from the packaged executable name, which each config already
+ * sets (`pocket-buddy-plus` vs `openpets`) and which needs no build-time
+ * rewriting. An earlier attempt used electron-builder's `extraMetadata`, but in
+ * this pnpm workspace that rewrites the workspace-root package.json in place.
  *
- * `packagedAppName` is app.getName() before any setName() call.
+ * Unpackaged runs are development runs of this repository, which is Pocket Buddy
+ * Plus, so they resolve to the Plus identity.
  */
-export function resolveProductName(packagedAppName: string | undefined): string {
-  return packagedAppName === PRODUCT_NAME ? PRODUCT_NAME : UPSTREAM_PROJECT_NAME;
+export function resolveProductNameFor(executablePath: string, packaged: boolean): string {
+  if (!packaged) return PRODUCT_NAME;
+  const executable = executablePath.split(/[\\/]/).pop() ?? "";
+  // Windows appends .exe; strip any extension before comparing.
+  const base = executable.replace(/\.[^.]*$/, "").toLowerCase();
+  return base === PLUS_EXECUTABLE_NAME ? PRODUCT_NAME : UPSTREAM_PROJECT_NAME;
 }
 
-export function isPocketBuddyPlusBuild(packagedAppName: string | undefined): boolean {
-  return resolveProductName(packagedAppName) === PRODUCT_NAME;
+export function isPocketBuddyPlusBuildFor(executablePath: string, packaged: boolean): boolean {
+  return resolveProductNameFor(executablePath, packaged) === PRODUCT_NAME;
 }

@@ -16,7 +16,8 @@ import { defaultPluginPetApi } from "./plugin-pet-api.js";
 import { initializePluginPlatformSettings } from "./plugin-platform-settings.js";
 import { ElectronPluginJsHost } from "./plugin-js-host.js";
 import { initializePluginService } from "./plugin-service.js";
-import { APP_ID, isPocketBuddyPlusBuild, resolveProductName } from "./product.js";
+import { APP_ID } from "./product.js";
+import { applyPlusUserDataPath, getRuntimeProductName, isPlusRuntime } from "./product-runtime.js";
 import { createAppTray, refreshTrayMenu } from "./tray.js";
 import { checkForGitHubReleaseUpdate } from "./update-checker.js";
 import { installInternalUiHandlers, installInternalUiProtocol } from "./windows.js";
@@ -58,6 +59,9 @@ if (isLinux && !allowWayland) {
   app.commandLine.appendSwitch("ozone-platform", "x11");
 }
 
+// Must happen before any userData-derived path is read.
+applyPlusUserDataPath();
+
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!gotSingleInstanceLock) {
@@ -67,11 +71,8 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(async () => {
     initializeLogger();
-    // Resolve identity from the packaged metadata BEFORE setName() overwrites it,
-    // so the inherited OpenPets target keeps presenting itself as OpenPets.
-    const packagedAppName = app.getName();
-    const productName = resolveProductName(packagedAppName);
-    const isPlusBuild = isPocketBuddyPlusBuild(packagedAppName);
+    const productName = getRuntimeProductName();
+    const isPlusBuild = isPlusRuntime();
     app.setName(productName);
     if (process.platform === "win32") {
       app.setAppUserModelId(isPlusBuild ? APP_ID : "dev.openpets.app");
