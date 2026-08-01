@@ -1,0 +1,30 @@
+{
+  "installed": [
+    {
+      "id": "builtin",
+      "displayName": "Professor Hoot",
+      "broken": false,
+      "source": "builtin",
+      "version": "1.0.0"
+    },
+    {
+      "id": "catalog-fox",
+      "displayName": "Ember Fox",
+      "broken": false,
+      "source": "builtin",
+      "version": "1.0.0"
+    }
+  ],
+  "preferences": {
+    "defaultPetId": "builtin",
+    "petScale": "medium",
+    "locale": "system",
+    "openDefaultPetOnLaunch": true,
+    "usePetPool": false,
+    "petPoolOrder": []
+  },
+  "pool": {
+    "enabled": false,
+    "order": []
+  }
+}

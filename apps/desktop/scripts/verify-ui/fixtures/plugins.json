@@ -1,0 +1,58 @@
+{
+  "installed": [
+    {
+      "id": "openpets.focus-buddy",
+      "name": "Focus Buddy",
+      "description": "A pet Pomodoro-style focus timer.",
+      "version": "1.0.0",
+      "enabled": true,
+      "bundled": true,
+      "runtime": "javascript",
+      "broken": false,
+      "source": "catalog",
+      "config": {},
+      "commands": []
+    },
+    {
+      "id": "openpets.launch-buddy",
+      "name": "Launch Buddy",
+      "description": "A friendly startup greeting.",
+      "version": "1.0.0",
+      "enabled": true,
+      "bundled": true,
+      "runtime": "javascript",
+      "broken": false,
+      "source": "catalog",
+      "config": {},
+      "commands": []
+    },
+    {
+      "id": "openpets.reminders",
+      "name": "Quick Reminders",
+      "description": "Set short local reminders from the pet menu.",
+      "version": "1.0.0",
+      "enabled": true,
+      "bundled": true,
+      "runtime": "javascript",
+      "broken": false,
+      "source": "catalog",
+      "config": {},
+      "commands": []
+    },
+    {
+      "id": "openpets.virtual-pet",
+      "name": "Virtual Pet",
+      "description": "Care for a little desktop companion.",
+      "version": "1.0.0",
+      "enabled": false,
+      "bundled": true,
+      "runtime": "javascript",
+      "broken": false,
+      "source": "catalog",
+      "config": {},
+      "commands": []
+    }
+  ],
+  "catalog": [],
+  "developerMode": false
+}

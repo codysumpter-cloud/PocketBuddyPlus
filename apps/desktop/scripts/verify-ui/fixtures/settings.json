@@ -1,0 +1,18 @@
+{
+  "preferences": {
+    "defaultPetId": "builtin",
+    "petScale": "medium",
+    "locale": "system",
+    "openDefaultPetOnLaunch": true,
+    "launchAtLogin": false,
+    "usePetPool": false
+  },
+  "reactionAnimations": {
+    "enabled": true,
+    "mappings": {}
+  },
+  "lan": {
+    "enabled": false,
+    "mode": "off"
+  }
+}

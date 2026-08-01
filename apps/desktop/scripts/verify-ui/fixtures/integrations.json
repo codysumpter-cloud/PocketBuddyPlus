@@ -1,0 +1,31 @@
+{
+  "commandMode": "published",
+  "selectedPetId": "builtin",
+  "integrations": [
+    {
+      "id": "claude",
+      "name": "Claude Code",
+      "status": "needs-setup",
+      "installed": false
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "status": "not-detected",
+      "installed": false
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "status": "not-configured",
+      "installed": false
+    },
+    {
+      "id": "pi",
+      "name": "Pi",
+      "status": "manual",
+      "installed": false
+    }
+  ],
+  "commandPaths": {}
+}

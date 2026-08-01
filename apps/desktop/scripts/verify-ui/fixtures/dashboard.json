@@ -1,0 +1,40 @@
+{
+  "defaultPet": {
+    "id": "builtin",
+    "displayName": "Professor Hoot",
+    "previewSpriteUrl": ""
+  },
+  "installedPetCount": 2,
+  "catalog": {
+    "source": "bundled",
+    "total": 104,
+    "page": 1,
+    "pageCount": 4
+  },
+  "plugins": {
+    "installed": 4,
+    "enabled": 3,
+    "broken": 0
+  },
+  "updateStatus": {
+    "state": "current",
+    "currentVersion": "3.3.0",
+    "latestVersion": "3.3.0",
+    "releaseUrl": null,
+    "error": null
+  },
+  "activity": {
+    "messagesSent": 12,
+    "reactionsSent": 7,
+    "reactionCounts": {
+      "waving": 4,
+      "heart": 2,
+      "sparkle": 1
+    },
+    "perPetActivityCounts": {
+      "builtin": 9,
+      "catalog-fox": 3
+    },
+    "lastActivityAt": 1785600000000
+  }
+}
