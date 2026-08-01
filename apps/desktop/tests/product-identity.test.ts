@@ -29,9 +29,11 @@ assert.equal(brandVisibleText("Open Pets plugin"), "Pocket Buddy+ plugin");
 assert.equal(brandVisibleText("Pocket Buddy Plus Settings"), "Pocket Buddy+ Settings");
 assert.equal(brandVisibleText("Buddy Plus status"), "Buddy+ status");
 
-// The Plus target's executableName, across platform path shapes.
+// The Plus target's executable identity across platform path shapes. macOS can
+// use either the explicit executableName or productName inside the .app bundle.
 for (const execPath of [
   `/Applications/Pocket Buddy+.app/Contents/MacOS/${PLUS_EXECUTABLE_NAME}`,
+  `/Applications/Pocket Buddy+.app/Contents/MacOS/${PRODUCT_NAME}`,
   `/opt/pocketbuddyplus/${PLUS_EXECUTABLE_NAME}`,
   `C:\\Program Files\\Pocket Buddy+\\${PLUS_EXECUTABLE_NAME}.exe`,
 ]) {
