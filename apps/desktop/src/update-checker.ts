@@ -21,12 +21,14 @@ interface GitHubReleaseResponse {
   readonly html_url?: unknown;
 }
 
-// Keep the original environment variable as a compatibility fallback while the
-// fork migrates its scripts and CI. New Pocket Buddy Plus tooling should use the
-// product-specific variable.
+// Keep the original environment variable and upstream repository as compatibility
+// fallbacks while the fork migrates release automation. Pocket Buddy Plus itself
+// defaults to its own canonical repository.
+const upstreamGithubRepository = "alvinunreal/openpets";
 const githubRepository = process.env.POCKET_BUDDY_PLUS_GITHUB_REPOSITORY
   || process.env.OPENPETS_GITHUB_REPOSITORY
-  || DEFAULT_GITHUB_REPOSITORY;
+  || DEFAULT_GITHUB_REPOSITORY
+  || upstreamGithubRepository;
 const latestReleaseApiUrl = `https://api.github.com/repos/${githubRepository}/releases/latest`;
 const releasesPageUrl = `https://github.com/${githubRepository}/releases`;
 const releaseCheckTimeoutMs = 6_000;
