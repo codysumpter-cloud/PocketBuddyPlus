@@ -2,14 +2,14 @@
   "name": "@open-pets/desktop",
   "version": "3.3.0",
   "private": true,
-  "description": "Pocket Buddy Plus tray-first desktop companion app, derived from OpenPets.",
+  "description": "OpenPets tray-first desktop companion app.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/codysumpter-cloud/PocketBuddy-.git",
+    "url": "git+https://github.com/codysumpter-cloud/PocketBuddyPlus.git",
     "directory": "apps/desktop"
   },
-  "author": "Prismtek; based on OpenPets by Boring Dystopia Development",
+  "author": "OpenPets",
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
@@ -20,6 +20,8 @@
     "dev:debug": "OPENPETS_LOG_LEVEL=debug OPENPETS_LOG_CONSOLE=1 pnpm dev",
     "package": "pnpm package:preflight && pnpm build && node scripts/clean-package-output.cjs && electron-builder",
     "package:dir": "pnpm package:preflight && pnpm build && node scripts/clean-package-output.cjs && electron-builder --dir && node dist/check-packaging-contract.js --output",
+    "package:plus": "pnpm package:preflight && pnpm build && node scripts/clean-package-output.cjs && electron-builder --config electron-builder.plus.yml",
+    "package:plus:dir": "pnpm package:preflight && pnpm build && node scripts/clean-package-output.cjs && electron-builder --dir --config electron-builder.plus.yml",
     "test": "node scripts/run-tests.mjs",
     "build:deps": "pnpm --filter \"@open-pets/desktop^...\" build",
     "test:build": "pnpm build:deps && tsc -p tsconfig.tests.json",
