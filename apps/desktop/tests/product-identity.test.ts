@@ -8,6 +8,9 @@
  * but inherited product wording must be normalized before it reaches UI.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   PLUS_EXECUTABLE_NAME,
@@ -59,5 +62,18 @@ assert.equal(isPocketBuddyPlusBuildFor("/usr/local/bin/electron", false), true);
 
 // The two identities must never collide, or the userData directories collide too.
 assert.notEqual(PRODUCT_NAME, UPSTREAM_PROJECT_NAME);
+
+// The actual release command must use the exact user-facing config. The inherited
+// electron-builder.plus.yml stays as a regression fixture for the original fork
+// contract; it is not the shipping identity.
+const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const packageJson = JSON.parse(readFileSync(resolve(desktopDir, "package.json"), "utf8")) as { scripts?: Record<string, string> };
+const releaseConfig = readFileSync(resolve(desktopDir, "electron-builder.pocket-buddy-plus.yml"), "utf8");
+assert.match(packageJson.scripts?.["package:plus"] ?? "", /electron-builder\.pocket-buddy-plus\.yml/);
+assert.match(packageJson.scripts?.["package:plus:dir"] ?? "", /electron-builder\.pocket-buddy-plus\.yml/);
+assert.match(releaseConfig, /^productName: Pocket Buddy\+$/m);
+assert.match(releaseConfig, /shortcutName: Pocket Buddy\+/);
+assert.match(releaseConfig, /uninstallDisplayName: Pocket Buddy\+/);
+assert.match(releaseConfig, /artifactName: Pocket-Buddy\+\-/);
 
 console.log("Product identity validation passed.");
