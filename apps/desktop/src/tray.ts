@@ -1,4 +1,4 @@
-import { Menu, shell, Tray, type MenuItemConstructorOptions } from "electron";
+import { app, Menu, shell, Tray, type MenuItemConstructorOptions } from "electron";
 
 import { getAppStateSnapshot } from "./app-state.js";
 import { createTrayIcon } from "./assets.js";
@@ -6,6 +6,8 @@ import { hideDefaultPet, isDefaultPetVisible, setDefaultPetPaused, showDefaultPe
 import { t } from "./i18n/index.js";
 import { quitOpenPets } from "./lifecycle.js";
 import { info, openLogsFolder } from "./logger.js";
+import { PRODUCT_WEBSITE_URL, UPSTREAM_WEBSITE_URL } from "./product.js";
+import { isPlusRuntime } from "./product-runtime.js";
 import { shellState, togglePaused } from "./state.js";
 import { getUpdateStatus, openUpdateReleasePage } from "./update-checker.js";
 import { openControlCenterWindow } from "./windows.js";
@@ -18,10 +20,10 @@ export function createAppTray(): Tray {
   }
 
   tray = new Tray(createTrayIcon());
-  tray.setToolTip("OpenPets");
+  tray.setToolTip(app.getName());
   refreshTrayMenu();
-  info("tray", "created");
-  console.log("OpenPets tray created.");
+  info("tray", "created", { product: app.getName() });
+  console.log(`${app.getName()} tray created.`);
 
   return tray;
 }
@@ -37,7 +39,7 @@ export function refreshTrayMenu(): void {
 
   const menu = Menu.buildFromTemplate([
     {
-      label: "OpenPets",
+      label: app.getName(),
       enabled: false,
     },
     ...createUpdateMenuItems(),
@@ -64,7 +66,7 @@ export function refreshTrayMenu(): void {
         const paused = togglePaused();
         setDefaultPetPaused(paused);
         info("tray", "pause toggled", { paused });
-        console.log(paused ? "OpenPets paused." : "OpenPets resumed.");
+        console.log(paused ? `${app.getName()} paused.` : `${app.getName()} resumed.`);
         refreshTrayMenu();
       },
     },
@@ -92,7 +94,7 @@ export function refreshTrayMenu(): void {
     { type: "separator" },
     {
       label: t("tray.website"),
-      click: () => { void shell.openExternal("https://openpets.dev/"); },
+      click: () => { void shell.openExternal(isPlusRuntime() ? PRODUCT_WEBSITE_URL : UPSTREAM_WEBSITE_URL); },
     },
     {
       label: t("tray.openLogsFolder"),
@@ -100,7 +102,7 @@ export function refreshTrayMenu(): void {
     },
     { type: "separator" },
     {
-      label: t("tray.quit"),
+      label: t("tray.quit", { name: app.getName() }),
       click: () => quitOpenPets(),
     },
   ]);

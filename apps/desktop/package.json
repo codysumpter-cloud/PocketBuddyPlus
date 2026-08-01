@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alvinunreal/openpets.git",
+    "url": "git+https://github.com/codysumpter-cloud/PocketBuddyPlus.git",
     "directory": "apps/desktop"
   },
   "author": "OpenPets",
@@ -20,6 +20,8 @@
     "dev:debug": "OPENPETS_LOG_LEVEL=debug OPENPETS_LOG_CONSOLE=1 pnpm dev",
     "package": "pnpm package:preflight && pnpm build && node scripts/clean-package-output.cjs && electron-builder",
     "package:dir": "pnpm package:preflight && pnpm build && node scripts/clean-package-output.cjs && electron-builder --dir && node dist/check-packaging-contract.js --output",
+    "package:plus": "pnpm package:preflight && pnpm build && node scripts/clean-package-output.cjs dist-electron-plus && electron-builder --config electron-builder.plus.yml",
+    "package:plus:dir": "pnpm package:preflight && pnpm build && node scripts/clean-package-output.cjs dist-electron-plus && electron-builder --dir --config electron-builder.plus.yml",
     "test": "node scripts/run-tests.mjs",
     "build:deps": "pnpm --filter \"@open-pets/desktop^...\" build",
     "test:build": "pnpm build:deps && tsc -p tsconfig.tests.json",

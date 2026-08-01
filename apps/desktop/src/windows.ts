@@ -617,7 +617,7 @@ export function openControlCenterWindow(route: ControlCenterRoute = "dashboard")
   }
 
   const window = new BrowserWindow({
-    title: "OpenPets — Control Center",
+    title: `${app.getName()} — Control Center`,
     width: 1180,
     height: 820,
     minWidth: 820,
@@ -635,6 +635,9 @@ export function openControlCenterWindow(route: ControlCenterRoute = "dashboard")
 
   controlCenterWindow = window;
   syncDockVisibilityForInternalUi();
+  // Both electron-builder targets ship the same renderer document, so let the
+  // per-build window title stand instead of the bundled <title> element.
+  window.on("page-title-updated", (event) => event.preventDefault());
   window.setMenu(null);
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());

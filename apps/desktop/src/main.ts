@@ -16,11 +16,13 @@ import { defaultPluginPetApi } from "./plugin-pet-api.js";
 import { initializePluginPlatformSettings } from "./plugin-platform-settings.js";
 import { ElectronPluginJsHost } from "./plugin-js-host.js";
 import { initializePluginService } from "./plugin-service.js";
+import { APP_ID } from "./product.js";
+import { applyPlusUserDataPath, getRuntimeProductName, isPlusRuntime } from "./product-runtime.js";
 import { createAppTray, refreshTrayMenu } from "./tray.js";
 import { checkForGitHubReleaseUpdate } from "./update-checker.js";
 import { installInternalUiHandlers, installInternalUiProtocol } from "./windows.js";
 
-// OpenPets does not store browser passwords, cookies, or encrypted app secrets.
+// Pocket Buddy Plus does not store browser passwords, cookies, or encrypted app secrets.
 // Keep Chromium/Electron from prompting for macOS Keychain or Linux keyring access
 // during startup/profile initialization.
 app.commandLine.appendSwitch("use-mock-keychain");
@@ -36,8 +38,8 @@ if (process.platform === "win32") {
   app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
 }
 
-// OpenPets requires programmatic window positioning and z-ordering, which
-// native Wayland compositors disallow for XDG-shell toplevels. To ensure
+// Pocket Buddy Plus requires programmatic window positioning and z-ordering,
+// which native Wayland compositors disallow for XDG-shell toplevels. To ensure
 // gravity, drag, and always-on-top work correctly on all KDE/GNOME Linux
 // desktops, we force the x11/XWayland backend. Users who explicitly need
 // native Wayland can set OPENPETS_ALLOW_WAYLAND=1, but gravity, walkabout,
@@ -57,6 +59,9 @@ if (isLinux && !allowWayland) {
   app.commandLine.appendSwitch("ozone-platform", "x11");
 }
 
+// Must happen before any userData-derived path is read.
+applyPlusUserDataPath();
+
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!gotSingleInstanceLock) {
@@ -66,9 +71,11 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(async () => {
     initializeLogger();
-    app.setName("OpenPets");
+    const productName = getRuntimeProductName();
+    const isPlusBuild = isPlusRuntime();
+    app.setName(productName);
     if (process.platform === "win32") {
-      app.setAppUserModelId("dev.openpets.app");
+      app.setAppUserModelId(isPlusBuild ? APP_ID : "dev.openpets.app");
     }
     info("app", "startup begin", { version: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged, pid: process.pid, ozonePlatform: app.commandLine.getSwitchValue("ozone-platform") || null, explicitOzonePlatformArg: hasExplicitOzonePlatformArg });
     if (isLinux && allowWayland) {
@@ -125,11 +132,11 @@ if (!gotSingleInstanceLock) {
     })().catch((error) => logError("app", "plugin service startup failed", error));
     void checkForGitHubReleaseUpdate().then(() => refreshTrayMenu());
     info("app", "startup complete", { logFile: getLogFilePath(), openDefaultPetOnLaunch: shouldOpenDefaultPetOnLaunch() });
-    console.log("OpenPets desktop shell ready.");
+    console.log(`${productName} desktop shell ready.`);
   }).catch((error: unknown) => {
     releaseStartupInstallLock();
     logError("app", "startup failed", error);
-    console.error("Failed to start OpenPets desktop shell.", error);
+    console.error(`Failed to start ${app.getName()} desktop shell.`, error);
     app.quit();
   });
 }

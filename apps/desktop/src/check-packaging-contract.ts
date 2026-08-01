@@ -11,7 +11,19 @@ const distDir = dirname(fileURLToPath(import.meta.url));
 const appDir = dirname(distDir);
 const repoRoot = resolve(appDir, "../..");
 const packageJson = JSON.parse(readFileSync(join(appDir, "package.json"), "utf8")) as { scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string>; description?: string; author?: string };
-const rootPackageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { scripts?: Record<string, string> };
+const rootPackageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { scripts?: Record<string, string>; name?: string };
+const plusBuilderConfig = readFileSync(join(appDir, "electron-builder.plus.yml"), "utf8");
+
+// electron-builder resolves the "project" to the pnpm workspace root, so an
+// `extraMetadata` block rewrites the root package.json in place and destroys the
+// workspace manifest. The Plus build is identified from executableName instead.
+assert.doesNotMatch(plusBuilderConfig, /^extraMetadata:/m, "electron-builder.plus.yml must not use extraMetadata: it rewrites the workspace-root package.json.");
+assert.match(plusBuilderConfig, /^executableName: pocket-buddy-plus$/m, "the Plus target must keep the executableName its runtime identity is derived from.");
+assert.match(plusBuilderConfig, /^appId: dev\.prismtek\.pocketbuddyplus$/m);
+assert.match(plusBuilderConfig, /^productName: Pocket Buddy Plus$/m);
+assert.match(plusBuilderConfig, /output: dist-electron-plus/, "Plus output must stay isolated from the inherited target.");
+// Guards the workspace manifest against being clobbered by a packaging run.
+assert.equal(rootPackageJson.name, "pocket-buddy-plus-workspace", "the workspace-root package.json must remain the workspace manifest.");
 const workspaceConfig = readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8");
 const builderConfigPath = join(appDir, "electron-builder.yml");
 const builderConfig = readFileSync(builderConfigPath, "utf8");
@@ -161,12 +173,12 @@ assert.match(petWindowSource, /OpenPets Emoji/, "pet windows must use the bundle
 assert.match(petWindowSource, /setIgnoreMouseEvents\(true, \{ forward: true \}\)/, "transparent pet window background must use OS-level mouse passthrough.");
 assert.match(petWindowSource, /setIgnoreMouseEvents\(false\)/, "visible pet and bubble hit targets must re-enable mouse handling.");
 assert.match(petWindowSource, /openpets:pet-ready/, "pet windows must resync passthrough after each renderer reload.");
-assert.match(petWindowSource, /function installMousePassthroughAndDrag[\s\S]*?const rearmPassthrough[\s\S]*?process\.platform !== "win32"[\s\S]*?rearmWindowsMouseForwarding\(reason\)/, "Windows pet reloads must toggle forwarded mouse passthrough to re-register hover and drag tracking.");
+assert.match(petWindowSource, /function installMousePassthroughAndDrag[\s\S]*?const rearmPassthrough[\s\S]*?process\.platform !== "win32"[\s\S]*?rearmMouseForwarding\(reason\)/, "Windows pet reloads must toggle forwarded mouse passthrough to re-register hover and drag tracking.");
 assert.match(petWindowSource, /scheduleWindowsMouseForwardingRearm\(`\$\{reason\}\+75ms`, 75\);[\s\S]*?scheduleWindowsMouseForwardingRearm\(`\$\{reason\}\+175ms`, 175\);/, "Windows pet reloads must retry mouse forwarding rearm after load settles.");
 assert.match(petWindowSource, /openpets:pet-probe-hit-test/, "Windows pet reloads must probe current cursor hit target when mousemove forwarding is stale.");
 assert.match(petWindowSource, /export function recoverPetMouseInterop/, "pet windows must expose a controlled mouse interop recovery hook for OS display and resume events.");
 assert.match(petWindowSource, /petMouseInteropRecovery\.set\(window, scheduleMouseInteropRecovery\)/, "pet windows must register their mouse interop recovery callback.");
-assert.match(petWindowSource, /function installMousePassthroughAndDrag[\s\S]*?scheduleWindowsForwardingWatch[\s\S]*?rearmWindowsMouseForwarding\(reason, false\)[\s\S]*?scheduleWindowsForwardingWatch\(reason\)/, "Windows pet passthrough must keep rearming while idle so hover and drag recover after pet reloads without noisy logs.");
+assert.match(petWindowSource, /function installMousePassthroughAndDrag[\s\S]*?scheduleForwardingWatch[\s\S]*?rearmMouseForwarding\(reason, false\)[\s\S]*?scheduleForwardingWatch\(reason\)/, "Windows pet passthrough must keep rearming while idle so hover and drag recover after pet reloads without noisy logs.");
 assert.match(petPreloadSource, /openpets:pet-probe-hit-test[\s\S]*?elementFromPoint\(clientX, clientY\)[\s\S]*?reportInteractiveHit/, "pet preload must answer main-process cursor hit-test probes.");
 assert.match(petWindowSource, /did-finish-load", rearmAfterLoad/, "pet windows must re-arm mouse passthrough after every content load.");
 assert.match(petWindowSource, /did-fail-load", handleLoadFailure/, "pet windows must restore passthrough after failed content loads.");

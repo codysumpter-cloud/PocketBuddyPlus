@@ -16,7 +16,7 @@ export const ko: Partial<Messages> = {
   "tray.plugins": "플러그인...",
   "tray.settings": "설정...",
   "tray.openLogsFolder": "로그 폴더 열기...",
-  "tray.quit": "OpenPets 종료",
+  "tray.quit": "{name} 종료",
 
   // --- Shared ---
   "common.latest": "최신",

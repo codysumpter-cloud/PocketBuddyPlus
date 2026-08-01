@@ -19,7 +19,7 @@ export const en = {
   "tray.plugins": "Plugins...",
   "tray.settings": "Settings...",
   "tray.openLogsFolder": "Open Logs Folder...",
-  "tray.quit": "Quit OpenPets",
+  "tray.quit": "Quit {name}",
 
   // --- Shared ---
   "common.latest": "latest",

@@ -179,7 +179,13 @@ export async function motionMoveTo(petHandleId: string, accessor: WindowAccessor
     return new Promise<void>((resolve) => {
       const check = () => {
         if (state.moveGeneration !== generation || state.moveTarget === null) { resolve(); return; }
-        setTimeout(check, loopIntervalMs * 2).unref?.();
+        // Once the continuous loop is gone (physics/follow disabled) nothing can
+        // advance moveTarget.elapsed, so settle instead of polling forever.
+        if (state.follow === null && state.physics === null) { resolve(); return; }
+        // Deliberately ref'd: an awaited motionMoveTo must be able to settle even
+        // when the shared ticker is unref'd. Termination is guaranteed by the two
+        // guards above (move completes/superseded, or the loop stops).
+        setTimeout(check, loopIntervalMs * 2);
       };
       check();
     });

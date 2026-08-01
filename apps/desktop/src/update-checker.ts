@@ -1,6 +1,7 @@
 import { app, shell } from "electron";
 import https from "node:https";
 
+import { DEFAULT_GITHUB_REPOSITORY, PRODUCT_NAME } from "./product.js";
 import { createParsedUpdateStatus, normalizeVersion } from "./update-version.js";
 
 export type UpdateStatusState = "idle" | "checking" | "available" | "current" | "error";
@@ -20,7 +21,14 @@ interface GitHubReleaseResponse {
   readonly html_url?: unknown;
 }
 
-const githubRepository = process.env.OPENPETS_GITHUB_REPOSITORY || "alvinunreal/openpets";
+// Keep the original environment variable and upstream repository as compatibility
+// fallbacks while the fork migrates release automation. Pocket Buddy Plus itself
+// defaults to its own canonical repository.
+const upstreamGithubRepository = "alvinunreal/openpets";
+const githubRepository = process.env.POCKET_BUDDY_PLUS_GITHUB_REPOSITORY
+  || process.env.OPENPETS_GITHUB_REPOSITORY
+  || DEFAULT_GITHUB_REPOSITORY
+  || upstreamGithubRepository;
 const latestReleaseApiUrl = `https://api.github.com/repos/${githubRepository}/releases/latest`;
 const releasesPageUrl = `https://github.com/${githubRepository}/releases`;
 const releaseCheckTimeoutMs = 6_000;
@@ -90,7 +98,7 @@ function fetchLatestRelease(): Promise<GitHubReleaseResponse> {
     const request = https.get(latestReleaseApiUrl, {
       headers: {
         Accept: "application/vnd.github+json",
-        "User-Agent": `OpenPets/${getCurrentAppVersion()}`,
+        "User-Agent": `${PRODUCT_NAME.replaceAll(" ", "-")}/${getCurrentAppVersion()}`,
       },
       timeout: releaseCheckTimeoutMs,
     }, (response) => {
@@ -104,7 +112,7 @@ function fetchLatestRelease(): Promise<GitHubReleaseResponse> {
       });
       response.on("end", () => {
         if (response.statusCode === 404) {
-          reject(new Error("No public OpenPets releases found yet."));
+          reject(new Error(`No public ${PRODUCT_NAME} releases found yet.`));
           return;
         }
         if ((response.statusCode ?? 0) < 200 || (response.statusCode ?? 0) >= 300) {
