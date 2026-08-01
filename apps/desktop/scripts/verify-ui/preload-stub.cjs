@@ -29,6 +29,7 @@ const dashboard = require("./fixtures/dashboard.json");
 const settings = require("./fixtures/settings.json");
 const plugins = require("./fixtures/plugins.json");
 const integrations = require("./fixtures/integrations.json");
+const pluginCatalog = require("./fixtures/plugin-catalog.json");
 const catalog = require("./fixtures/catalog.json");
 
 const ok = (value) => () => Promise.resolve(value);
@@ -48,7 +49,7 @@ const api = {
   openUpdateReleasePage: ok(undefined),
   resetDefaultPetPosition: ok(undefined),
   getPluginsSnapshot: ok(plugins),
-  getPluginCatalogSnapshot: ok(plugins),
+  getPluginCatalogSnapshot: ok(pluginCatalog),
   setPluginEnabled: ok(plugins),
   savePluginConfig: ok({ ok: true }),
   pickPluginConfigSound: ok(null),

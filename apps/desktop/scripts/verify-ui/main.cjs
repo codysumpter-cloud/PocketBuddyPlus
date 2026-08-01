@@ -27,6 +27,40 @@ const VIEWPORTS = [
   { name: "narrow", width: 900, height: 700 },
 ];
 
+const MIN_BODY_TEXT = 120;
+const MIN_VISIBLE_ELEMENTS = 25;
+
+class HarnessFatal extends Error {}
+
+/**
+ * Reject blank/transparent/single-colour captures. A screenshot that carries no
+ * information is the classic way a headless suite reports a false green.
+ */
+function assertScreenshotIsMeaningful(image, label) {
+  const size = image.getSize();
+  if (size.width < 200 || size.height < 200) return `screenshot ${label}: implausible size ${size.width}x${size.height}`;
+  const bmp = image.toBitmap(); // BGRA
+  let opaque = 0;
+  const buckets = new Map();
+  let sum = 0, sumSq = 0, n = 0;
+  for (let i = 0; i < bmp.length; i += 4 * 97) { // stride-sample, prime to avoid banding
+    const b = bmp[i], g = bmp[i + 1], r = bmp[i + 2], a = bmp[i + 3];
+    if (a > 8) opaque += 1;
+    const lumv = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    sum += lumv; sumSq += lumv * lumv; n += 1;
+    const key = `${r >> 4},${g >> 4},${b >> 4}`;
+    buckets.set(key, (buckets.get(key) || 0) + 1);
+  }
+  if (!n) return `screenshot ${label}: no sampled pixels`;
+  if (opaque / n < 0.9) return `screenshot ${label}: mostly transparent (${Math.round((opaque / n) * 100)}% opaque)`;
+  const variance = sumSq / n - (sum / n) ** 2;
+  if (variance < 12) return `screenshot ${label}: near-uniform luminance (variance ${variance.toFixed(2)})`;
+  const dominant = Math.max(...buckets.values()) / n;
+  if (dominant > 0.98) return `screenshot ${label}: single-colour (${Math.round(dominant * 100)}% one bucket)`;
+  if (buckets.size < 6) return `screenshot ${label}: too few distinct colours (${buckets.size})`;
+  return null;
+}
+
 const findings = [];
 const record = (severity, route, theme, viewport, message, detail) => {
   findings.push({ severity, route, theme, viewport, message, ...(detail ? { detail } : {}) });
@@ -114,6 +148,14 @@ const PROBE = `(() => {
   out.focusableCount = focusables.length;
   out.negativeTabindex = focusables.filter((el) => el.getAttribute("tabindex") === "-1" && el.tagName === "BUTTON").length;
 
+  // --- mount / liveness evidence ------------------------------------------
+  const root = document.getElementById("root") || document.body;
+  out.rootChildCount = root ? root.children.length : 0;
+  out.visibleElementCount = [...document.querySelectorAll("*")].filter(visible).length;
+  out.headings = [...document.querySelectorAll("h1,h2,h3")].filter(visible).map((h) => (h.textContent || "").trim()).filter(Boolean);
+  out.bodyTextLength = (document.body.innerText || "").trim().length;
+  out.errors = Array.isArray(window.__pbpErrors) ? window.__pbpErrors.slice(0, 10) : [];
+
   return out;
 })()`;
 
@@ -176,6 +218,28 @@ async function run() {
 
         const result = await probe(win);
 
+        // ---- FAIL CLOSED -------------------------------------------------
+        // A crashed or empty renderer must never be mistaken for a clean pass.
+        if (result.rootChildCount === 0) {
+          record("fatal", route, theme, viewport.name, "react-root-empty", { rootChildCount: 0 });
+        }
+        if (result.bodyTextLength < MIN_BODY_TEXT) {
+          record("fatal", route, theme, viewport.name, "body-effectively-empty", { bodyTextLength: result.bodyTextLength, min: MIN_BODY_TEXT });
+        }
+        if (result.visibleElementCount < MIN_VISIBLE_ELEMENTS) {
+          record("fatal", route, theme, viewport.name, "too-few-visible-elements", { count: result.visibleElementCount, min: MIN_VISIBLE_ELEMENTS });
+        }
+        if (!result.headings.length) {
+          record("fatal", route, theme, viewport.name, "no-visible-heading", {});
+        }
+        for (const err of result.errors) {
+          record("fatal", route, theme, viewport.name, "renderer-uncaught-error", err);
+        }
+        if (findings.some((f) => f.severity === "fatal")) {
+          // Stop immediately: every later check would be vacuous.
+          throw new HarnessFatal(`renderer is not in a testable state at route "${route}" (${theme}/${viewport.name})`);
+        }
+
         for (const issue of result.issues) {
           const sev = issue.kind === "low-contrast" || issue.kind === "missing-accessible-name" ? "error" : "warn";
           record(sev, route, theme, viewport.name, issue.kind, issue);
@@ -189,7 +253,10 @@ async function run() {
 
         if (viewport.name === "default") {
           const png = await win.webContents.capturePage();
+          const blank = assertScreenshotIsMeaningful(png, `${route}-${theme}`);
+          if (blank) record("fatal", route, theme, viewport.name, "blank-screenshot", { reason: blank });
           writeFileSync(join(artifactsDir, `${route}-${theme}.png`), png.toPNG());
+          if (blank) throw new HarnessFatal(blank);
         }
       }
     }
@@ -202,7 +269,8 @@ async function run() {
     viewports: VIEWPORTS.map((v) => v.name),
     consoleErrors: consoleErrors.slice(0, 20),
     findings,
-    errorCount: findings.filter((f) => f.severity === "error").length,
+    fatalCount: findings.filter((f) => f.severity === "fatal").length,
+    errorCount: findings.filter((f) => f.severity === "error" || f.severity === "fatal").length,
     warnCount: findings.filter((f) => f.severity === "warn").length,
   };
   writeFileSync(join(artifactsDir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`, "utf8");

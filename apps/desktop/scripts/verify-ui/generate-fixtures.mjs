@@ -83,6 +83,8 @@ write("settings.json", {
   lan: { enabled: false, mode: "off" },
 });
 
+// Shape mirrors PluginServiceSnapshot / PluginCatalogSnapshot in
+// src/plugin-service.ts: BOTH are { plugins: [...] }, not an "installed" list.
 const plugin = (id, name, description, enabled) => ({
   id,
   name,
@@ -91,22 +93,27 @@ const plugin = (id, name, description, enabled) => ({
   enabled,
   bundled: true,
   runtime: "javascript",
-  broken: false,
   source: "catalog",
+  brokenReason: undefined,
   config: {},
+  configSchema: {},
   commands: [],
+  permissions: [],
+  spritePreviews: {},
+  local: false,
+  updateAvailable: false,
 });
 
 write("plugins.json", {
-  installed: [
+  plugins: [
     plugin("openpets.focus-buddy", "Focus Buddy", "A pet Pomodoro-style focus timer.", true),
     plugin("openpets.launch-buddy", "Launch Buddy", "A friendly startup greeting.", true),
     plugin("openpets.reminders", "Quick Reminders", "Set short local reminders from the pet menu.", true),
     plugin("openpets.virtual-pet", "Virtual Pet", "Care for a little desktop companion.", false),
   ],
-  catalog: [],
-  developerMode: false,
 });
+
+write("plugin-catalog.json", { plugins: [] });
 
 write("integrations.json", {
   commandMode: "published",
@@ -120,6 +127,6 @@ write("integrations.json", {
   commandPaths: {},
 });
 
-write("catalog.json", { pets: [], page: 1, pageCount: 1, total: 0 });
+write("catalog.json", { source: "bundled", pets: [], total: 0, page: 1, pageCount: 1 });
 
 console.log(`verify-ui fixtures written to ${fixturesDir}`);

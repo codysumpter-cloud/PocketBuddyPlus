@@ -1,5 +1,5 @@
 {
-  "installed": [
+  "plugins": [
     {
       "id": "openpets.focus-buddy",
       "name": "Focus Buddy",
@@ -8,10 +8,14 @@
       "enabled": true,
       "bundled": true,
       "runtime": "javascript",
-      "broken": false,
       "source": "catalog",
       "config": {},
-      "commands": []
+      "configSchema": {},
+      "commands": [],
+      "permissions": [],
+      "spritePreviews": {},
+      "local": false,
+      "updateAvailable": false
     },
     {
       "id": "openpets.launch-buddy",
@@ -21,10 +25,14 @@
       "enabled": true,
       "bundled": true,
       "runtime": "javascript",
-      "broken": false,
       "source": "catalog",
       "config": {},
-      "commands": []
+      "configSchema": {},
+      "commands": [],
+      "permissions": [],
+      "spritePreviews": {},
+      "local": false,
+      "updateAvailable": false
     },
     {
       "id": "openpets.reminders",
@@ -34,10 +42,14 @@
       "enabled": true,
       "bundled": true,
       "runtime": "javascript",
-      "broken": false,
       "source": "catalog",
       "config": {},
-      "commands": []
+      "configSchema": {},
+      "commands": [],
+      "permissions": [],
+      "spritePreviews": {},
+      "local": false,
+      "updateAvailable": false
     },
     {
       "id": "openpets.virtual-pet",
@@ -47,12 +59,14 @@
       "enabled": false,
       "bundled": true,
       "runtime": "javascript",
-      "broken": false,
       "source": "catalog",
       "config": {},
-      "commands": []
+      "configSchema": {},
+      "commands": [],
+      "permissions": [],
+      "spritePreviews": {},
+      "local": false,
+      "updateAvailable": false
     }
-  ],
-  "catalog": [],
-  "developerMode": false
+  ]
 }
