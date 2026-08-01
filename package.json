@@ -1,48 +1,28 @@
 {
-  "name": "pocket-buddy-plus-workspace",
+  "name": "Pocket Buddy Plus",
   "version": "3.3.0",
   "private": true,
-  "description": "Pocket Buddy Plus desktop companion platform, derived from OpenPets.",
+  "description": "OpenPets tray-first desktop companion app.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/codysumpter-cloud/PocketBuddyPlus.git"
+    "url": "git+https://github.com/codysumpter-cloud/PocketBuddyPlus.git",
+    "directory": "apps/desktop"
   },
+  "author": "OpenPets",
   "type": "module",
-  "packageManager": "pnpm@11.0.8",
-  "engines": {
-    "node": ">=20"
-  },
-  "scripts": {
-    "dev:desktop": "pnpm --filter @open-pets/desktop dev",
-    "dev:desktop:control-center": "pnpm --filter @open-pets/desktop dev:control-center",
-    "dev:desktop:plugins": "pnpm --filter @open-pets/desktop dev:plugins",
-    "dev:desktop:third-parties": "OPENPETS_DISABLE_PLUGIN_CATALOG=1 OPENPETS_DEV_PLUGIN_ROOTS=\"$(pwd)/third-parties\" pnpm dev:desktop",
-    "package:desktop:dir": "pnpm build && pnpm --filter @open-pets/desktop package:dir",
-    "package:desktop": "pnpm build && pnpm --filter @open-pets/desktop package",
-    "package:desktop:plus:dir": "pnpm build && pnpm --filter @open-pets/desktop package:plus:dir",
-    "package:desktop:plus": "pnpm build && pnpm --filter @open-pets/desktop package:plus",
-    "release:desktop": "node apps/desktop/scripts/release-local.mjs",
-    "release:npm": "node scripts/release-npm.mjs",
-    "plugins:locales": "node scripts/check-plugin-locales.mjs",
-    "plugins:test": "pnpm plugins:locales && node scripts/test-plugins.mjs",
-    "plugins:check": "node web/scripts/sync-plugins.js --dry-run --skip-r2",
-    "plugins:validate-release": "node scripts/validate-plugin-release.mjs",
-    "plugins:validate-live": "node scripts/validate-plugin-release.mjs --live",
-    "plugins:package": "node web/scripts/sync-plugins.js --skip-r2",
-    "plugins:publish": "node web/scripts/sync-plugins.js",
-    "plugins:deploy": "pnpm --dir web deploy",
-    "plugins:release": "pnpm plugins:package && pnpm plugins:validate-release && pnpm plugins:publish && pnpm plugins:deploy && pnpm plugins:validate-live",
-    "test": "pnpm build && pnpm -r --if-present test",
-    "check": "pnpm -r check",
-    "typecheck": "pnpm -r typecheck",
-    "build": "pnpm -r build"
-  },
-  "devDependencies": {
-    "typescript": "^6.0.3"
-  },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  "main": "dist/main.js",
+  "dependencies": {
+    "@open-pets/agent-events": "workspace:*",
+    "@open-pets/claude": "workspace:*",
+    "@open-pets/cli": "workspace:*",
+    "@open-pets/cursor": "workspace:*",
+    "@open-pets/mcp": "workspace:*",
+    "@open-pets/opencode": "workspace:*",
+    "get-windows": "^9.3.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "sharp": "^0.34.5",
+    "yauzl": "3.3.0"
+  }
 }

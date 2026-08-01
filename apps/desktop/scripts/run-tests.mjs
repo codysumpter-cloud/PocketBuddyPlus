@@ -23,6 +23,7 @@ const behaviorTests = [
   ".test-dist/tests/default-pet-external-show.test.js",
   ".test-dist/tests/onboarding-state.test.js",
   ".test-dist/tests/buddy-foundation.test.js",
+  ".test-dist/tests/product-identity.test.js",
   ".test-dist/tests/update-version.test.js",
   ".test-dist/tests/reaction-animation-mapping.test.js",
   ".test-dist/tests/zip-safety.test.js",

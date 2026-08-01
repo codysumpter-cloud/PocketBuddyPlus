@@ -16,7 +16,7 @@ export const es419: Partial<Messages> = {
   "tray.plugins": "Complementos...",
   "tray.settings": "Configuración...",
   "tray.openLogsFolder": "Abrir carpeta de registros...",
-  "tray.quit": "Salir de OpenPets",
+  "tray.quit": "Salir de {name}",
 
   // --- Shared ---
   "common.latest": "más reciente",

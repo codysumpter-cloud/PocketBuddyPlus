@@ -16,7 +16,7 @@ import { defaultPluginPetApi } from "./plugin-pet-api.js";
 import { initializePluginPlatformSettings } from "./plugin-platform-settings.js";
 import { ElectronPluginJsHost } from "./plugin-js-host.js";
 import { initializePluginService } from "./plugin-service.js";
-import { APP_ID, PRODUCT_NAME } from "./product.js";
+import { APP_ID, isPocketBuddyPlusBuild, resolveProductName } from "./product.js";
 import { createAppTray, refreshTrayMenu } from "./tray.js";
 import { checkForGitHubReleaseUpdate } from "./update-checker.js";
 import { installInternalUiHandlers, installInternalUiProtocol } from "./windows.js";
@@ -67,9 +67,14 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(async () => {
     initializeLogger();
-    app.setName(PRODUCT_NAME);
+    // Resolve identity from the packaged metadata BEFORE setName() overwrites it,
+    // so the inherited OpenPets target keeps presenting itself as OpenPets.
+    const packagedAppName = app.getName();
+    const productName = resolveProductName(packagedAppName);
+    const isPlusBuild = isPocketBuddyPlusBuild(packagedAppName);
+    app.setName(productName);
     if (process.platform === "win32") {
-      app.setAppUserModelId(APP_ID);
+      app.setAppUserModelId(isPlusBuild ? APP_ID : "dev.openpets.app");
     }
     info("app", "startup begin", { version: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged, pid: process.pid, ozonePlatform: app.commandLine.getSwitchValue("ozone-platform") || null, explicitOzonePlatformArg: hasExplicitOzonePlatformArg });
     if (isLinux && allowWayland) {
@@ -126,11 +131,11 @@ if (!gotSingleInstanceLock) {
     })().catch((error) => logError("app", "plugin service startup failed", error));
     void checkForGitHubReleaseUpdate().then(() => refreshTrayMenu());
     info("app", "startup complete", { logFile: getLogFilePath(), openDefaultPetOnLaunch: shouldOpenDefaultPetOnLaunch() });
-    console.log(`${PRODUCT_NAME} desktop shell ready.`);
+    console.log(`${productName} desktop shell ready.`);
   }).catch((error: unknown) => {
     releaseStartupInstallLock();
     logError("app", "startup failed", error);
-    console.error(`Failed to start ${PRODUCT_NAME} desktop shell.`, error);
+    console.error(`Failed to start ${app.getName()} desktop shell.`, error);
     app.quit();
   });
 }

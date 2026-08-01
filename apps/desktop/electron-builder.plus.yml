@@ -8,6 +8,14 @@ directories:
 
 artifactName: Pocket-Buddy-Plus-${version}-${os}-${arch}.${ext}
 
+# Electron derives app.getName() -- and therefore the userData directory -- from
+# the packaged package.json "name". Without this override the Plus build inherits
+# "@open-pets/desktop" and shares its entire user-data directory with the
+# inherited OpenPets build. The inherited target deliberately has no equivalent
+# override so existing OpenPets installs keep their current userData path.
+extraMetadata:
+  name: Pocket Buddy Plus
+
 files:
   - dist/**
   - control-center-preload.cjs

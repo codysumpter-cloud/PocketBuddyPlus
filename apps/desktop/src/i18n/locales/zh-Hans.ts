@@ -16,7 +16,7 @@ export const zhHans: Partial<Messages> = {
   "tray.plugins": "插件...",
   "tray.settings": "设置...",
   "tray.openLogsFolder": "打开日志文件夹...",
-  "tray.quit": "退出 OpenPets",
+  "tray.quit": "退出 {name}",
 
   // --- Shared ---
   "common.latest": "最新",
