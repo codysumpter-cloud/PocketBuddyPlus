@@ -236,8 +236,15 @@ async function run() {
           record("fatal", route, theme, viewport.name, "renderer-uncaught-error", err);
         }
         if (findings.some((f) => f.severity === "fatal")) {
-          // Stop immediately: every later check would be vacuous.
-          throw new HarnessFatal(`renderer is not in a testable state at route "${route}" (${theme}/${viewport.name})`);
+          // Stop immediately: every later check would be vacuous. Surface the
+          // renderer's own errors, which are the actionable part.
+          const fatals = findings.filter((f) => f.severity === "fatal").map((f) => f.message);
+          throw new HarnessFatal(
+            `renderer is not in a testable state at route "${route}" (${theme}/${viewport.name})\n` +
+            `  gates: ${[...new Set(fatals)].join(", ")}\n` +
+            `  bodyTextLength=${result.bodyTextLength} visibleElements=${result.visibleElementCount} rootChildren=${result.rootChildCount}\n` +
+            `  console: ${consoleErrors.length ? consoleErrors.slice(-3).join(" | ") : "(none)"}`,
+          );
         }
 
         for (const issue of result.issues) {

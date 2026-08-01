@@ -1,18 +1,40 @@
 {
   "preferences": {
-    "defaultPetId": "builtin",
-    "petScale": "medium",
-    "locale": "system",
     "openDefaultPetOnLaunch": true,
-    "launchAtLogin": false,
-    "usePetPool": false
+    "petScale": 1,
+    "reactionAnimationOverrides": {},
+    "petPoolOrder": [],
+    "petPoolEnabled": false,
+    "petConfinementEnabled": false,
+    "petCrossDisplayEnabled": false,
+    "petGravityEnabled": true
   },
-  "reactionAnimations": {
-    "enabled": true,
-    "mappings": {}
-  },
-  "lan": {
-    "enabled": false,
-    "mode": "off"
-  }
+  "petScaleOptions": [
+    {
+      "label": "XS",
+      "value": 0.5
+    },
+    {
+      "label": "Small",
+      "value": 0.75
+    },
+    {
+      "label": "Medium",
+      "value": 1
+    },
+    {
+      "label": "Large",
+      "value": 1.25
+    },
+    {
+      "label": "Huge",
+      "value": 1.5
+    }
+  ],
+  "petPoolCandidates": [
+    {
+      "id": "catalog-fox",
+      "displayName": "Ember Fox"
+    }
+  ]
 }

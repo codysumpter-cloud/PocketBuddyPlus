@@ -1,30 +1,27 @@
 {
-  "installed": [
-    {
-      "id": "builtin",
-      "displayName": "Professor Hoot",
-      "broken": false,
-      "source": "builtin",
-      "version": "1.0.0"
-    },
-    {
-      "id": "catalog-fox",
-      "displayName": "Ember Fox",
-      "broken": false,
-      "source": "builtin",
-      "version": "1.0.0"
-    }
-  ],
   "preferences": {
-    "defaultPetId": "builtin",
-    "petScale": "medium",
-    "locale": "system",
-    "openDefaultPetOnLaunch": true,
-    "usePetPool": false,
-    "petPoolOrder": []
+    "defaultPetId": "builtin"
   },
-  "pool": {
-    "enabled": false,
-    "order": []
+  "pets": {
+    "installed": [
+      {
+        "id": "builtin",
+        "displayName": "Professor Hoot",
+        "builtIn": true,
+        "broken": false,
+        "source": "builtin",
+        "version": "1.0.0",
+        "installedAt": 1785500000000
+      },
+      {
+        "id": "catalog-fox",
+        "displayName": "Ember Fox",
+        "builtIn": false,
+        "broken": false,
+        "source": "catalog",
+        "version": "1.0.0",
+        "installedAt": 1785500000000
+      }
+    ]
   }
 }

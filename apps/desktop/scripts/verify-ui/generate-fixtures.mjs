@@ -32,26 +32,22 @@ write("i18n.json", {
   messages: en,
 });
 
-const pet = (id, displayName, extra = {}) => ({
+// Shape mirrors getPetsStateSnapshot() in src/windows.ts.
+const pet = (id, displayName, builtIn) => ({
   id,
   displayName,
+  builtIn,
   broken: false,
-  source: "builtin",
+  source: builtIn ? "builtin" : "catalog",
   version: "1.0.0",
-  ...extra,
+  installedAt: 1785500000000,
 });
 
 write("pets-state.json", {
-  installed: [pet("builtin", "Professor Hoot"), pet("catalog-fox", "Ember Fox")],
-  preferences: {
-    defaultPetId: "builtin",
-    petScale: "medium",
-    locale: "system",
-    openDefaultPetOnLaunch: true,
-    usePetPool: false,
-    petPoolOrder: [],
+  preferences: { defaultPetId: "builtin" },
+  pets: {
+    installed: [pet("builtin", "Professor Hoot", true), pet("catalog-fox", "Ember Fox", false)],
   },
-  pool: { enabled: false, order: [] },
 });
 
 // Shape mirrors getDashboardSnapshot() in src/windows.ts.
@@ -70,17 +66,27 @@ write("dashboard.json", {
   },
 });
 
+// Shape mirrors getSettingsStateSnapshot() in src/windows.ts, including
+// petScaleOptions from src/app-state-core.ts.
 write("settings.json", {
   preferences: {
-    defaultPetId: "builtin",
-    petScale: "medium",
-    locale: "system",
     openDefaultPetOnLaunch: true,
-    launchAtLogin: false,
-    usePetPool: false,
+    petScale: 1,
+    reactionAnimationOverrides: {},
+    petPoolOrder: [],
+    petPoolEnabled: false,
+    petConfinementEnabled: false,
+    petCrossDisplayEnabled: false,
+    petGravityEnabled: true,
   },
-  reactionAnimations: { enabled: true, mappings: {} },
-  lan: { enabled: false, mode: "off" },
+  petScaleOptions: [
+    { label: "XS", value: 0.5 },
+    { label: "Small", value: 0.75 },
+    { label: "Medium", value: 1 },
+    { label: "Large", value: 1.25 },
+    { label: "Huge", value: 1.5 },
+  ],
+  petPoolCandidates: [{ id: "catalog-fox", displayName: "Ember Fox" }],
 });
 
 // Shape mirrors PluginServiceSnapshot / PluginCatalogSnapshot in
@@ -115,17 +121,8 @@ write("plugins.json", {
 
 write("plugin-catalog.json", { plugins: [] });
 
-write("integrations.json", {
-  commandMode: "published",
-  selectedPetId: "builtin",
-  integrations: [
-    { id: "claude", name: "Claude Code", status: "needs-setup", installed: false },
-    { id: "opencode", name: "OpenCode", status: "not-detected", installed: false },
-    { id: "cursor", name: "Cursor", status: "not-configured", installed: false },
-    { id: "pi", name: "Pi", status: "manual", installed: false },
-  ],
-  commandPaths: {},
-});
+// integrations.json is emitted by tests/verify-ui-fixtures.ts, which is type
+// checked against AgentSetupSnapshot. Do not duplicate (or clobber) it here.
 
 write("catalog.json", { source: "bundled", pets: [], total: 0, page: 1, pageCount: 1 });
 
