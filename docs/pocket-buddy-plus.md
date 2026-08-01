@@ -16,6 +16,25 @@ model into that native TypeScript/Electron architecture.
 - The two products use distinct app IDs, executables, storage, settings, logs,
   saves, conversations, and release artifacts.
 
+## Product identity and packaging
+
+The canonical product values live in `apps/desktop/src/product.ts`.
+Pocket Buddy Plus packages use:
+
+- app ID: `dev.prismtek.pocketbuddyplus`
+- product name: `Pocket Buddy Plus`
+- executable: `pocket-buddy-plus`
+- output directory: `apps/desktop/dist-electron-plus`
+
+The inherited `electron-builder.yml` remains unchanged so the upstream OpenPets
+packaging contract and its regression checks remain useful. Plus is packaged
+through the separate `electron-builder.plus.yml` target:
+
+- `pnpm package:desktop:plus:dir` — build an unpacked Plus application
+- `pnpm package:desktop:plus` — build Plus installers and archives
+
+The inherited OpenPets package target is not the Pocket Buddy Plus release path.
+
 ## UI ownership
 
 Pocket Buddy Plus has two complementary surfaces.
@@ -26,7 +45,7 @@ Clicking the active Buddy opens the compact, creature-attached menu. Its layout,
 wording, visual hierarchy, and behavior should remain faithful to the working
 Pocket Buddy menu:
 
-- Pet the Buddy
+- Pet the bird
 - Talk to Buddy
 - Name your Buddy
 - Buddies
