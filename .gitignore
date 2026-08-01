@@ -4,8 +4,10 @@ dist
 web
 remotion
 dist-electron
+dist-electron-plus
 .test-dist
 apps/desktop/dist-electron
+apps/desktop/dist-electron-plus
 *.tsbuildinfo
 .DS_Store
 local/
