@@ -1,10 +1,10 @@
 # OpenPets Documentation
 
-This folder is the maintained, conceptual documentation for the OpenPets
-workspace. It explains *concepts, contracts, and where things live* — it
-deliberately avoids pasting code, which rots. When a doc points you at a file,
-that file is the source of truth; the doc explains why it matters and how the
-pieces fit.
+This folder is the maintained, conceptual documentation for the OpenPets-derived
+Pocket Buddy Plus workspace. It explains *concepts, contracts, and where things
+live* — it deliberately avoids pasting code, which rots. When a doc points you at
+a file, that file is the source of truth; the doc explains why it matters and how
+the pieces fit.
 
 For per-folder structural detail (every symbol, edge, and responsibility), see
 the `codemap.md` files throughout the tree, starting at the root `codemap.md`.
@@ -12,9 +12,11 @@ Docs here are the *narrative* layer on top of those maps.
 
 ## Start here
 
-- **[architecture.md](architecture.md)** — the one-page mental model: runtime
-  topology, the package spine, end-to-end flows, cross-cutting invariants, and a
-  glossary. Read this first.
+- **[pocket-buddy-plus.md](pocket-buddy-plus.md)** — Prismtek product boundary,
+  UI ownership, packaging target, Buddy state authority, and migration sequence.
+- **[architecture.md](architecture.md)** — the upstream platform mental model:
+  runtime topology, the package spine, end-to-end flows, cross-cutting invariants,
+  and a glossary.
 
 ## Desktop app
 
@@ -75,4 +77,3 @@ Docs here are the *narrative* layer on top of those maps.
   `AGENTS.md` — honor it.
 - Ongoing improvement ideas and known issues are tracked in the root
   `improvements.md`, not here.
-</content>
