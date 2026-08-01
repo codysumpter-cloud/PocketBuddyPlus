@@ -2,14 +2,14 @@
   "name": "@open-pets/desktop",
   "version": "3.3.0",
   "private": true,
-  "description": "OpenPets tray-first desktop companion app.",
+  "description": "Pocket Buddy Plus tray-first desktop companion app, derived from OpenPets.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alvinunreal/openpets.git",
+    "url": "git+https://github.com/codysumpter-cloud/PocketBuddy-.git",
     "directory": "apps/desktop"
   },
-  "author": "OpenPets",
+  "author": "Prismtek; based on OpenPets by Boring Dystopia Development",
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
