@@ -3,6 +3,9 @@ extends: ./electron-builder.plus.yml
 productName: Pocket Buddy+
 artifactName: Pocket-Buddy+-${version}-${os}-${arch}.${ext}
 
+mac:
+  executableName: Pocket Buddy+
+
 nsis:
   artifactName: Pocket-Buddy+-${version}-win-${arch}-setup.${ext}
   shortcutName: Pocket Buddy+
