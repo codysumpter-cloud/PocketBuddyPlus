@@ -291,7 +291,9 @@ function handleBuddyModalSubmit(event: SubmitEvent): void {
     if (!text) return;
     const now = Date.now();
     const reply = buddyReply(text);
-    updateBuddyUiState((current) => ({ ...current, messages: [...current.messages, { role: "user", text, at: now }, { role: "buddy", text: reply, at: now + 1 }].slice(-80) }));
+    const userMessage: BuddyUiState["messages"][number] = { role: "user", text, at: now };
+    const buddyMessage: BuddyUiState["messages"][number] = { role: "buddy", text: reply, at: now + 1 };
+    updateBuddyUiState((current) => ({ ...current, messages: [...current.messages, userMessage, buddyMessage].slice(-80) }));
   }
   if (form.dataset.pbForm === "note") {
     const text = String(data.get("note") ?? "").trim().slice(0, 500);
