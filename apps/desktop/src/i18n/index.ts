@@ -9,6 +9,7 @@
 // Node in the test suite, where the `electron` shim has no named `app` export.
 import { createRequire } from "node:module";
 
+import { brandVisibleText } from "../product.js";
 import {
   getMessages,
   resolvePreference,
@@ -57,10 +58,12 @@ export function getActiveLocaleLang(): string {
 }
 
 export function t(key: MessageKey, vars?: Record<string, string | number>): string {
-  return translate(activeLocale, key, vars);
+  return brandVisibleText(translate(activeLocale, key, vars));
 }
 
-/** Resolved message map for the active locale (for sending to the renderer). */
+/** Resolved, product-branded message map for sending to the renderer. */
 export function getActiveMessages(): Messages {
-  return getMessages(activeLocale);
+  return Object.fromEntries(
+    Object.entries(getMessages(activeLocale)).map(([key, value]) => [key, brandVisibleText(value)]),
+  ) as Messages;
 }
