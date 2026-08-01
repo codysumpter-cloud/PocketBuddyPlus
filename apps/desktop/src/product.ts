@@ -10,7 +10,7 @@ export const UPSTREAM_PROJECT_NAME = "OpenPets";
 export const UPSTREAM_REPOSITORY_URL = "https://github.com/alvinunreal/openpets";
 export const UPSTREAM_WEBSITE_URL = "https://openpets.dev/";
 
-/** Matches `executableName` in electron-builder.plus.yml. */
+/** Matches the explicit executableName used on Windows and Linux. */
 export const PLUS_EXECUTABLE_NAME = "pocket-buddy-plus";
 
 /**
@@ -31,10 +31,11 @@ export function brandVisibleText(value: string): string {
  * would otherwise present itself as Pocket Buddy+ and share its Electron
  * user-data directory with the Plus build.
  *
- * Identity is taken from the packaged executable name, which each config already
- * sets (`pocket-buddy-plus` vs `openpets`) and which needs no build-time
- * rewriting. An earlier attempt used electron-builder's `extraMetadata`, but in
- * this pnpm workspace that rewrites the workspace-root package.json in place.
+ * Windows and Linux use the explicit `pocket-buddy-plus` executable name. On
+ * macOS, electron-builder may use the product name (`Pocket Buddy+`) for the
+ * executable inside the app bundle even when executableName is configured. Both
+ * forms are therefore exact accepted Plus identities; arbitrary names still
+ * fall back to the inherited technical identity.
  *
  * Unpackaged runs are development runs of this repository, which is Pocket
  * Buddy+, so they resolve to the Plus identity.
@@ -44,7 +45,8 @@ export function resolveProductNameFor(executablePath: string, packaged: boolean)
   const executable = executablePath.split(/[\\/]/).pop() ?? "";
   // Windows appends .exe; strip any extension before comparing.
   const base = executable.replace(/\.[^.]*$/, "").toLowerCase();
-  return base === PLUS_EXECUTABLE_NAME ? PRODUCT_NAME : UPSTREAM_PROJECT_NAME;
+  const isPlusExecutable = base === PLUS_EXECUTABLE_NAME || base === PRODUCT_NAME.toLowerCase();
+  return isPlusExecutable ? PRODUCT_NAME : UPSTREAM_PROJECT_NAME;
 }
 
 export function isPocketBuddyPlusBuildFor(executablePath: string, packaged: boolean): boolean {
