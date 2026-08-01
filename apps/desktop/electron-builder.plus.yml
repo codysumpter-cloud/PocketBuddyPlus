@@ -1,12 +1,12 @@
 appId: dev.prismtek.pocketbuddyplus
-productName: Pocket Buddy Plus
+productName: Pocket Buddy+
 executableName: pocket-buddy-plus
 copyright: Copyright © 2026 Prismtek; OpenPets contributors
 
 directories:
   output: dist-electron-plus
 
-artifactName: Pocket-Buddy-Plus-${version}-${os}-${arch}.${ext}
+artifactName: Pocket-Buddy+-${version}-${os}-${arch}.${ext}
 
 # NOTE: do not add `extraMetadata` here. In this pnpm workspace electron-builder
 # resolves the "project" to the workspace root and rewrites the root package.json
@@ -53,7 +53,7 @@ win:
   verifyUpdateCodeSignature: false
 
 nsis:
-  artifactName: Pocket-Buddy-Plus-${version}-win-${arch}-setup.${ext}
+  artifactName: Pocket-Buddy+-${version}-win-${arch}-setup.${ext}
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
