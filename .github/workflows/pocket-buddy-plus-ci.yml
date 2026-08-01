@@ -56,3 +56,57 @@ jobs:
           test -d apps/desktop/dist-electron-plus
           grep -Fqx 'productName: Pocket Buddy+' apps/desktop/electron-builder.pocket-buddy-plus.yml
           grep -Fq 'electron-builder.pocket-buddy-plus.yml' apps/desktop/package.json
+
+  macos-app:
+    name: Package and smoke-launch macOS app
+    needs: verify
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build unpacked Pocket Buddy+ app
+        run: pnpm package:desktop:plus:dir
+
+      - name: Verify bundle and smoke-launch
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find apps/desktop/dist-electron-plus -type d -name 'Pocket Buddy+.app' -print -quit)"
+          test -n "$APP_PATH"
+          test -f "$APP_PATH/Contents/Info.plist"
+          test -x "$APP_PATH/Contents/MacOS/pocket-buddy-plus"
+          BUNDLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$APP_PATH/Contents/Info.plist")"
+          test "$BUNDLE_NAME" = 'Pocket Buddy+'
+
+          LOG_PATH="$RUNNER_TEMP/pocket-buddy-plus-smoke.log"
+          OPENPETS_DISABLE_PLUGIN_CATALOG=1 "$APP_PATH/Contents/MacOS/pocket-buddy-plus" >"$LOG_PATH" 2>&1 &
+          APP_PID=$!
+          sleep 12
+          if ! kill -0 "$APP_PID" 2>/dev/null; then
+            cat "$LOG_PATH"
+            exit 1
+          fi
+          kill "$APP_PID" || true
+          wait "$APP_PID" || true
+
+      - name: Upload Pocket Buddy+ macOS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pocket-Buddy+-macOS
+          path: apps/desktop/dist-electron-plus
+          if-no-files-found: error
+          retention-days: 14
