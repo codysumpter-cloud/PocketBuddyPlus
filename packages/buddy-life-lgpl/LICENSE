@@ -1,0 +1,15 @@
+# GNU Lesser General Public License 2.1 or later
+
+The source files in this directory are distributed under the terms of the **GNU Lesser General Public License, version 2.1, or (at your option) any later version**.
+
+SPDX identifier: `LGPL-2.1-or-later`
+
+The complete license text is available from:
+
+- the Free Software Foundation’s LGPL 2.1 publication;
+- the upstream `openc2e/openc2e` repository in its `COPYING` file; and
+- standard system license collections such as `/usr/share/common-licenses/LGPL-2.1` where provided by the operating system.
+
+This Godot-native compatibility module was changed and authored for Prismtek in July 2026. It is distributed without warranty, including without the implied warranties of merchantability or fitness for a particular purpose.
+
+Source for the covered module is present in this repository under `addons/prismtek_buddy_core/life/`. Retain this notice and `THIRD_PARTY_NOTICES.md` when redistributing the module or a modified version.

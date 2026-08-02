@@ -33,12 +33,13 @@
     "plugins:publish": "node web/scripts/sync-plugins.js",
     "plugins:deploy": "pnpm --dir web deploy",
     "plugins:release": "pnpm plugins:package && pnpm plugins:validate-release && pnpm plugins:publish && pnpm plugins:deploy && pnpm plugins:validate-live",
-    "test": "pnpm build && pnpm -r --if-present test",
+    "test": "pnpm check:licenses && pnpm build && pnpm -r --if-present test",
     "check": "pnpm -r check",
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build",
     "verify:ui": "pnpm --filter @open-pets/desktop verify:ui",
-    "verify:ui:selftest": "pnpm --filter @open-pets/desktop verify:ui:selftest"
+    "verify:ui:selftest": "pnpm --filter @open-pets/desktop verify:ui:selftest",
+    "check:licenses": "node scripts/check-license-boundary.mjs"
   },
   "devDependencies": {
     "typescript": "^6.0.3"

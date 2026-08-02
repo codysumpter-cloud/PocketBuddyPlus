@@ -52,3 +52,23 @@ Prismtek systems. This file records every external boundary.
 - Upstream: `IdreesInc/Monocraft`. License: SIL Open Font License 1.1.
 - Copyright 2022 Idrees Hassan. Bundled with its license at
   `apps/desktop/assets/Monocraft.LICENSE.txt`.
+
+## openc2e (via the Prismtek Buddy Core `life/` module) — LGPL-2.1-or-later
+
+- Upstream project: `openc2e/openc2e`, the open reimplementation of the Creatures engine.
+- Reviewed upstream revision: `6a4396c83152fe9f9152be924b5a8edc8e759a6a`.
+- License: **GNU Lesser General Public License 2.1 or later**.
+- Immediate donor: `prismtek-apps/packages/godot/prismtek-buddy-core/addons/prismtek_buddy_core/life/`,
+  which is itself separately identified as LGPL-2.1-or-later by its own
+  `LICENSE.md`, `NOTICE.md` and per-file SPDX headers.
+- **This is third-party copyleft code hosted in a Prismtek repository. It is not
+  first-party work and cannot be relicensed by the repository owner.**
+- Pocket Buddy+ ports it into `packages/buddy-life-lgpl`, which is LGPL-2.1-or-later.
+  It is NOT offered under the MIT license. This is not a dual license.
+- Boundary enforced automatically by `scripts/check-license-boundary.mjs`
+  (`pnpm check:licenses`): every file in that package carries the SPDX
+  identifier, and no LGPL-derived implementation may appear in an MIT package.
+- Does not include openc2e rendering, SDL world execution, CAOS, original
+  Creatures game data, genomes, sprites, sounds or other proprietary assets.
+- See `packages/buddy-life-lgpl/NOTICE`, `packages/buddy-life-lgpl/LICENSE`,
+  `LICENSES/LGPL-2.1-or-later.txt` and `docs/LICENSE_MATRIX.md`.

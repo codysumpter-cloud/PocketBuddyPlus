@@ -1,3 +1,12 @@
+SCOPE NOTE
+==========
+This MIT license covers the Pocket Buddy+ application and packages EXCEPT for
+subdirectories that carry their own LICENSE file. It does NOT override them.
+
+In particular, packages/buddy-life-lgpl is licensed LGPL-2.1-or-later because it
+is a port of openc2e-derived code, which is not ours to relicense. See
+docs/LICENSE_MATRIX.md and THIRD_PARTY_NOTICES.md.
+
 MIT License
 
 Copyright (c) 2026 OpenPets

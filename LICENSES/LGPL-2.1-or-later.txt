@@ -1,0 +1,21 @@
+GNU Lesser General Public License, version 2.1 or later
+=======================================================
+
+The packages/buddy-life-lgpl module is distributed under the terms of the GNU
+Lesser General Public License, version 2.1, or (at your option) any later
+version.
+
+SPDX identifier: LGPL-2.1-or-later
+
+The full, authoritative license text is NOT reproduced here to avoid shipping an
+inaccurate transcription. Obtain the verbatim text from any of:
+
+- the Free Software Foundation: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
+- the upstream openc2e repository `COPYING` file
+  (https://github.com/openc2e/openc2e, reviewed revision
+  6a4396c83152fe9f9152be924b5a8edc8e759a6a)
+- standard system license collections, e.g. /usr/share/common-licenses/LGPL-2.1
+
+RELEASE GATE: a verbatim copy of the license text MUST be vendored into this file
+before any public binary distribution. `scripts/check-license-boundary.mjs`
+reports this as an outstanding release requirement.
