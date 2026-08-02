@@ -31,6 +31,8 @@ const plugins = require("./fixtures/plugins.json");
 const integrations = require("./fixtures/integrations.json");
 const pluginCatalog = require("./fixtures/plugin-catalog.json");
 const catalog = require("./fixtures/catalog.json");
+const reactionAnimationSettings = require("./fixtures/reaction-animation-settings.json");
+const lanStatus = require("./fixtures/lan-status.json");
 
 const ok = (value) => () => Promise.resolve(value);
 
@@ -38,12 +40,12 @@ const api = {
   getPetsState: ok(petsState),
   getDashboardSnapshot: ok(dashboard),
   getSettingsState: ok(settings),
-  getLanStatus: ok({ enabled: false, mode: "off", clients: [], serverUrl: null, token: null }),
+  getLanStatus: ok(lanStatus),
   getI18n: ok(i18n),
   updatePreferences: ok(settings),
-  getReactionAnimationSettings: ok({ enabled: true, mappings: {} }),
-  getLaunchAtLogin: ok(false),
-  setLaunchAtLogin: ok(false),
+  getReactionAnimationSettings: ok(reactionAnimationSettings),
+  getLaunchAtLogin: ok({ supported: true, enabled: false }),
+  setLaunchAtLogin: ok({ supported: true, enabled: false }),
   getUpdateStatus: ok({ state: "current", currentVersion: "3.3.0", latestVersion: "3.3.0", releaseUrl: null, error: null }),
   checkForUpdates: ok({ state: "current", currentVersion: "3.3.0", latestVersion: "3.3.0", releaseUrl: null, error: null }),
   openUpdateReleasePage: ok(undefined),

@@ -7,20 +7,35 @@
       {
         "id": "builtin",
         "displayName": "Professor Hoot",
+        "description": "The bundled companion.",
         "builtIn": true,
-        "broken": false,
-        "source": "builtin",
-        "version": "1.0.0",
-        "installedAt": 1785500000000
+        "protected": true,
+        "installed": true
       },
       {
         "id": "catalog-fox",
         "displayName": "Ember Fox",
+        "description": "A catalog companion.",
         "builtIn": false,
-        "broken": false,
-        "source": "catalog",
-        "version": "1.0.0",
-        "installedAt": 1785500000000
+        "protected": false,
+        "installed": true,
+        "source": {
+          "kind": "catalog",
+          "catalogVersion": 2,
+          "zip": "ember-fox.zip",
+          "preview": ""
+        }
+      },
+      {
+        "id": "codex-owl",
+        "displayName": "Codex Owl",
+        "builtIn": false,
+        "protected": false,
+        "installed": true,
+        "source": {
+          "kind": "codex",
+          "path": "/tmp/verify-ui/codex/codex-owl"
+        }
       }
     ]
   }

@@ -5,68 +5,51 @@
       "name": "Focus Buddy",
       "description": "A pet Pomodoro-style focus timer.",
       "version": "1.0.0",
-      "enabled": true,
+      "source": "catalog",
       "bundled": true,
       "runtime": "javascript",
-      "source": "catalog",
-      "config": {},
-      "configSchema": {},
-      "commands": [],
-      "permissions": [],
-      "spritePreviews": {},
-      "local": false,
-      "updateAvailable": false
+      "enabled": true,
+      "approvedPermissions": [
+        "pet:move",
+        "status"
+      ]
     },
     {
       "id": "openpets.launch-buddy",
       "name": "Launch Buddy",
       "description": "A friendly startup greeting.",
       "version": "1.0.0",
-      "enabled": true,
+      "source": "catalog",
       "bundled": true,
       "runtime": "javascript",
-      "source": "catalog",
-      "config": {},
-      "configSchema": {},
-      "commands": [],
-      "permissions": [],
-      "spritePreviews": {},
-      "local": false,
-      "updateAvailable": false
+      "enabled": true,
+      "approvedPermissions": [
+        "status"
+      ]
     },
     {
       "id": "openpets.reminders",
       "name": "Quick Reminders",
       "description": "Set short local reminders from the pet menu.",
       "version": "1.0.0",
-      "enabled": true,
+      "source": "catalog",
       "bundled": true,
       "runtime": "javascript",
-      "source": "catalog",
-      "config": {},
-      "configSchema": {},
-      "commands": [],
-      "permissions": [],
-      "spritePreviews": {},
-      "local": false,
-      "updateAvailable": false
+      "enabled": true,
+      "approvedPermissions": [
+        "status"
+      ]
     },
     {
       "id": "openpets.virtual-pet",
       "name": "Virtual Pet",
       "description": "Care for a little desktop companion.",
       "version": "1.0.0",
-      "enabled": false,
+      "source": "catalog",
       "bundled": true,
       "runtime": "javascript",
-      "source": "catalog",
-      "config": {},
-      "configSchema": {},
-      "commands": [],
-      "permissions": [],
-      "spritePreviews": {},
-      "local": false,
-      "updateAvailable": false
+      "enabled": false,
+      "approvedPermissions": []
     }
   ]
 }

@@ -355,6 +355,7 @@
     "plugins.badge.js": "JS",
     "plugins.badge.declarative": "Declarative",
     "plugins.badge.deprecated": "Deprecated",
+    "plugins.card.toggleLabel": "Enable or disable {name}",
     "plugins.card.active": "Active",
     "plugins.card.off": "Off",
     "plugins.card.refresh": "Refresh",

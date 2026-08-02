@@ -16,7 +16,11 @@ import { fileURLToPath } from "node:url";
 import { buildClaudeMcpPreview } from "@open-pets/claude";
 
 import type { AgentSetupSnapshot } from "../src/agent-setup.js";
-import type { PluginCatalogSnapshot, PluginServiceSnapshot } from "../src/plugin-service.js";
+import type { InstalledPetState } from "../src/app-state.js";
+import { defaultPetSprite, reactionAnimationMetadata, selectableAnimationMetadata } from "../src/reaction-animation-mapping.js";
+import type { LanStatusSnapshot } from "../src/lan-controller.js";
+import type { PluginCatalogSnapshot, PluginServiceSnapshot, SafePluginRecord } from "../src/plugin-service.js";
+import type { PluginPermission } from "../src/plugin-manifest.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -124,12 +128,109 @@ export const integrations: AgentSetupSnapshot = {
   busy: false,
 };
 
+// --- Pets -------------------------------------------------------------------
+// `source` is a discriminated union of OBJECTS (or absent) -- never a string.
+// The Pets route relies on that: it evaluates `p.source && "preview" in p.source`,
+// which throws a TypeError if `source` is a primitive. Typing these as
+// InstalledPetState is what makes that impossible to get wrong again.
+const installedPets: readonly InstalledPetState[] = [
+  {
+    id: "builtin",
+    displayName: "Professor Hoot",
+    description: "The bundled companion.",
+    builtIn: true,
+    protected: true,
+    installed: true,
+  },
+  {
+    id: "catalog-fox",
+    displayName: "Ember Fox",
+    description: "A catalog companion.",
+    builtIn: false,
+    protected: false,
+    installed: true,
+    source: { kind: "catalog", catalogVersion: 2, zip: "ember-fox.zip", preview: "" },
+  },
+  {
+    id: "codex-owl",
+    displayName: "Codex Owl",
+    builtIn: false,
+    protected: false,
+    installed: true,
+    source: { kind: "codex", path: "/tmp/verify-ui/codex/codex-owl" },
+  },
+];
+
+export const petsState: { preferences: { defaultPetId: string }; pets: { installed: readonly InstalledPetState[] } } = {
+  preferences: { defaultPetId: "builtin" },
+  pets: { installed: installedPets },
+};
+
+// --- Reaction animation settings --------------------------------------------
+// Built from the SAME exported metadata the main process uses, so the fixture
+// cannot drift from the real reaction/animation catalogue.
+export const reactionAnimationSettings = {
+  reactions: reactionAnimationMetadata.map((reaction) => ({ ...reaction, label: reaction.id, description: reaction.id })),
+  animations: selectableAnimationMetadata.map((animation) => ({ ...animation, label: animation.id, description: animation.id })),
+  sprite: defaultPetSprite,
+  overrides: {},
+  previewSpriteUrl: "openpets-pet-preview://spritesheet/default?v=test-0-0",
+};
+
+// --- LAN status --------------------------------------------------------------
+// Annotated with the real LanStatusSnapshot so no required member can be missed.
+export const lanStatus: LanStatusSnapshot = {
+  mode: "off",
+  localHost: "verify-ui",
+  serverUrl: "",
+  port: 0,
+  auth: "none",
+  authSource: "none",
+  authInsecure: false,
+  tokenHint: null,
+  topologyHosts: 0,
+  topologyLinks: 0,
+  topologyIssues: [],
+  currentHost: null,
+  clients: [],
+  updatedAt: 0,
+  persistedCurrentHost: null,
+  persistedUpdatedAt: null,
+};
+
 // --- Plugins ----------------------------------------------------------------
-export const plugins: PluginServiceSnapshot = { plugins: [] };
+// Typed as SafePluginRecord so the compiler demands every member the renderer
+// relies on -- notably approvedPermissions, whose absence crashed the Settings
+// route with "Cannot read properties of undefined (reading 'includes')".
+const pluginRecord = (id: string, name: string, description: string, enabled: boolean, approvedPermissions: readonly PluginPermission[]): SafePluginRecord => ({
+  id,
+  name,
+  description,
+  version: "1.0.0",
+  source: "catalog",
+  bundled: true,
+  runtime: "javascript",
+  enabled,
+  approvedPermissions,
+});
+
+export const plugins: PluginServiceSnapshot = {
+  plugins: [
+    pluginRecord("openpets.focus-buddy", "Focus Buddy", "A pet Pomodoro-style focus timer.", true, ["pet:move", "status"]),
+    pluginRecord("openpets.launch-buddy", "Launch Buddy", "A friendly startup greeting.", true, ["status"]),
+    pluginRecord("openpets.reminders", "Quick Reminders", "Set short local reminders from the pet menu.", true, ["status"]),
+    pluginRecord("openpets.virtual-pet", "Virtual Pet", "Care for a little desktop companion.", false, []),
+  ],
+};
 export const pluginCatalog: PluginCatalogSnapshot = { plugins: [] };
 
 function main(): void {
   write("integrations.json", integrations);
+  write("pets-state.json", petsState);
+  write("reaction-animation-settings.json", reactionAnimationSettings);
+  write("lan-status.json", lanStatus);
+  write("plugins.json", plugins);
+  write("plugin-catalog.json", pluginCatalog);
   console.log(`verify-ui contract fixtures written to ${fixturesDir}`);
 }
 

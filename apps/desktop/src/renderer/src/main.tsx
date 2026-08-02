@@ -2602,6 +2602,7 @@ function PluginsView() {
                       <input
                         className="settings-toggle plugin-card-toggle"
                         type="checkbox"
+                        aria-label={t("plugins.card.toggleLabel", { name: entry.installed.name ?? entry.id })}
                         checked={entry.installed.enabled}
                         disabled={!!busy || entry.installed.catalogDisabled || Boolean(entry.installed.brokenReason)}
                         onChange={(event) => {

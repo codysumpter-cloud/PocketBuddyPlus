@@ -353,6 +353,7 @@ export const ko: Partial<Messages> = {
   "plugins.badge.js": "JS",
   "plugins.badge.declarative": "선언형",
   "plugins.badge.deprecated": "지원 중단",
+  "plugins.card.toggleLabel": "{name} 활성화 또는 비활성화",
   "plugins.card.active": "활성",
   "plugins.card.off": "끔",
   "plugins.card.configure": "구성",

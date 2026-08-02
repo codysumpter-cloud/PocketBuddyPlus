@@ -353,6 +353,7 @@ export const es419: Partial<Messages> = {
   "plugins.badge.js": "JS",
   "plugins.badge.declarative": "Declarativo",
   "plugins.badge.deprecated": "Obsoleto",
+  "plugins.card.toggleLabel": "Activar o desactivar {name}",
   "plugins.card.active": "Activo",
   "plugins.card.off": "Desactivado",
   "plugins.card.configure": "Configurar",

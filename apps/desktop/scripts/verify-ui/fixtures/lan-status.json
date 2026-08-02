@@ -1,0 +1,18 @@
+{
+  "mode": "off",
+  "localHost": "verify-ui",
+  "serverUrl": "",
+  "port": 0,
+  "auth": "none",
+  "authSource": "none",
+  "authInsecure": false,
+  "tokenHint": null,
+  "topologyHosts": 0,
+  "topologyLinks": 0,
+  "topologyIssues": [],
+  "currentHost": null,
+  "clients": [],
+  "updatedAt": 0,
+  "persistedCurrentHost": null,
+  "persistedUpdatedAt": null
+}

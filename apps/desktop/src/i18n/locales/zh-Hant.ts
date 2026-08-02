@@ -353,6 +353,7 @@ export const zhHant: Partial<Messages> = {
   "plugins.badge.js": "JS",
   "plugins.badge.declarative": "宣告式",
   "plugins.badge.deprecated": "已淘汰",
+  "plugins.card.toggleLabel": "啟用或停用 {name}",
   "plugins.card.active": "啟用中",
   "plugins.card.off": "關閉",
   "plugins.card.configure": "設定",

@@ -353,6 +353,7 @@ export const ptBR: Partial<Messages> = {
   "plugins.badge.js": "JS",
   "plugins.badge.declarative": "Declarativo",
   "plugins.badge.deprecated": "Obsoleto",
+  "plugins.card.toggleLabel": "Ativar ou desativar {name}",
   "plugins.card.active": "Ativo",
   "plugins.card.off": "Desligado",
   "plugins.card.configure": "Configurar",

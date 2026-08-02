@@ -353,6 +353,7 @@ export const ja: Partial<Messages> = {
   "plugins.badge.js": "JS",
   "plugins.badge.declarative": "宣言的",
   "plugins.badge.deprecated": "非推奨",
+  "plugins.card.toggleLabel": "{name} を有効または無効にする",
   "plugins.card.active": "アクティブ",
   "plugins.card.off": "オフ",
   "plugins.card.configure": "設定",

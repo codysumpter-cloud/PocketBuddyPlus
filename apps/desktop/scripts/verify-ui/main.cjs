@@ -14,14 +14,27 @@
  */
 const { app, BrowserWindow } = require("electron");
 const { mkdirSync, writeFileSync } = require("node:fs");
+const { createHash } = require("node:crypto");
 const { join } = require("node:path");
 
 const appDir = join(__dirname, "..", "..");
 const artifactsDir = process.env.PBP_VERIFY_ARTIFACTS || join(appDir, "verification-artifacts");
 const rendererIndex = join(appDir, "dist", "renderer", "index.html");
 
-const ROUTES = ["dashboard", "buddy", "pets", "plugins", "integrations", "settings"];
+// label = the nav control text to click; heading = the h1 that proves arrival.
+const ROUTES = [
+  { key: "dashboard", label: "dashboard", heading: /^dashboard$/i },
+  { key: "pets", label: "pets", heading: /^pets$/i },
+  { key: "plugins", label: "plugins", heading: /^plugins$/i },
+  { key: "integrations", label: "integrations", heading: /^integrations$/i },
+  { key: "settings", label: "settings", heading: /^settings$/i },
+];
 const THEMES = ["light", "dark"];
+// Buddy+ is a modal overlay (openBuddyModal in product-ui.ts), not a routed
+// page, so it is asserted separately with dialog semantics rather than as a
+// route with its own heading.
+const BUDDY_MODAL = { label: "buddy+", selector: ".pb-buddy-modal" };
+
 const VIEWPORTS = [
   { name: "default", width: 1180, height: 820 },
   { name: "narrow", width: 900, height: 700 },
@@ -61,6 +74,7 @@ function assertScreenshotIsMeaningful(image, label) {
   return null;
 }
 
+const captureDigests = new Map();
 const findings = [];
 const record = (severity, route, theme, viewport, message, detail) => {
   findings.push({ severity, route, theme, viewport, message, ...(detail ? { detail } : {}) });
@@ -131,7 +145,7 @@ const PROBE = `(() => {
     const large = px >= 24 || (px >= 18.66 && bold);
     const min = large ? 3 : 4.5;
     if (ratio < min) {
-      out.issues.push({ kind: "low-contrast", detail: (el.textContent || "").trim().slice(0, 50), ratio: Math.round(ratio * 100) / 100, required: min, fg: s.color, bg: "rgb(" + bg.join(",") + ")" });
+      out.issues.push({ kind: "low-contrast", detail: (el.textContent || "").trim().slice(0, 50), ratio: Math.round(ratio * 100) / 100, required: min, fg: s.color, bg: "rgb(" + bg.join(",") + ")", tag: el.tagName, cls: (el.className || "").toString().slice(0, 80) });
     }
   }
 
@@ -198,17 +212,20 @@ async function run() {
           r.classList.remove("dark","light");
           r.classList.add(${JSON.stringify(theme)});
           r.setAttribute("data-theme", ${JSON.stringify(theme)});
-          r.style.colorScheme = ${JSON.stringify(theme)};
-          return r.className; })()`,
+          // Deliberately NOT setting r.style.*: the renderer CSP forbids inline
+          // styles, and the harness must not provoke violations it then reports.
+          return r.getAttribute("data-theme"); })()`,
         true,
       );
 
-      for (const route of ROUTES) {
+      for (const routeSpec of ROUTES) {
+        const route = routeSpec.key;
         await win.webContents.executeJavaScript(
           `(() => {
-             const wanted = ${JSON.stringify(route)};
+             const wanted = ${JSON.stringify(routeSpec.label)};
              const btns = [...document.querySelectorAll("button,[role=tab],a")];
-             const hit = btns.find((b) => (b.textContent || "").trim().toLowerCase().replace(/[^a-z+]/g, "") === wanted.replace(/[^a-z+]/g, ""));
+             const norm = (v) => v.trim().toLowerCase().replace(/[^a-z+]/g, "");
+             const hit = btns.find((b) => norm(b.textContent || "") === norm(wanted));
              if (hit) hit.click();
              return Boolean(hit);
            })()`,
@@ -231,6 +248,15 @@ async function run() {
         }
         if (!result.headings.length) {
           record("fatal", route, theme, viewport.name, "no-visible-heading", {});
+        }
+        // Navigation must actually reach the requested route, or the capture and
+        // every assertion below would describe the previous screen. This is what
+        // caught Buddy+ silently rendering the Dashboard.
+        if (!result.headings.some((h) => routeSpec.heading.test(h))) {
+          record("fatal", route, theme, viewport.name, "route-not-reached", {
+            expected: String(routeSpec.heading),
+            headings: result.headings.slice(0, 5),
+          });
         }
         for (const err of result.errors) {
           record("fatal", route, theme, viewport.name, "renderer-uncaught-error", err);
@@ -260,6 +286,12 @@ async function run() {
 
         if (viewport.name === "default") {
           const png = await win.webContents.capturePage();
+          const digest = createHash("sha256").update(png.toPNG()).digest("hex");
+          const clash = [...captureDigests.entries()].find(([key, value]) => value === digest && key.endsWith(`-${theme}`));
+          if (clash) {
+            record("fatal", route, theme, viewport.name, "route-capture-identical", { matches: clash[0] });
+          }
+          captureDigests.set(`${route}-${theme}`, digest);
           const blank = assertScreenshotIsMeaningful(png, `${route}-${theme}`);
           if (blank) record("fatal", route, theme, viewport.name, "blank-screenshot", { reason: blank });
           writeFileSync(join(artifactsDir, `${route}-${theme}.png`), png.toPNG());

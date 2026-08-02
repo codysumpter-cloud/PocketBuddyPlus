@@ -63,7 +63,9 @@ function applyTheme(mode: ThemeMode): void {
   const resolved = resolvedTheme(mode);
   document.documentElement.dataset.theme = resolved;
   document.documentElement.dataset.themeMode = mode;
-  document.documentElement.style.colorScheme = resolved;
+  // color-scheme is declared per theme in product-ui.css. Assigning it here as an
+  // inline style is blocked by the Control Center CSP (style-src 'self') and was
+  // silently dropped, so native controls kept the light scheme in dark mode.
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-pb-theme]")) {
     const active = button.dataset.pbTheme === mode;
     button.classList.toggle("active", active);
@@ -353,7 +355,7 @@ function renderBuddySection(section: BuddySection): string {
       <div class="pb-two-column">
         <section class="pb-panel">
           <div class="pb-panel-heading"><div><p class="pb-kicker">Living status</p><h3>${capitalize(snapshot.mood)}</h3></div><span class="pb-status-chip">Needs ${escapeHtml(snapshot.dominantNeed)}</span></div>
-          <div class="pb-needs">${snapshot.drives.map((drive) => `<div class="pb-need"><div><span>${escapeHtml(drive.label)}</span><strong>${Math.round(drive.value * 100)}%</strong></div><div class="pb-meter"><span style="width:${Math.round(drive.value * 100)}%"></span></div></div>`).join("")}</div>
+          <div class="pb-needs">${snapshot.drives.map((drive) => `<div class="pb-need"><div><span>${escapeHtml(drive.label)}</span><strong>${Math.round(drive.value * 100)}%</strong></div><div class="pb-meter"><span data-fill="${Math.round(drive.value * 20) * 5}"></span></div></div>`).join("")}</div>
         </section>
         <section class="pb-panel">
           <p class="pb-kicker">Identity</p>

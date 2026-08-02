@@ -32,23 +32,8 @@ write("i18n.json", {
   messages: en,
 });
 
-// Shape mirrors getPetsStateSnapshot() in src/windows.ts.
-const pet = (id, displayName, builtIn) => ({
-  id,
-  displayName,
-  builtIn,
-  broken: false,
-  source: builtIn ? "builtin" : "catalog",
-  version: "1.0.0",
-  installedAt: 1785500000000,
-});
-
-write("pets-state.json", {
-  preferences: { defaultPetId: "builtin" },
-  pets: {
-    installed: [pet("builtin", "Professor Hoot", true), pet("catalog-fox", "Ember Fox", false)],
-  },
-});
+// pets-state.json is emitted by tests/verify-ui-fixtures.ts, type checked
+// against InstalledPetState. Do not duplicate (or clobber) it here.
 
 // Shape mirrors getDashboardSnapshot() in src/windows.ts.
 write("dashboard.json", {
@@ -89,37 +74,8 @@ write("settings.json", {
   petPoolCandidates: [{ id: "catalog-fox", displayName: "Ember Fox" }],
 });
 
-// Shape mirrors PluginServiceSnapshot / PluginCatalogSnapshot in
-// src/plugin-service.ts: BOTH are { plugins: [...] }, not an "installed" list.
-const plugin = (id, name, description, enabled) => ({
-  id,
-  name,
-  description,
-  version: "1.0.0",
-  enabled,
-  bundled: true,
-  runtime: "javascript",
-  source: "catalog",
-  brokenReason: undefined,
-  config: {},
-  configSchema: {},
-  commands: [],
-  permissions: [],
-  spritePreviews: {},
-  local: false,
-  updateAvailable: false,
-});
-
-write("plugins.json", {
-  plugins: [
-    plugin("openpets.focus-buddy", "Focus Buddy", "A pet Pomodoro-style focus timer.", true),
-    plugin("openpets.launch-buddy", "Launch Buddy", "A friendly startup greeting.", true),
-    plugin("openpets.reminders", "Quick Reminders", "Set short local reminders from the pet menu.", true),
-    plugin("openpets.virtual-pet", "Virtual Pet", "Care for a little desktop companion.", false),
-  ],
-});
-
-write("plugin-catalog.json", { plugins: [] });
+// plugins.json / plugin-catalog.json are emitted by tests/verify-ui-fixtures.ts,
+// type checked against PluginServiceSnapshot and SafePluginRecord.
 
 // integrations.json is emitted by tests/verify-ui-fixtures.ts, which is type
 // checked against AgentSetupSnapshot. Do not duplicate (or clobber) it here.
