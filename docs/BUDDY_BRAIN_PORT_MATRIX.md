@@ -13,7 +13,8 @@ explicitly *not* sufficient.
 
 | Donor | Path | Licence | Use |
 |---|---|---|---|
-| Prismtek Buddy Core | `prismtek-apps/packages/godot/prismtek-buddy-core/` | Prismtek Source Available v1.0 | **Primary donor.** First-party; reuse and adaptation authorised by the owner. |
+| Prismtek Buddy Core — `creature/`, `progression/`, `world/` | `prismtek-apps/packages/godot/prismtek-buddy-core/` | Prismtek Source Available v1.0 | **Primary donor.** First-party; reuse and adaptation authorised by the owner. |
+| Prismtek Buddy Core — **`life/` (26 files)** | same package, `addons/prismtek_buddy_core/life/` | **LGPL-2.1-or-later** | **openc2e-derived, NOT first-party.** See the blocker below. |
 | Buddy Brain | `codysumpter-cloud/buddy-brain` | Prismtek Source Available | Identity/soul policy, council roles, reflection. Extends the creature brain. |
 | Buddy Agent | `codysumpter-cloud/buddy-agent` | Prismtek Source Available | Providers, guarded tools, approvals, receipts. |
 | KnowledgeVault | `codysumpter-cloud/knowledge-vault` | Prismtek Source Available | Provenance, event history, graph memory adapters. |
@@ -22,6 +23,50 @@ explicitly *not* sufficient.
 
 The Godot Pocket Buddy application and its live saves are **read-only references**
 and are never modified.
+
+### BLOCKER: the `life/` module is LGPL-2.1-or-later, not Prismtek Source Available
+
+Every file under `addons/prismtek_buddy_core/life/` carries
+`# SPDX-License-Identifier: LGPL-2.1-or-later`, and `life/LICENSE.md` plus the
+donor README state it explicitly:
+
+> The Buddy Life compatibility module under `addons/prismtek_buddy_core/life/` is
+> separately identified as LGPL-2.1-or-later.
+
+`tools/sync_openc2e_source.sh` shows the origin: it vendors
+`https://github.com/openc2e/openc2e.git` at revision
+`6a4396c83152fe9f9152be924b5a8edc8e759a6a`. openc2e is the open reimplementation
+of the Creatures engine and is LGPL. This module is therefore **third-party
+copyleft code hosted in a Prismtek repository**, not original first-party work,
+so the owner's blanket reuse authorisation does not extend to it.
+
+Affected donors — i.e. most of the "brain":
+
+`buddy_life_runtime`, `buddy_life_parity_arena`, `buddy_life_stochastic_arena`,
+`buddy_biology_{substrate,brain,organ,instinct,immune_system,chemical_pool,sv_rule}`,
+`buddy_cognition_{stack,planner,world_model,causal_memory,dream_cycle,language,
+social_learning,intrinsic_motivation,cortex_contract}`,
+`buddy_genome{,_development,_lab}`,
+`buddy_society_{population,culture,ecosystem,reproduction}`.
+
+**Consequence.** Translating these into TypeScript produces a derivative work of
+LGPL code. A translation is a derivative of the *code*, not mere linking, so the
+resulting modules would have to be LGPL-2.1-or-later with corresponding source
+offered. Pocket Buddy+ is currently MIT (inherited from OpenPets); those modules
+could not simply be MIT.
+
+**What is unaffected.** `creature/` carries no SPDX header and falls under the
+repository's Prismtek Source Available License. The drives and personality
+already ported come from `creature/` and are clear, as are `creature_state`,
+`mood_model`, `utility_brain`, `learning_model` and the action definitions.
+
+**Also unaffected: running the donor as a test oracle.** Executing the Godot
+package headlessly to emit reference JSON is *use*, not distribution of a
+derivative, so the golden cross-runtime harness can be built without resolving
+this. Only the TypeScript *port* of `life/` is blocked.
+
+Godot 4.7.1 is available locally (`/opt/homebrew/bin/godot`), so the harness is
+technically unblocked.
 
 ### Pocket Bird boundary
 
