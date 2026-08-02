@@ -28,7 +28,10 @@ test("C2e loci match openc2e's hard-coded ids", () => {
 
 test("fresh pool is empty with long-lived (255) half-lives", () => {
   const pool = new BuddyBiologyChemicalPool();
-  for (let id = 0; id < CHEMICAL_COUNT; id += 1) {
+  // id 0 is the sentinel: not readable, so it reports 0/0.
+  assert.equal(pool.concentration(0), 0);
+  assert.equal(pool.halfLife(0), 0);
+  for (let id = 1; id < CHEMICAL_COUNT; id += 1) {
     assert.equal(pool.concentration(id), 0, `concentration ${id}`);
     assert.equal(pool.halfLife(id), 255, `half-life ${id}`);
   }
@@ -40,7 +43,7 @@ test("concentrations clamp to [0,1]; out-of-range ids are inert", () => {
   assert.equal(pool.concentration(ATP_ID), 1);
   pool.setConcentration(ATP_ID, -5);
   assert.equal(pool.concentration(ATP_ID), 0);
-  for (const bad of [-1, CHEMICAL_COUNT, 999, 1.5]) {
+  for (const bad of [-1, 0, CHEMICAL_COUNT, 999, 1.5]) {
     pool.setConcentration(bad, 1);
     assert.equal(pool.concentration(bad), 0, `id ${bad} must be rejected`);
   }
@@ -71,12 +74,17 @@ test("a zero half-life clears the chemical rather than decaying it", () => {
   assert.equal(pool.concentration(ATP_ID), 0);
 });
 
-test("chemical 0 is a sentinel and never decays", () => {
+test("chemical 0 is the genome sentinel and stores nothing at all", () => {
+  // Donor `_valid_id` is `chemical_id > 0`, so id 0 is rejected outright. An
+  // earlier version of this test asserted the value STAYED 1, which passed
+  // against a buggy port; the Godot oracle caught the real behaviour.
   const pool = new BuddyBiologyChemicalPool();
   pool.setConcentration(0, 1);
+  assert.equal(pool.concentration(0), 0, "writes to the sentinel must be ignored");
   pool.setHalfLife(0, 1);
+  assert.equal(pool.halfLife(0), 0, "sentinel half-life is not readable either");
   pool.tickHalfLives(50);
-  assert.equal(pool.concentration(0), 1, "donor loop starts at id 1");
+  assert.equal(pool.concentration(0), 0);
 });
 
 test("encoded half-life is inverse to decay speed (255 long-lived, low = fast)", () => {

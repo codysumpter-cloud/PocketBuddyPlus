@@ -12,6 +12,7 @@
  * a release, so it is checked mechanically on every run.
  */
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,6 +20,14 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const LGPL_PACKAGE = join("packages", "buddy-life-lgpl");
 const SPDX_LGPL = "SPDX-License-Identifier: LGPL-2.1-or-later";
 const UPSTREAM_REVISION = "6a4396c83152fe9f9152be924b5a8edc8e759a6a";
+
+/**
+ * SHA-256 of the verbatim LGPL-2.1 text, taken from openc2e's COPYING at the
+ * reviewed revision above. Pinning the digest is what makes "modified" and
+ * "truncated" detectable rather than merely "present".
+ */
+const LGPL_TEXT_SHA256 = "6095e9ffa777dd22839f7801aa845b31c9ed07f3d6bf8a26dc5d2dec8ccc0ef3";
+const LGPL_TEXT_LINES = 504;
 
 const SKIP_DIRS = new Set(["node_modules", "dist", "dist-tests", ".git", ".test-dist", "dist-electron", "dist-electron-plus", "verification-artifacts", ".godot"]);
 
@@ -90,18 +99,70 @@ if (existsSync(noticePath)) {
   }
 }
 
-// --- 5. Release-gate: verbatim licence text must be vendored before shipping --
-const licenseTextPath = join(repoRoot, "LICENSES", "LGPL-2.1-or-later.txt");
-if (existsSync(licenseTextPath)) {
-  const text = readFileSync(licenseTextPath, "utf8");
-  // The real text contains these; a pointer stub does not.
-  const verbatim = text.includes("GNU LESSER GENERAL PUBLIC LICENSE") && text.includes("TERMS AND CONDITIONS");
-  if (!verbatim) {
-    notes.push(
-      "LICENSES/LGPL-2.1-or-later.txt is currently a pointer, not the verbatim licence text. " +
-      "This is ACCEPTABLE for development but MUST be vendored before any public binary release.",
+// --- 5. The licence text must be complete, verbatim and unmodified ----------
+// A pointer, a truncation or an edited copy all fail here. This is a
+// distribution requirement, not advice.
+function checkLicenseText(relPath, { allowPrefix = false } = {}) {
+  const full = join(repoRoot, relPath);
+  if (!existsSync(full)) {
+    failures.push(`${relPath}: missing (the complete LGPL text must ship)`);
+    return;
+  }
+  const text = readFileSync(full, "utf8");
+
+  if (!text.includes("GNU LESSER GENERAL PUBLIC LICENSE")) {
+    failures.push(`${relPath}: not the LGPL text (pointer or placeholder?)`);
+    return;
+  }
+  if (!text.includes("TERMS AND CONDITIONS")) {
+    failures.push(`${relPath}: truncated -- missing "TERMS AND CONDITIONS"`);
+  }
+  if (!text.includes("That's all there is to it!")) {
+    failures.push(`${relPath}: truncated -- missing the final line of the licence`);
+  }
+
+  // Exact-match the canonical body. `allowPrefix` covers files that legitimately
+  // prepend a module statement before the verbatim text.
+  const marker = "\t\t  GNU LESSER GENERAL PUBLIC LICENSE";
+  const start = text.indexOf(marker);
+  const body = start >= 0 ? text.slice(start) : text;
+  const digest = createHash("sha256").update(body).digest("hex");
+  const lines = body.split("\n").length - 1;
+
+  if (digest !== LGPL_TEXT_SHA256) {
+    failures.push(
+      `${relPath}: licence text MODIFIED or incomplete ` +
+      `(sha256 ${digest.slice(0, 12)}..., expected ${LGPL_TEXT_SHA256.slice(0, 12)}..., ` +
+      `${lines} lines vs ${LGPL_TEXT_LINES})`,
     );
   }
+  if (!allowPrefix && start !== 0) {
+    failures.push(`${relPath}: unexpected content before the licence text`);
+  }
+}
+
+checkLicenseText(join("LICENSES", "LGPL-2.1-or-later.txt"));
+checkLicenseText(join(LGPL_PACKAGE, "COPYING"));
+checkLicenseText(join(LGPL_PACKAGE, "LICENSE"), { allowPrefix: true });
+
+// --- 6. Packaged output must carry licence, NOTICE and corresponding source --
+// Only meaningful once a package exists; reported as a note otherwise so the
+// gate is useful both before and after packaging.
+const packagedApp = join(repoRoot, "apps", "desktop", "dist-electron-plus", "mac-arm64", "Pocket Buddy+.app");
+if (existsSync(packagedApp)) {
+  const resources = join(packagedApp, "Contents", "Resources");
+  const unpacked = join(resources, "app.asar.unpacked", "node_modules", "@open-pets", "buddy-life-lgpl");
+  for (const [label, path] of [
+    ["LGPL LICENSE", join(unpacked, "LICENSE")],
+    ["LGPL NOTICE", join(unpacked, "NOTICE")],
+    ["corresponding source (src/)", join(unpacked, "src")],
+  ]) {
+    if (!existsSync(path)) {
+      failures.push(`packaged app is missing ${label} at ${relative(repoRoot, path)}`);
+    }
+  }
+} else {
+  notes.push("packaged app not built; skipped packaged-output licence checks (run pnpm package:desktop:plus:dir)");
 }
 
 // --- Report -------------------------------------------------------------------

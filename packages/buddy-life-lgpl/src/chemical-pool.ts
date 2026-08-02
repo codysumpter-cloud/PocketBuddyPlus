@@ -68,8 +68,16 @@ export class BuddyBiologyChemicalPool {
     this.halfLives.fill(255);
   }
 
+  /**
+   * Donor `_valid_id`: `chemical_id > 0 and chemical_id < CHEMICAL_COUNT`.
+   *
+   * Chemical zero is the Creatures genome sentinel and NEVER stores a value, so
+   * it is rejected for reads and writes alike -- not merely skipped by the decay
+   * loop. Using `>= 0` here was a real translation bug caught by the Godot
+   * cross-runtime oracle, which a constants-only test could not have found.
+   */
   private static validId(chemicalId: number): boolean {
-    return Number.isInteger(chemicalId) && chemicalId >= 0 && chemicalId < CHEMICAL_COUNT;
+    return Number.isInteger(chemicalId) && chemicalId > 0 && chemicalId < CHEMICAL_COUNT;
   }
 
   concentration(chemicalId: number): number {
