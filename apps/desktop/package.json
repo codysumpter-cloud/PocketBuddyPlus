@@ -32,7 +32,8 @@
     "dev:renderer": "vite --host 127.0.0.1",
     "build": "pnpm build:main && pnpm build:renderer",
     "package:preflight": "node scripts/check-windows-symlink-privilege.cjs",
-    "verify:ui": "node scripts/verify-ui/generate-fixtures.mjs && electron scripts/verify-ui/main.cjs"
+    "verify:ui": "node scripts/verify-ui/generate-fixtures.mjs && node .test-dist/tests/verify-ui-fixtures.js && electron scripts/verify-ui/main.cjs",
+    "verify:ui:selftest": "node scripts/verify-ui/selftest.mjs"
   },
   "devDependencies": {
     "@open-pets/plugin-sdk": "workspace:*",

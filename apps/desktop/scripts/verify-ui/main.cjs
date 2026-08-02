@@ -74,6 +74,14 @@ function assertScreenshotIsMeaningful(image, label) {
   return null;
 }
 
+/**
+ * Deliberate-break injection for the harness self-test. A suite that has never
+ * been observed failing is not evidence of anything, so `verify:ui:selftest`
+ * drives each of these and asserts the harness fails for the intended reason.
+ * Unset in normal runs, which are therefore completely unaffected.
+ */
+const INJECT = process.env.PBP_VERIFY_INJECT || "";
+
 const captureDigests = new Map();
 const findings = [];
 const record = (severity, route, theme, viewport, message, detail) => {
@@ -173,6 +181,32 @@ const PROBE = `(() => {
   return out;
 })()`;
 
+/** Applies one deliberate break so the harness can be proven to detect it. */
+async function applyInjection(win, kind) {
+  const scripts = {
+    // 2. renderer crash: wipe the mounted tree the way a thrown render would.
+    crash: `(() => { const r = document.getElementById("root"); if (r) r.innerHTML = ""; document.body.innerHTML = ""; return true; })()`,
+    // 3. blank screenshot: keep the DOM but paint a single flat colour.
+    // 3. blank screenshot: cover the viewport with an opaque flat layer. The DOM
+    // (headings, text, controls) is left intact on purpose, so the earlier gates
+    // still pass and ONLY the screenshot check can catch this.
+    blank: `(() => { const o = document.createElement("div"); o.setAttribute("data-pbp-inject", "blank"); o.style.position = "fixed"; o.style.inset = "0"; o.style.background = "#ffffff"; o.style.zIndex = "2147483647"; document.body.append(o); return true; })()`,
+    // 4. accessibility regression: strip labels from interactive controls.
+    // 4. accessibility regression: strip labels from INPUTS only. Button text is
+    // left alone so navigation and headings still work and the failure is
+    // attributable to the accessible-name check rather than a broken route.
+    a11y: `(() => { let n = 0; for (const el of document.querySelectorAll("input")) { el.removeAttribute("aria-label"); el.removeAttribute("title"); el.removeAttribute("placeholder"); n += 1; } return n; })()`,
+    // 5. branding regression: reintroduce inherited wording into visible copy.
+    // 5. branding regression: add inherited wording to body copy, never to a
+    // heading, so the route assertion stays satisfied and the wording check is
+    // what fails.
+    branding: `(() => { const p = document.createElement("p"); p.setAttribute("data-pbp-inject", "branding"); p.textContent = "Powered by OpenPets"; document.body.append(p); return true; })()`,
+  };
+  const script = scripts[kind];
+  if (!script) return;
+  await win.webContents.executeJavaScript(script, true).catch(() => undefined);
+}
+
 async function probe(win) {
   return win.webContents.executeJavaScript(PROBE, true);
 }
@@ -232,6 +266,8 @@ async function run() {
           true,
         ).catch(() => false);
         await new Promise((r) => setTimeout(r, 700));
+
+        if (INJECT) await applyInjection(win, INJECT);
 
         const result = await probe(win);
 

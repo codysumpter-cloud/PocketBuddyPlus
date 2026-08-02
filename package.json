@@ -36,7 +36,9 @@
     "test": "pnpm build && pnpm -r --if-present test",
     "check": "pnpm -r check",
     "typecheck": "pnpm -r typecheck",
-    "build": "pnpm -r build"
+    "build": "pnpm -r build",
+    "verify:ui": "pnpm --filter @open-pets/desktop verify:ui",
+    "verify:ui:selftest": "pnpm --filter @open-pets/desktop verify:ui:selftest"
   },
   "devDependencies": {
     "typescript": "^6.0.3"

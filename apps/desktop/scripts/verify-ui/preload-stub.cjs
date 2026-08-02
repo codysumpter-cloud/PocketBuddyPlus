@@ -36,6 +36,12 @@ const lanStatus = require("./fixtures/lan-status.json");
 
 const ok = (value) => () => Promise.resolve(value);
 
+// Self-test control 1: serve a fixture that violates the PluginServiceSnapshot
+// contract, which is exactly the class of defect that produced the original
+// false green. Only active under the self-test env var.
+const brokenFixture = process.env.PBP_VERIFY_INJECT === "fixture";
+const servePlugins = brokenFixture ? {} : plugins;
+
 const api = {
   getPetsState: ok(petsState),
   getDashboardSnapshot: ok(dashboard),
@@ -50,7 +56,7 @@ const api = {
   checkForUpdates: ok({ state: "current", currentVersion: "3.3.0", latestVersion: "3.3.0", releaseUrl: null, error: null }),
   openUpdateReleasePage: ok(undefined),
   resetDefaultPetPosition: ok(undefined),
-  getPluginsSnapshot: ok(plugins),
+  getPluginsSnapshot: ok(servePlugins),
   getPluginCatalogSnapshot: ok(pluginCatalog),
   setPluginEnabled: ok(plugins),
   savePluginConfig: ok({ ok: true }),
