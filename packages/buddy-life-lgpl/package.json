@@ -1,0 +1,32 @@
+{
+  "name": "@open-pets/buddy-life-lgpl",
+  "version": "3.3.0",
+  "private": true,
+  "license": "LGPL-2.1-or-later",
+  "description": "LGPL-2.1-or-later Buddy Life runtime, ported from the openc2e-derived Prismtek Buddy Core life module. Separately licensed from the MIT application.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codysumpter-cloud/PocketBuddyPlus.git",
+    "directory": "packages/buddy-life-lgpl"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "src", "LICENSE", "NOTICE"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "check": "pnpm typecheck",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/chemical-pool-parity.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.2",
+    "typescript": "^6.0.3"
+  }
+}

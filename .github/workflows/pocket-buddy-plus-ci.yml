@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feat/pocket-buddy-plus-foundation
+      - feat/pocket-buddy-plus-product-ui
   workflow_dispatch:
 
 permissions:
