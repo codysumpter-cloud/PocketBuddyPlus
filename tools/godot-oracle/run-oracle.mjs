@@ -25,7 +25,10 @@ const repoRoot = join(here, "..", "..");
 const GODOT = process.env.PBP_GODOT_BIN || "/opt/homebrew/bin/godot";
 const DONOR =
   process.env.PBP_BUDDY_CORE_DIR ||
-  "/Users/prismtek/Prismtek/prismtek-apps/packages/godot/prismtek-buddy-core";
+  // Clean active checkout. The legacy ~/Prismtek/prismtek-apps working copy is
+  // archival and must not be depended on; override with PBP_BUDDY_CORE_DIR if
+  // the donor lives elsewhere on this machine.
+  "/Users/prismtek/Prismtek/active/prismtek-apps/packages/godot/prismtek-buddy-core";
 
 /** Float32 storage means the donor's values are single precision. */
 const TOLERANCE = 1e-6;
