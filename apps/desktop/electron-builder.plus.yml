@@ -25,6 +25,11 @@ files:
 extraResources:
   - from: ../../plugins/official
     to: plugins/official
+  # Licensed Tiny House art, staged by scripts/stage-content-pack.mjs from a
+  # private path. Never committed to this repository. Empty on machines without
+  # the pack, in which case Home falls back to placeholder geometry.
+  - from: .content-pack/tinyhouse
+    to: tinyhouse
 
 asar: true
 asarUnpack:

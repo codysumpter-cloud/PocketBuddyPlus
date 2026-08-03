@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { assetUrl, type HomeContentPack, type PackItem } from "./content-pack";
 import {
   createHomeFloorTileLayer,
   createHomeRoomDocument,
@@ -9,14 +10,52 @@ import {
   projectCanonicalCell,
   resetHomeFloorTile,
   rotateCameraCorner,
+  rotateCanonicalCell,
+  mapToLocal,
+  floorGroundPosition,
+  wallCells,
+  wallDepthBands,
+  TILE_WIDTH as ISO_TILE_WIDTH,
+  TILE_HEIGHT as ISO_TILE_HEIGHT,
+  isNearWall,
+  WORLD_WALLS,
   type GridCell,
   type HomeFloorTileLayer,
   type HomeRoomDocument,
 } from "@open-pets/buddy-domain";
 
 const HOME_STORAGE_KEY = "pocket-buddy-plus:phaser-home:v1";
-const TILE_WIDTH = 72;
-const TILE_HEIGHT = 36;
+// Donor geometry, not a guess: IsoTileRoom uses a 128x64 isometric tile with
+// TILE_LAYOUT_DIAMOND_DOWN. Pinned by tools/godot-oracle/iso-tile-parity.test.mjs.
+const TILE_WIDTH = ISO_TILE_WIDTH;
+const TILE_HEIGHT = ISO_TILE_HEIGHT;
+const WALL_RISE = 46;
+// Donor depth bands. Items sit in front of near walls (-900 in the donor).
+const FLOOR_BAND = -2400;
+const ITEM_BAND = -900;
+
+/** Render metadata for the installed Buddy, supplied by the main process. */
+export interface HomePetRenderInfo {
+  readonly id: string;
+  readonly spritesheetUrl: string;
+  readonly frameWidth: number;
+  readonly frameHeight: number;
+  readonly columns: number;
+  readonly idleRow: number;
+  readonly idleFrames: number;
+  readonly idleFps: number;
+  readonly scale: number;
+}
+
+/** Cell along a given wall, used to lay tiled wall art. */
+function wallCellFor(side: string, index: number, width: number, height: number): { x: number; y: number } {
+  switch (side) {
+    case "north": return { x: index, y: 0 };
+    case "south": return { x: index, y: height - 1 };
+    case "west": return { x: 0, y: index };
+    default: return { x: width - 1, y: index };
+  }
+}
 
 export const HOME_BRUSHES = [
   "floor.wood",
@@ -49,6 +88,8 @@ interface PersistedHomeState {
 
 interface MountOptions {
   readonly onStateChange?: (snapshot: PhaserHomeSnapshot) => void;
+  readonly pack?: HomeContentPack | null;
+  readonly pet?: HomePetRenderInfo | null;
 }
 
 const MATERIAL_COLORS: Readonly<Record<string, number>> = {
@@ -66,10 +107,52 @@ class PhaserHomeScene extends Phaser.Scene {
   private hoverCell: GridCell | null = null;
   private lastPaintedKey: string | null = null;
   private onStateChange?: (snapshot: PhaserHomeSnapshot) => void;
+  private pack: HomeContentPack | null;
+  private pet: HomePetRenderInfo | null;
+  private sprites: Phaser.GameObjects.Image[] = [];
+  private petSprite: Phaser.GameObjects.Sprite | null = null;
+  /** Catalog floor used for each brush, resolved once the pack is known. */
+  private brushFloors = new Map<HomeBrush, string>();
 
-  constructor(onStateChange?: (snapshot: PhaserHomeSnapshot) => void) {
+  constructor(
+    onStateChange?: (snapshot: PhaserHomeSnapshot) => void,
+    pack: HomeContentPack | null = null,
+    pet: HomePetRenderInfo | null = null,
+  ) {
     super({ key: "PocketBuddyHome" });
     this.onStateChange = onStateChange;
+    this.pack = pack;
+    this.pet = pet;
+  }
+
+  preload(): void {
+    if (this.pack) {
+      // Brushes map onto real catalog floors by name, falling back to position
+      // so a renamed pack still dresses the room instead of going blank.
+      const pick = (needle: string, index: number) =>
+        this.pack!.floors.find((floor) => floor.id.toLowerCase().includes(needle))
+        ?? this.pack!.floors[Math.min(index, this.pack!.floors.length - 1)];
+      const chosen: Array<[HomeBrush, string]> = [
+        ["floor.wood", pick("wood", 0).id],
+        ["floor.stone", pick("stone", 1).id],
+        ["floor.grass", pick("green", 2).id],
+        ["floor.water", pick("blue", 3).id],
+      ];
+      for (const [brush, id] of chosen) this.brushFloors.set(brush, id);
+
+      for (const floor of this.pack.floors) this.load.image(`floor:${floor.id}`, assetUrl(floor.src));
+      for (const wall of this.pack.walls) {
+        this.load.image(`wall:${wall.id}:west`, assetUrl(wall.west));
+        this.load.image(`wall:${wall.id}:north`, assetUrl(wall.north));
+      }
+      for (const item of this.pack.items) this.load.image(`item:${item.id}`, assetUrl(item.src));
+    }
+    if (this.pet) {
+      this.load.spritesheet("home-pet", this.pet.spritesheetUrl, {
+        frameWidth: this.pet.frameWidth,
+        frameHeight: this.pet.frameHeight,
+      });
+    }
   }
 
   create(): void {
@@ -168,37 +251,56 @@ class PhaserHomeScene extends Phaser.Scene {
       for (let x = 0; x < this.room.width; x += 1) cells.push({ x, y });
     }
     cells.sort((a, b) => {
-      const pa = projectCanonicalCell(a, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
-      const pb = projectCanonicalCell(b, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+      const pa = this.project(a);
+      const pb = this.project(b);
       return pa.y - pb.y || pa.x - pb.x;
     });
 
+    // Sprites are rebuilt each frame alongside the graphics clear; leaving them
+    // would stack a new room on top of the old one every rotation.
+    for (const sprite of this.sprites) sprite.destroy();
+    this.sprites = [];
+
     for (const cell of cells) {
-      const point = projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+      const point = this.project(cell);
       const centerX = origin.x + point.x;
       const centerY = origin.y + point.y;
       const material = floorMaterialAt(this.floor, cell);
       const hovered = this.hoverCell?.x === cell.x && this.hoverCell?.y === cell.y;
-      drawDiamond(
-        graphics,
-        centerX,
-        centerY,
-        MATERIAL_COLORS[material] ?? 0xc99968,
-        hovered ? 0xffffff : 0x29334a,
-        hovered ? 3 : 1,
-      );
+
+      const floorKey = this.floorTextureKey(material);
+      if (floorKey) {
+        const tile = this.add.image(centerX, centerY, floorKey);
+        tile.setOrigin(0.5, 0.5);
+        tile.setDepth(FLOOR_BAND + point.y);
+        this.sprites.push(tile);
+        if (hovered) {
+          graphics.lineStyle(2, 0xffffff, 0.9);
+          this.strokeDiamond(graphics, centerX, centerY);
+        }
+      } else {
+        drawDiamond(
+          graphics,
+          centerX,
+          centerY,
+          MATERIAL_COLORS[material] ?? 0xc99968,
+          hovered ? 0xffffff : 0x29334a,
+          hovered ? 3 : 1,
+        );
+      }
     }
 
-    this.drawRearWalls(graphics, origin);
-    this.drawBuddy(graphics, origin);
+    if (!this.renderPackWalls(origin)) this.drawRearWalls(graphics, origin);
+    this.renderItems(origin);
+    if (!this.renderPetSprite(origin)) this.drawBuddy(graphics, origin);
   }
 
   private drawRearWalls(graphics: Phaser.GameObjects.Graphics, origin: Phaser.Math.Vector2): void {
     const corners = [
-      projectCanonicalCell({ x: 0, y: 0 }, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT),
-      projectCanonicalCell({ x: this.room.width - 1, y: 0 }, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT),
-      projectCanonicalCell({ x: this.room.width - 1, y: this.room.height - 1 }, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT),
-      projectCanonicalCell({ x: 0, y: this.room.height - 1 }, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT),
+      this.project({ x: 0, y: 0 }),
+      this.project({ x: this.room.width - 1, y: 0 }),
+      this.project({ x: this.room.width - 1, y: this.room.height - 1 }),
+      this.project({ x: 0, y: this.room.height - 1 }),
     ];
     const top = corners.reduce((best, point) => point.y < best.y ? point : best, corners[0]);
     const left = corners.reduce((best, point) => point.x < best.x ? point : best, corners[0]);
@@ -223,7 +325,7 @@ class PhaserHomeScene extends Phaser.Scene {
 
   private drawBuddy(graphics: Phaser.GameObjects.Graphics, origin: Phaser.Math.Vector2): void {
     const cell = { x: Math.floor(this.room.width / 2), y: Math.floor(this.room.height / 2) };
-    const point = projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+    const point = this.project(cell);
     const x = origin.x + point.x;
     const y = origin.y + point.y - 28;
 
@@ -240,6 +342,119 @@ class PhaserHomeScene extends Phaser.Scene {
     graphics.strokePath();
   }
 
+  /** Catalog texture for a brush material, or null when running on placeholders. */
+  private floorTextureKey(material: string): string | null {
+    const id = this.brushFloors.get(material as HomeBrush);
+    if (!id) return null;
+    const key = `floor:${id}`;
+    return this.textures.exists(key) ? key : null;
+  }
+
+  private strokeDiamond(graphics: Phaser.GameObjects.Graphics, cx: number, cy: number): void {
+    graphics.beginPath();
+    graphics.moveTo(cx, cy - TILE_HEIGHT / 2);
+    graphics.lineTo(cx + TILE_WIDTH / 2, cy);
+    graphics.lineTo(cx, cy + TILE_HEIGHT / 2);
+    graphics.lineTo(cx - TILE_WIDTH / 2, cy);
+    graphics.closePath();
+    graphics.strokePath();
+  }
+
+  /**
+   * Dress the two rear walls from the pack.
+   *
+   * Which walls are rear depends on the camera corner, so this asks the domain
+   * rather than assuming north/west -- assuming would leave walls floating in
+   * front of the room on half the rotations.
+   */
+  private renderPackWalls(origin: Phaser.Math.Vector2): boolean {
+    const wall = this.pack?.walls[0];
+    if (!wall) return false;
+    const westKey = `wall:${wall.id}:west`;
+    const northKey = `wall:${wall.id}:north`;
+    if (!this.textures.exists(westKey) || !this.textures.exists(northKey)) return false;
+
+    const bands = wallDepthBands(this.room.cameraCorner);
+    const cells = wallCells(this.room.width, this.room.height);
+    const place = (cell: GridCell, key: string, worldWall: "west" | "north") => {
+      const point = this.project(cell);
+      const band = (bands[worldWall] as { z: number }).z;
+      const image = this.add.image(origin.x + point.x, origin.y + point.y, key);
+      // Wall art is drawn from the cell it occupies; the donor's tileset
+      // registration already carries the rise, so no manual offset is applied.
+      image.setOrigin(0.5, 1);
+      image.setDepth(band + point.y);
+      this.sprites.push(image);
+    };
+
+    for (const cell of cells.left) place(cell, westKey, "west");
+    for (const cell of cells.right) place(cell, northKey, "north");
+    return true;
+  }
+
+  /** Furniture placed in the room document, depth-sorted with the floor. */
+  private renderItems(origin: Phaser.Math.Vector2): void {
+    if (!this.pack) return;
+    const byId = new Map(this.pack.items.map((item) => [item.id, item]));
+    for (const placed of this.room.items) {
+      const item = byId.get(placed.assetId.replace(/^asset:/, "")) ?? byId.get(placed.assetId);
+      if (!item) continue;
+      const key = `item:${item.id}`;
+      if (!this.textures.exists(key)) continue;
+      const anchorCell = placed.placement.anchor;
+      const point = this.project(anchorCell);
+      const image = this.add.image(origin.x + point.x, origin.y + point.y, key);
+      // `anchor` is the fraction of sprite height sitting below the tile centre.
+      image.setOrigin(0.5, item.anchor);
+      image.setScale(item.scale * (placed.placement.scale ?? 1));
+      image.setDepth(ITEM_BAND + point.y);
+      this.sprites.push(image);
+    }
+  }
+
+  /** The real installed Buddy, standing in the middle of the room. */
+  private renderPetSprite(origin: Phaser.Math.Vector2): boolean {
+    if (!this.pet || !this.textures.exists("home-pet")) return false;
+    const cell = { x: Math.floor(this.room.width / 2), y: Math.floor(this.room.height / 2) };
+    const ground = floorGroundPosition(rotateCanonicalCell(cell, this.room, this.room.cameraCorner));
+    const point = this.project(cell);
+    const x = origin.x + ground.x;
+    const y = origin.y + ground.y;
+
+    if (!this.petSprite) {
+      const first = this.pet.idleRow * this.pet.columns;
+      this.petSprite = this.add.sprite(x, y, "home-pet", first);
+      this.petSprite.setOrigin(0.5, 0.92);
+      this.petSprite.setScale(this.pet.scale * 0.45);
+      if (!this.anims.exists("home-pet-idle")) {
+        this.anims.create({
+          key: "home-pet-idle",
+          frames: this.anims.generateFrameNumbers("home-pet", {
+            start: first,
+            end: first + this.pet.idleFrames - 1,
+          }),
+          frameRate: this.pet.idleFps,
+          repeat: -1,
+        });
+      }
+      this.petSprite.play("home-pet-idle");
+    }
+    this.petSprite.setPosition(x, y);
+    this.petSprite.setDepth(ITEM_BAND + point.y + 1);
+    return true;
+  }
+
+  /**
+   * Cell -> room-local pixels, via the ported donor mapping.
+   *
+   * Rotation happens by rotating the CANONICAL CELL and then projecting, which
+   * is what the donor does: camera orbit rebuilds from canonical cells rather
+   * than renaming walls or re-deriving the projection per view.
+   */
+  private project(cell: GridCell): { x: number; y: number } {
+    return mapToLocal(rotateCanonicalCell(cell, this.room, this.room.cameraCorner));
+  }
+
   private roomOrigin(): Phaser.Math.Vector2 {
     const minX = -(this.room.height - 1) * (TILE_WIDTH / 2);
     const maxX = (this.room.width - 1) * (TILE_WIDTH / 2);
@@ -254,7 +469,7 @@ class PhaserHomeScene extends Phaser.Scene {
     for (let y = 0; y < this.room.height; y += 1) {
       for (let x = 0; x < this.room.width; x += 1) {
         const cell = { x, y };
-        const point = projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+        const point = this.project(cell);
         const dx = Math.abs(pointerX - (origin.x + point.x)) / (TILE_WIDTH / 2);
         const dy = Math.abs(pointerY - (origin.y + point.y)) / (TILE_HEIGHT / 2);
         const distance = dx + dy;
@@ -269,7 +484,7 @@ export function mountPhaserHome(
   parent: HTMLElement,
   options: MountOptions = {},
 ): PhaserHomeController {
-  const scene = new PhaserHomeScene(options.onStateChange);
+  const scene = new PhaserHomeScene(options.onStateChange, options.pack ?? null, options.pet ?? null);
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent,

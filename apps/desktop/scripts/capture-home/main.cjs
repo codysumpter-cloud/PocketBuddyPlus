@@ -13,7 +13,7 @@
  *
  *   electron scripts/capture-home/main.cjs
  */
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const { mkdirSync, writeFileSync, rmSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
@@ -23,6 +23,9 @@ const { tmpdir } = require("node:os");
 // where the room should be. Software rendering paints on the main compositor
 // and is capturable while the window stays hidden.
 app.disableHardwareAcceleration();
+
+// Before ready: same CORS requirement as production.
+require(join(__dirname, "..", "..", "dist", "home-content.js")).registerHomeContentSchemes();
 
 const EXPECTED_CORNERS = ["SE", "SW", "NW", "NE"];
 const rendererIndex = join(__dirname, "..", "..", "dist", "renderer", "index.html");
@@ -77,7 +80,46 @@ function differingFraction(a, b) {
   return n === 0 ? 0 : diff / n;
 }
 
+/**
+ * Wire the real content-pack path.
+ *
+ * Uses the built home-content module for protocol + catalog so the capture
+ * exercises production code, not a re-implementation. The pet is resolved here
+ * from pet.json directly, because the production accessor reads app state that
+ * this harness deliberately does not boot.
+ */
+async function installContentBridge() {
+  const { installHomeContentProtocol, readHomeCatalog, resolveHomeContentRoot } = require(
+    join(__dirname, "..", "..", "dist", "home-content.js"),
+  );
+  installHomeContentProtocol();
+  ipcMain.handle("openpets:get-home-catalog", async () => readHomeCatalog());
+  ipcMain.handle("openpets:get-home-pet", async () => {
+    const petId = process.env.POCKET_BUDDY_PLUS_HOME_PET || "tom-lizard";
+    const dir = join(app.getPath("home"), "Library", "Application Support", "Pocket Buddy+", "pets", petId);
+    try {
+      const meta = JSON.parse(require("node:fs").readFileSync(join(dir, "pet.json"), "utf8"));
+      return {
+        id: petId,
+        spritesheetUrl: `file://${join(dir, meta.spritesheetPath || "spritesheet.webp")}`,
+        frameWidth: meta.frame.width,
+        frameHeight: meta.frame.height,
+        columns: meta.sheet.columns,
+        idleRow: meta.animations?.idle?.row ?? 0,
+        idleFrames: meta.animations?.idle?.frames ?? 1,
+        idleFps: meta.animations?.idle?.fps ?? 6,
+        scale: meta.defaultScale ?? 1,
+      };
+    } catch {
+      return null;
+    }
+  });
+  return resolveHomeContentRoot();
+}
+
 async function run() {
+  const packRoot = await installContentBridge();
+  console.log(packRoot ? `content pack: ${packRoot}` : "content pack: NONE (placeholders)");
   rmSync(artifactsDir, { recursive: true, force: true });
   mkdirSync(artifactsDir, { recursive: true });
 

@@ -1,4 +1,5 @@
-import { HOME_BRUSHES, mountPhaserHome, type HomeBrush, type PhaserHomeController } from "./home/phaser-home";
+import { HOME_BRUSHES, mountPhaserHome, type HomeBrush, type HomePetRenderInfo, type PhaserHomeController } from "./home/phaser-home";
+import { loadHomeContentPack, type HomeContentPack } from "./home/content-pack";
 import "./home-ui.css";
 
 let modal: HTMLDivElement | null = null;
@@ -78,6 +79,29 @@ function brushButton(brush: HomeBrush): string {
   </button>`;
 }
 
+let contentPack: HomeContentPack | null = null;
+let homePet: HomePetRenderInfo | null = null;
+let contentLoaded = false;
+
+/**
+ * Fetch the licensed content pack and the installed Buddy once per session.
+ *
+ * Both are optional. A build without the pack, or with no usable pet, still
+ * opens Home -- it just draws placeholders.
+ */
+async function ensureHomeContent(): Promise<void> {
+  if (contentLoaded) return;
+  contentLoaded = true;
+  contentPack = await loadHomeContentPack();
+  const bridge = (globalThis as { openPetsControlCenter?: { getHomePet?: () => Promise<unknown> } }).openPetsControlCenter;
+  try {
+    const pet = await bridge?.getHomePet?.();
+    homePet = pet && typeof pet === "object" ? (pet as HomePetRenderInfo) : null;
+  } catch {
+    homePet = null;
+  }
+}
+
 function openHome(): void {
   if (!modal) modal = createHomeModal();
   if (!modal.isConnected) document.body.append(modal);
@@ -85,7 +109,14 @@ function openHome(): void {
   const stage = modal.querySelector<HTMLElement>("[data-home-stage]");
   if (!stage) return;
   controller?.destroy();
-  controller = mountPhaserHome(stage, {
+  controller = null;
+  void ensureHomeContent().then(() => {
+    if (!modal?.isConnected) return;
+    const liveStage = modal.querySelector<HTMLElement>("[data-home-stage]");
+    if (!liveStage) return;
+    controller = mountPhaserHome(liveStage, {
+    pack: contentPack,
+    pet: homePet,
     onStateChange(snapshot) {
       const status = modal?.querySelector<HTMLElement>("[data-home-status]");
       if (status) {
@@ -95,8 +126,9 @@ function openHome(): void {
         status.textContent = `Camera ${snapshot.cameraCorner} · ${brush} brush · ${snapshot.paintedTiles} painted tiles`;
       }
     },
+    });
+    controller.setBrush(selectedBrush);
   });
-  controller.setBrush(selectedBrush);
   requestAnimationFrame(() => modal?.querySelector<HTMLElement>("button")?.focus());
 }
 

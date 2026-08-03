@@ -1,4 +1,5 @@
 export * from "./isometric.js";
+export * from "./iso-tiles.js";
 export * from "./placement.js";
 export * from "./room-document.js";
 export * from "./tile-layer.js";

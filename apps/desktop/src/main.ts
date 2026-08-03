@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { delimiter, join, resolve } from "node:path";
 
 import { getAppStateSnapshot, initializeAppState, releaseStartupInstallLock } from "./app-state.js";
+import { registerHomeContentSchemes } from "./home-content.js";
 import { createAppIcon } from "./assets.js";
 import { setLocaleFromPreference } from "./i18n/index.js";
 import { installDefaultPetDisplayHandlers, shouldOpenDefaultPetOnLaunch, showDefaultPet } from "./default-pet-controller.js";
@@ -61,6 +62,10 @@ if (isLinux && !allowWayland) {
 
 // Must happen before any userData-derived path is read.
 applyPlusUserDataPath();
+
+// Must happen before `ready`: Home's texture loader fetches art over XHR, which
+// requires these schemes to be CORS-eligible.
+registerHomeContentSchemes();
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 

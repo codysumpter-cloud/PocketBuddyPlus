@@ -9,7 +9,7 @@
  * main-process behaviour (persistence, care actions, quit/relaunch), which is
  * covered by the packaged smoke test instead.
  */
-const { contextBridge } = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 
 // The preload shares the DOM event target with the main world, so this catches
 // renderer boot failures with a stack the harness can act on.
@@ -90,6 +90,12 @@ const api = {
   runIntegrationAction: ok(integrations),
   updateIntegrationCommandPaths: ok(integrations),
 };
+
+// Home content is the one pair of channels the harness resolves for real: the
+// point of the capture is to prove licensed art actually renders, which a
+// fixture cannot show. Absent a handler these reject and Home uses placeholders.
+api.getHomeCatalog = () => ipcRenderer.invoke("openpets:get-home-catalog");
+api.getHomePet = () => ipcRenderer.invoke("openpets:get-home-pet");
 
 contextBridge.exposeInMainWorld("openPetsControlCenter", api);
 // Lets the harness know the stub is live and every channel is accounted for.

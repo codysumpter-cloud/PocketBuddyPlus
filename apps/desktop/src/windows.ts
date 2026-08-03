@@ -9,6 +9,7 @@ import { refreshAgentPetContent } from "./agent-pet-controller.js";
 import { getAppStateSnapshot, normalizePetPoolOrder, petScaleOptions, setPetPoolOrder, updatePreferences } from "./app-state.js";
 import { applyRoamingToAllPets } from "./pet-roaming-controller.js";
 import { createAppIcon } from "./assets.js";
+import { installHomeContentProtocol, readHomeCatalog, readHomePet } from "./home-content.js";
 import { getCatalogPageUiState, getCatalogSearchUiState, getCatalogUiState } from "./catalog.js";
 import { getCodexPetsUiState, importCodexPet, readCodexPetSpritesheet } from "./codex-pets.js";
 import { setConfinementEnabled } from "./confinement-manager.js";
@@ -173,6 +174,14 @@ export function installInternalUiHandlers(): void {
   setCrossDisplayRoamingEnabled(getAppStateSnapshot().preferences.petCrossDisplayEnabled);
   // Apply the persisted petGravityEnabled preference on startup.
   applyRoamingToAllPets();
+
+  ipcMain.handle("openpets:get-home-catalog", async () => {
+    // Returns parsed JSON or null. Never a filesystem path: the renderer must
+    // not learn where the licensed pack lives.
+    return readHomeCatalog();
+  });
+
+  ipcMain.handle("openpets:get-home-pet", async () => readHomePet());
 
   ipcMain.handle("openpets:get-pets-state", (event) => {
     assertAllowedSender(event, ["control-center"]);
@@ -542,6 +551,7 @@ async function chooseLocalPetImportKind(owner: BrowserWindow | undefined): Promi
 
 export function installInternalUiProtocol(): void {
   registerPluginAssetProtocol(protocol, getPluginService);
+  installHomeContentProtocol();
   protocol.handle("openpets-codex", async (request) => {
     try {
       if (request.method !== "GET" && request.method !== "HEAD") return new Response(null, { status: 405 });
