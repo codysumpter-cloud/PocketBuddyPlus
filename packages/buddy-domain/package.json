@@ -3,7 +3,7 @@
   "version": "3.3.0",
   "private": true,
   "license": "MIT",
-  "description": "Parity port of the Prismtek Buddy Core creature domain into TypeScript.",
+  "description": "Parity port of the Prismtek Buddy Core creature and Home domain into TypeScript.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/codysumpter-cloud/PocketBuddyPlus.git",
@@ -22,7 +22,7 @@
     "check": "pnpm typecheck",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "test": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/drive-set-parity.test.js"
+    "test": "tsc -p tsconfig.tests.json && node --test dist-tests/tests/drive-set-parity.test.js dist-tests/tests/home-domain.test.js dist-tests/tests/parity-trace.test.js"
   },
   "devDependencies": {
     "@types/node": "^25.6.2",
