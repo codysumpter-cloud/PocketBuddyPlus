@@ -54,6 +54,8 @@ INBOX_DIR="$ROOT/inbox"
 BACKUPS_DIR="$ROOT/backups/workspace-doctor/$STAMP"
 QUARANTINE_DIR="$ROOT/archive/quarantine-$STAMP"
 REPORTS_DIR="$ROOT/reports"
+POCKETBUDDYPLUS_REMOTE="${PRISMTEK_POCKETBUDDYPLUS_REMOTE:-https://github.com/codysumpter-cloud/PocketBuddyPlus.git}"
+PRISMTEK_APPS_REMOTE="${PRISMTEK_APPS_REMOTE:-https://github.com/codysumpter-cloud/prismtek-apps.git}"
 REPORT="$REPORTS_DIR/workspace-doctor-$STAMP.md"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/prismtek-workspace-doctor.XXXXXX")"
 REPO_ROWS="$TMP_DIR/repos.tsv"
@@ -208,9 +210,11 @@ while IFS= read -r git_entry; do
 done < "$found_git"
 
 TARGETS="$TMP_DIR/targets.tsv"
+POCKETBUDDYPLUS_KEY="$(normalize_remote "$POCKETBUDDYPLUS_REMOTE")"
+PRISMTEK_APPS_KEY="$(normalize_remote "$PRISMTEK_APPS_REMOTE")"
 cat > "$TARGETS" <<EOF_TARGETS
-pocketbuddyplus	https://github.com/codysumpter-cloud/pocketbuddyplus	$REPOS_DIR/PocketBuddyPlus	https://github.com/codysumpter-cloud/PocketBuddyPlus.git
-prismtek-apps	https://github.com/codysumpter-cloud/prismtek-apps	$REPOS_DIR/prismtek-apps	https://github.com/codysumpter-cloud/prismtek-apps.git
+pocketbuddyplus	$POCKETBUDDYPLUS_KEY	$REPOS_DIR/PocketBuddyPlus	$POCKETBUDDYPLUS_REMOTE
+prismtek-apps	$PRISMTEK_APPS_KEY	$REPOS_DIR/prismtek-apps	$PRISMTEK_APPS_REMOTE
 EOF_TARGETS
 
 if [ "$MODE" = "apply" ]; then
