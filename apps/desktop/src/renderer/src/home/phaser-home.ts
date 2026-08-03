@@ -8,7 +8,7 @@ import {
   parseHomeRoomDocument,
   projectCanonicalCell,
   resetHomeFloorTile,
-  rotateOrientation,
+  rotateCameraCorner,
   type GridCell,
   type HomeFloorTileLayer,
   type HomeRoomDocument,
@@ -29,7 +29,7 @@ export const HOME_BRUSHES = [
 export type HomeBrush = (typeof HOME_BRUSHES)[number];
 
 export interface PhaserHomeSnapshot {
-  readonly orientation: HomeRoomDocument["orientation"];
+  readonly cameraCorner: HomeRoomDocument["cameraCorner"];
   readonly brush: HomeBrush;
   readonly paintedTiles: number;
 }
@@ -118,7 +118,7 @@ class PhaserHomeScene extends Phaser.Scene {
   private handleRotate(deltaQuarter: number): void {
     this.room = {
       ...this.room,
-      orientation: rotateOrientation(this.room.orientation, deltaQuarter),
+      cameraCorner: rotateCameraCorner(this.room.cameraCorner, deltaQuarter),
       revision: this.room.revision + 1,
     };
     this.hoverCell = null;
@@ -151,7 +151,7 @@ class PhaserHomeScene extends Phaser.Scene {
 
   private emitSnapshot(): void {
     this.onStateChange?.({
-      orientation: this.room.orientation,
+      cameraCorner: this.room.cameraCorner,
       brush: this.brush,
       paintedTiles: Object.keys(this.floor.overrides).length,
     });
@@ -168,13 +168,13 @@ class PhaserHomeScene extends Phaser.Scene {
       for (let x = 0; x < this.room.width; x += 1) cells.push({ x, y });
     }
     cells.sort((a, b) => {
-      const pa = projectCanonicalCell(a, this.room, this.room.orientation, TILE_WIDTH, TILE_HEIGHT);
-      const pb = projectCanonicalCell(b, this.room, this.room.orientation, TILE_WIDTH, TILE_HEIGHT);
+      const pa = projectCanonicalCell(a, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+      const pb = projectCanonicalCell(b, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
       return pa.y - pb.y || pa.x - pb.x;
     });
 
     for (const cell of cells) {
-      const point = projectCanonicalCell(cell, this.room, this.room.orientation, TILE_WIDTH, TILE_HEIGHT);
+      const point = projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
       const centerX = origin.x + point.x;
       const centerY = origin.y + point.y;
       const material = floorMaterialAt(this.floor, cell);
@@ -195,10 +195,10 @@ class PhaserHomeScene extends Phaser.Scene {
 
   private drawRearWalls(graphics: Phaser.GameObjects.Graphics, origin: Phaser.Math.Vector2): void {
     const corners = [
-      projectCanonicalCell({ x: 0, y: 0 }, this.room, this.room.orientation, TILE_WIDTH, TILE_HEIGHT),
-      projectCanonicalCell({ x: this.room.width - 1, y: 0 }, this.room, this.room.orientation, TILE_WIDTH, TILE_HEIGHT),
-      projectCanonicalCell({ x: this.room.width - 1, y: this.room.height - 1 }, this.room, this.room.orientation, TILE_WIDTH, TILE_HEIGHT),
-      projectCanonicalCell({ x: 0, y: this.room.height - 1 }, this.room, this.room.orientation, TILE_WIDTH, TILE_HEIGHT),
+      projectCanonicalCell({ x: 0, y: 0 }, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT),
+      projectCanonicalCell({ x: this.room.width - 1, y: 0 }, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT),
+      projectCanonicalCell({ x: this.room.width - 1, y: this.room.height - 1 }, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT),
+      projectCanonicalCell({ x: 0, y: this.room.height - 1 }, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT),
     ];
     const top = corners.reduce((best, point) => point.y < best.y ? point : best, corners[0]);
     const left = corners.reduce((best, point) => point.x < best.x ? point : best, corners[0]);
@@ -223,7 +223,7 @@ class PhaserHomeScene extends Phaser.Scene {
 
   private drawBuddy(graphics: Phaser.GameObjects.Graphics, origin: Phaser.Math.Vector2): void {
     const cell = { x: Math.floor(this.room.width / 2), y: Math.floor(this.room.height / 2) };
-    const point = projectCanonicalCell(cell, this.room, this.room.orientation, TILE_WIDTH, TILE_HEIGHT);
+    const point = projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
     const x = origin.x + point.x;
     const y = origin.y + point.y - 28;
 
@@ -254,7 +254,7 @@ class PhaserHomeScene extends Phaser.Scene {
     for (let y = 0; y < this.room.height; y += 1) {
       for (let x = 0; x < this.room.width; x += 1) {
         const cell = { x, y };
-        const point = projectCanonicalCell(cell, this.room, this.room.orientation, TILE_WIDTH, TILE_HEIGHT);
+        const point = projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
         const dx = Math.abs(pointerX - (origin.x + point.x)) / (TILE_WIDTH / 2);
         const dy = Math.abs(pointerY - (origin.y + point.y)) / (TILE_HEIGHT / 2);
         const distance = dx + dy;

@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-This folder contains the Phaser-powered real-time Home canvas used by the Pocket Buddy+ Electron renderer. It owns presentation and direct manipulation only. Canonical room, orientation, placement, tile, and save validation live in `@open-pets/buddy-domain`.
+This folder contains the Phaser-powered real-time Home canvas used by the Pocket Buddy+ Electron renderer. It owns presentation and direct manipulation only. Canonical room, camera corner, placement, tile, and save validation live in `@open-pets/buddy-domain`.
 
 ## Files
 

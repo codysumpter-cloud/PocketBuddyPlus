@@ -55,7 +55,7 @@ function createHomeModal(): HTMLDivElement {
       </div>
       <div class="pb-home-stage" data-home-stage></div>
       <footer class="pb-home-footer">
-        <span data-home-status>Orientation SE · Wood brush · 0 painted tiles</span>
+        <span data-home-status>Camera SE · Wood brush · 0 painted tiles</span>
         <span>Drag across diamonds to paint. This preview save is isolated from the original Godot game.</span>
       </footer>
     </section>
@@ -92,7 +92,7 @@ function openHome(): void {
         const brush = snapshot.brush === "erase"
           ? "Erase"
           : snapshot.brush.replace("floor.", "").replace(/^./, (letter) => letter.toUpperCase());
-        status.textContent = `Orientation ${snapshot.orientation} · ${brush} brush · ${snapshot.paintedTiles} painted tiles`;
+        status.textContent = `Camera ${snapshot.cameraCorner} · ${brush} brush · ${snapshot.paintedTiles} painted tiles`;
       }
     },
   });
