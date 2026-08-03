@@ -20,6 +20,7 @@ import {
   type WorldWall,
 } from "./room-document.js";
 import { isNearWall, nearWalls, rotateCameraCorner } from "./isometric.js";
+import { parseWallKey, wallBoundaryCells, wallPresentation } from "./wall-model.js";
 import { createParityTrace, type JsonValue, type ParityTrace, type ParityTraceStep } from "../parity/index.js";
 
 export const WALL_PARITY_SCENARIO_ID = "home.walls.canonical";
@@ -50,12 +51,52 @@ function cornerSnapshot(cameraCorner: CameraCorner): JsonValue {
 }
 
 /**
- * The comparable subset of the wall model.
+ * Inputs the donor's `orientation_of()` is pinned against, including the v4
+ * legacy presentation names. Must stay identical to the emitter's list, in the
+ * same order -- this is a save-compatibility contract, not a sample.
+ */
+const LEGACY_PARSE_CASES = [
+  "north", "east", "south", "west",
+  "n", "e", "s", "w",
+  "left", "right",
+  "wall_north", "wall_west",
+  "NORTH", "  south  ", "bogus", "",
+] as const;
+
+/** Non-square on purpose: a width/height transposition would survive a square. */
+const BOUNDARY_ROOM = { width: 5, height: 3 } as const;
+
+function legacyParseSnapshot(): JsonValue {
+  return Object.fromEntries(
+    LEGACY_PARSE_CASES.map((value) => [value, parseWallKey(value)]),
+  ) as unknown as JsonValue;
+}
+
+function boundarySnapshot(): JsonValue {
+  return Object.fromEntries(
+    WORLD_WALLS.map((wall) => [wall, wallBoundaryCells(BOUNDARY_ROOM.width, BOUNDARY_ROOM.height, wall)]),
+  ) as unknown as JsonValue;
+}
+
+function cutawaySnapshot(): JsonValue {
+  // Quarter 0 (camera at SE) puts south/east camera-facing and north/west rear,
+  // so a single corner exercises both wall roles.
+  const corner = cornerForQuarter(0);
+  const perMode = (mode: string, buildMode: boolean) =>
+    Object.fromEntries(WORLD_WALLS.map((wall) => [wall, wallPresentation(wall, corner, mode, buildMode)]));
+
+  const out: Record<string, unknown> = {};
+  for (const mode of CUTAWAY_MODES) out[mode] = perMode(mode, false);
+  out.__buildMode = perMode("auto", true);
+  return out as unknown as JsonValue;
+}
+
+/**
+ * The full wall model, with no step left to the donor alone.
  *
- * Steps the TypeScript domain has no equivalent for -- boundary cells and
- * cutaway presentation (visible/alpha) -- are deliberately NOT synthesised here.
- * Inventing them would manufacture agreement; the comparison ignores those
- * scenario steps explicitly instead, and they are tracked as porting work.
+ * Every snapshot here is computed by the TypeScript port and diffed against the
+ * real `InteriorWallModel`. Nothing is synthesised from the donor's output --
+ * that would manufacture agreement rather than test for it.
  */
 export function runWallParityScenario(): ParityTrace {
   const steps: ParityTraceStep[] = [];
@@ -82,6 +123,29 @@ export function runWallParityScenario(): ParityTrace {
     });
     atMs += 100;
   }
+
+  steps.push({
+    atMs,
+    input: { op: "parseLegacyWallKeys" } as unknown as JsonValue,
+    snapshot: legacyParseSnapshot(),
+    events: [],
+  });
+  atMs += 100;
+
+  steps.push({
+    atMs,
+    input: { op: "boundaryCells", width: BOUNDARY_ROOM.width, height: BOUNDARY_ROOM.height } as unknown as JsonValue,
+    snapshot: boundarySnapshot(),
+    events: [],
+  });
+  atMs += 100;
+
+  steps.push({
+    atMs,
+    input: { op: "cutawayPresentation" } as unknown as JsonValue,
+    snapshot: cutawaySnapshot(),
+    events: [],
+  });
 
   return createParityTrace({
     scenarioId: WALL_PARITY_SCENARIO_ID,
