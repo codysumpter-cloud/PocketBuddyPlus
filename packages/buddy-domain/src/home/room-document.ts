@@ -23,7 +23,14 @@ export type SurfaceId = (typeof SURFACE_IDS)[number];
 export const ROOM_ORIENTATIONS = ["SE", "SW", "NW", "NE"] as const;
 export type RoomOrientation = (typeof ROOM_ORIENTATIONS)[number];
 
-export const CUTAWAY_MODES = ["auto", "fade", "hide", "show"] as const;
+/**
+ * Cutaway modes, aligned to the donor `InteriorWallModel.CUTAWAY_MODES` in
+ * prismtek-apps. This originally read "show"; cross-runtime parity found the
+ * donor uses "always_show", which means a room saved by one runtime would have
+ * been rejected by the other. The donor already has shipped v4 saves and this
+ * schema is unreleased, so the TypeScript side moved.
+ */
+export const CUTAWAY_MODES = ["auto", "fade", "hide", "always_show"] as const;
 export type CutawayMode = (typeof CUTAWAY_MODES)[number];
 
 export interface GridCell {
