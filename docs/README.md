@@ -17,6 +17,8 @@ Docs here are the *narrative* layer on top of those maps.
 - **[home-electron-migration.md](home-electron-migration.md)** — the decision to
   consolidate Pocket Buddy and the Godot house into Electron-native Desktop,
   Home, Play, and Studio experiences; parity, authority, assets, and Claude handoff.
+- **[phaser-home.md](phaser-home.md)** — Phaser 4 engine choice, Electron/React/
+  Phaser/domain ownership, the first isometric tile-painting slice, and creator direction.
 - **[architecture.md](architecture.md)** — the upstream platform mental model:
   runtime topology, the package spine, end-to-end flows, cross-cutting invariants,
   and a glossary.
