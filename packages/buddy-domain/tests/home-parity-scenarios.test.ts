@@ -16,7 +16,7 @@ import {
   runHomeScenario,
 } from "../src/home/parity-scenarios.js";
 import { PARITY_TRACE_SCHEMA, compareParityTraces } from "../src/parity/index.js";
-import { ROOM_ORIENTATIONS } from "../src/home/room-document.js";
+import { CAMERA_CORNERS } from "../src/home/room-document.js";
 
 test("every scenario produces a schema-valid trace", () => {
   for (const trace of runAllHomeScenarios()) {
@@ -39,29 +39,29 @@ test("running the same scenario twice is byte-identical", () => {
   }
 });
 
-test("all four orientations are exercised and change presented geometry", () => {
-  const trace = runHomeScenario(HOME_PARITY_SCENARIOS.find((s) => s.scenarioId === "home.room.orientations")!);
+test("all four camera corners are exercised and change presented geometry", () => {
+  const trace = runHomeScenario(HOME_PARITY_SCENARIOS.find((s) => s.scenarioId === "home.room.cameraCorners")!);
   const seen = new Set<string>();
   for (const step of trace.steps) {
     const snapshot = step.snapshot as Record<string, unknown>;
-    if (typeof snapshot.orientation === "string") seen.add(snapshot.orientation);
+    if (typeof snapshot.cameraCorner === "string") seen.add(snapshot.cameraCorner);
   }
-  for (const orientation of ROOM_ORIENTATIONS) {
-    assert.ok(seen.has(orientation), `orientation ${orientation} never appears`);
+  for (const cameraCorner of CAMERA_CORNERS) {
+    assert.ok(seen.has(cameraCorner), `cameraCorner ${cameraCorner} never appears`);
   }
   // A 5x3 room must present as 3x5 when rotated a quarter turn, or the
-  // projection is not orientation-aware.
+  // projection is not camera-corner-aware.
   const presented = trace.steps.map((s) => {
     const p = (s.snapshot as Record<string, unknown>).presented as { width: number; height: number };
     return `${p.width}x${p.height}`;
   });
-  assert.ok(new Set(presented).size > 1, "presented size never changed across orientations");
+  assert.ok(new Set(presented).size > 1, "presented size never changed across cameraCorners");
 });
 
-test("rotating four quarter turns returns to the starting orientation", () => {
+test("rotating four quarter turns returns to the starting cameraCorner", () => {
   const trace = runHomeScenario(HOME_PARITY_SCENARIOS.find((s) => s.scenarioId === "home.room.rotation-closure")!);
-  const first = (trace.steps[0].snapshot as Record<string, unknown>).orientation;
-  const last = (trace.steps[trace.steps.length - 1].snapshot as Record<string, unknown>).orientation;
+  const first = (trace.steps[0].snapshot as Record<string, unknown>).cameraCorner;
+  const last = (trace.steps[trace.steps.length - 1].snapshot as Record<string, unknown>).cameraCorner;
   assert.equal(last, first, "four rotations must close the loop");
 });
 

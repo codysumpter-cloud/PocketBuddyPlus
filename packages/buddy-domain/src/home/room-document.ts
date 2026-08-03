@@ -20,8 +20,8 @@ export const SURFACE_IDS = [
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];
 
-export const ROOM_ORIENTATIONS = ["SE", "SW", "NW", "NE"] as const;
-export type RoomOrientation = (typeof ROOM_ORIENTATIONS)[number];
+export const CAMERA_CORNERS = ["SE", "SW", "NW", "NE"] as const;
+export type CameraCorner = (typeof CAMERA_CORNERS)[number];
 
 /**
  * Cutaway modes, aligned to the donor `InteriorWallModel.CUTAWAY_MODES` in
@@ -73,7 +73,7 @@ export interface HomeRoomDocument {
   readonly revision: number;
   readonly width: number;
   readonly height: number;
-  readonly orientation: RoomOrientation;
+  readonly cameraCorner: CameraCorner;
   readonly cutaway: CutawayMode;
   readonly surfaces: Readonly<Record<SurfaceId, RoomSurfaceState>>;
   readonly items: readonly HomeRoomItem[];
@@ -216,7 +216,7 @@ export function createHomeRoomDocument(options: {
     revision: 0,
     width,
     height,
-    orientation: "SE",
+    cameraCorner: "SE",
     cutaway: "auto",
     surfaces: defaultSurfaces(),
     items: [],
@@ -231,8 +231,8 @@ export function parseHomeRoomDocument(value: unknown): HomeRoomDocument {
   }
   const width = integerInRange(value.width, "width", 1, 64);
   const height = integerInRange(value.height, "height", 1, 64);
-  if (!isOneOf(value.orientation, ROOM_ORIENTATIONS)) {
-    throw new HomeRoomDocumentError("orientation is invalid");
+  if (!isOneOf(value.cameraCorner, CAMERA_CORNERS)) {
+    throw new HomeRoomDocumentError("cameraCorner is invalid");
   }
   if (!isOneOf(value.cutaway, CUTAWAY_MODES)) {
     throw new HomeRoomDocumentError("cutaway is invalid");
@@ -271,7 +271,7 @@ export function parseHomeRoomDocument(value: unknown): HomeRoomDocument {
     revision: integerInRange(value.revision, "revision", 0, Number.MAX_SAFE_INTEGER),
     width,
     height,
-    orientation: value.orientation,
+    cameraCorner: value.cameraCorner,
     cutaway: value.cutaway,
     surfaces,
     items,
@@ -280,7 +280,7 @@ export function parseHomeRoomDocument(value: unknown): HomeRoomDocument {
 
 export function withRoomRevision(
   document: HomeRoomDocument,
-  changes: Partial<Pick<HomeRoomDocument, "orientation" | "cutaway" | "surfaces" | "items">>,
+  changes: Partial<Pick<HomeRoomDocument, "cameraCorner" | "cutaway" | "surfaces" | "items">>,
 ): HomeRoomDocument {
   return parseHomeRoomDocument({
     ...document,

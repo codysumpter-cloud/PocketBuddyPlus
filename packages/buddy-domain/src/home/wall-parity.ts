@@ -7,27 +7,27 @@
  * `prismtek-parity-trace-v1` so `compareParityTraces` can diff them.
  *
  * Vocabulary mapping, deliberately in one place on each side:
- *   TypeScript names the ROOM orientation  SE / SW / NW / NE
+ *   TypeScript names the CAMERA CORNER      SE / SW / NW / NE
  *   Godot counts CAMERA quarter turns      0  / 1  / 2  / 3
  * Camera at south-east (quarter 0) is "SE", then clockwise.
  */
 import {
   CUTAWAY_MODES,
-  ROOM_ORIENTATIONS,
+  CAMERA_CORNERS,
   SURFACE_IDS,
   WORLD_WALLS,
-  type RoomOrientation,
+  type CameraCorner,
   type WorldWall,
 } from "./room-document.js";
-import { isNearWall, nearWalls, rotateOrientation } from "./isometric.js";
+import { isNearWall, nearWalls, rotateCameraCorner } from "./isometric.js";
 import { createParityTrace, type JsonValue, type ParityTrace, type ParityTraceStep } from "../parity/index.js";
 
 export const WALL_PARITY_SCENARIO_ID = "home.walls.canonical";
 
-/** Quarter turns are the Godot-side name for the same four room orientations. */
-export function orientationForQuarter(quarter: number): RoomOrientation {
+/** Quarter turns are the Godot-side name for the same four camera corners. */
+export function cornerForQuarter(quarter: number): CameraCorner {
   const normalized = ((quarter % 4) + 4) % 4;
-  return ROOM_ORIENTATIONS[normalized];
+  return CAMERA_CORNERS[normalized];
 }
 
 /** `wall_north` etc. -- the persisted surface id for a world wall. */
@@ -35,16 +35,16 @@ export function wallSaveKey(wall: WorldWall): string {
   return `wall_${wall}`;
 }
 
-function orientationSnapshot(orientation: RoomOrientation): JsonValue {
-  const near = [...nearWalls(orientation)].sort();
-  const rear = WORLD_WALLS.filter((wall) => !isNearWall(wall, orientation)).sort();
+function cornerSnapshot(cameraCorner: CameraCorner): JsonValue {
+  const near = [...nearWalls(cameraCorner)].sort();
+  const rear = WORLD_WALLS.filter((wall) => !isNearWall(wall, cameraCorner)).sort();
 
   return {
-    orientation,
-    quarterTurns: ROOM_ORIENTATIONS.indexOf(orientation),
+    cameraCorner,
+    quarterTurns: CAMERA_CORNERS.indexOf(cameraCorner),
     nearWalls: near,
     rearWalls: rear,
-    wallNearness: Object.fromEntries(WORLD_WALLS.map((wall) => [wall, isNearWall(wall, orientation)])),
+    wallNearness: Object.fromEntries(WORLD_WALLS.map((wall) => [wall, isNearWall(wall, cameraCorner)])),
     saveKeys: Object.fromEntries(WORLD_WALLS.map((wall) => [wall, wallSaveKey(wall)])),
   } as unknown as JsonValue;
 }
@@ -61,24 +61,24 @@ export function runWallParityScenario(): ParityTrace {
   const steps: ParityTraceStep[] = [];
   let atMs = 0;
 
-  for (const orientation of ROOM_ORIENTATIONS) {
+  for (const cameraCorner of CAMERA_CORNERS) {
     steps.push({
       atMs,
-      input: { op: "setOrientation", orientation } as unknown as JsonValue,
-      snapshot: orientationSnapshot(orientation),
-      events: [{ type: "room.rotated", orientation } as unknown as JsonValue],
+      input: { op: "setCameraCorner", cameraCorner } as unknown as JsonValue,
+      snapshot: cornerSnapshot(cameraCorner),
+      events: [{ type: "room.rotated", cameraCorner } as unknown as JsonValue],
     });
     atMs += 100;
   }
 
-  let rotated: RoomOrientation = ROOM_ORIENTATIONS[0];
+  let rotated: CameraCorner = CAMERA_CORNERS[0];
   for (let i = 0; i < 4; i += 1) {
-    rotated = rotateOrientation(rotated, 1);
+    rotated = rotateCameraCorner(rotated, 1);
     steps.push({
       atMs,
       input: { op: "rotate", steps: 1 } as unknown as JsonValue,
-      snapshot: orientationSnapshot(rotated),
-      events: [{ type: "room.rotated", orientation: rotated } as unknown as JsonValue],
+      snapshot: cornerSnapshot(rotated),
+      events: [{ type: "room.rotated", cameraCorner: rotated } as unknown as JsonValue],
     });
     atMs += 100;
   }

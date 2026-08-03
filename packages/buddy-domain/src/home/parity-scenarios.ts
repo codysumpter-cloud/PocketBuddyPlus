@@ -17,20 +17,20 @@
  */
 import {
   createHomeRoomDocument,
-  ROOM_ORIENTATIONS,
+  CAMERA_CORNERS,
   SURFACE_IDS,
   WORLD_WALLS,
   type GridCell,
   type HomeRoomDocument,
   type HomeRoomItem,
-  type RoomOrientation,
+  type CameraCorner,
 } from "./room-document.js";
 import {
   isNearWall,
   nearWalls,
   presentedRoomSize,
   projectCanonicalCell,
-  rotateOrientation,
+  rotateCameraCorner,
 } from "./isometric.js";
 import { canPlaceRoomItem, footprintCells, removeRoomItem, upsertRoomItem } from "./placement.js";
 import {
@@ -47,7 +47,7 @@ export const HOME_PARITY_IMPLEMENTATION = "@open-pets/buddy-domain";
 export type HomeScenarioInput =
   | { readonly op: "create"; readonly roomId: string; readonly width: number; readonly height: number }
   | { readonly op: "rotate"; readonly steps: number }
-  | { readonly op: "setOrientation"; readonly orientation: RoomOrientation }
+  | { readonly op: "setCameraCorner"; readonly cameraCorner: CameraCorner }
   | { readonly op: "place"; readonly item: HomeRoomItem }
   | { readonly op: "remove"; readonly itemId: string }
   | { readonly op: "probeGeometry" };
@@ -91,7 +91,7 @@ function item(
  * differently diverges here instead of silently rendering wrong.
  */
 function snapshotOf(document: HomeRoomDocument): JsonValue {
-  const presented = presentedRoomSize({ width: document.width, height: document.height }, document.orientation);
+  const presented = presentedRoomSize({ width: document.width, height: document.height }, document.cameraCorner);
   const projected = footprintProbe(document);
 
   return {
@@ -99,15 +99,15 @@ function snapshotOf(document: HomeRoomDocument): JsonValue {
     revision: document.revision,
     width: document.width,
     height: document.height,
-    orientation: document.orientation,
+    cameraCorner: document.cameraCorner,
     cutaway: document.cutaway,
     presented: { width: presented.width, height: presented.height },
     surfaces: Object.fromEntries(
       SURFACE_IDS.map((surface) => [surface, { materialId: document.surfaces[surface].materialId }]),
     ) as unknown as JsonValue,
-    nearWalls: [...nearWalls(document.orientation)],
+    nearWalls: [...nearWalls(document.cameraCorner)],
     wallNearness: Object.fromEntries(
-      WORLD_WALLS.map((wall) => [wall, isNearWall(wall, document.orientation)]),
+      WORLD_WALLS.map((wall) => [wall, isNearWall(wall, document.cameraCorner)]),
     ) as unknown as JsonValue,
     projectedCorners: projected,
     items: document.items.map((entry) => ({
@@ -123,7 +123,7 @@ function snapshotOf(document: HomeRoomDocument): JsonValue {
   } as unknown as JsonValue;
 }
 
-/** Projects the four room corners, which is where an orientation bug shows up. */
+/** Projects the four room corners, which is where an cameraCorner bug shows up. */
 function footprintProbe(document: HomeRoomDocument): JsonValue {
   const size = { width: document.width, height: document.height };
   const corners: GridCell[] = [
@@ -133,7 +133,7 @@ function footprintProbe(document: HomeRoomDocument): JsonValue {
     cell(0, document.height - 1),
   ];
   return corners.map((corner) => {
-    const point = projectCanonicalCell(corner, size, document.orientation);
+    const point = projectCanonicalCell(corner, size, document.cameraCorner);
     return { cell: { x: corner.x, y: corner.y }, x: point.x, y: point.y };
   }) as unknown as JsonValue;
 }
@@ -150,16 +150,16 @@ function applyInput(
         events: [{ type: "room.created", roomId: input.roomId } as unknown as JsonValue],
       };
     case "rotate": {
-      const next = { ...document, orientation: rotateOrientation(document.orientation, input.steps) };
+      const next = { ...document, cameraCorner: rotateCameraCorner(document.cameraCorner, input.steps) };
       return {
         document: next,
-        events: [{ type: "room.rotated", orientation: next.orientation } as unknown as JsonValue],
+        events: [{ type: "room.rotated", cameraCorner: next.cameraCorner } as unknown as JsonValue],
       };
     }
-    case "setOrientation":
+    case "setCameraCorner":
       return {
-        document: { ...document, orientation: input.orientation },
-        events: [{ type: "room.rotated", orientation: input.orientation } as unknown as JsonValue],
+        document: { ...document, cameraCorner: input.cameraCorner },
+        events: [{ type: "room.rotated", cameraCorner: input.cameraCorner } as unknown as JsonValue],
       };
     case "place": {
       const verdict = canPlaceRoomItem(document, input.item);
@@ -223,7 +223,7 @@ export function runHomeScenario(scenario: HomeScenario): ParityTrace {
 /**
  * The canonical scenario set the Godot emitter must reproduce.
  *
- * Covers all four orientations, rotational closure, near/rear wall
+ * Covers all four camera corners, rotational closure, near/rear wall
  * classification, footprint occupancy, and every placement rejection reason.
  */
 export const HOME_PARITY_SCENARIOS: readonly HomeScenario[] = [
@@ -233,11 +233,11 @@ export const HOME_PARITY_SCENARIOS: readonly HomeScenario[] = [
     inputs: [{ op: "create", roomId: "room-a", width: 4, height: 3 }, { op: "probeGeometry" }],
   },
   {
-    scenarioId: "home.room.orientations",
+    scenarioId: "home.room.cameraCorners",
     seed: 2,
     inputs: [
       { op: "create", roomId: "room-a", width: 5, height: 3 },
-      ...ROOM_ORIENTATIONS.map((orientation) => ({ op: "setOrientation", orientation }) as const),
+      ...CAMERA_CORNERS.map((cameraCorner) => ({ op: "setCameraCorner", cameraCorner }) as const),
     ],
   },
   {

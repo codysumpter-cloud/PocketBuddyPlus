@@ -11,7 +11,7 @@ import {
   projectCanonicalCell,
   removeRoomItem,
   rotateCanonicalCell,
-  rotateOrientation,
+  rotateCameraCorner,
   upsertRoomItem,
   type HomeRoomItem,
 } from "../src/home/index.js";
@@ -38,22 +38,22 @@ test("room documents use canonical physical surfaces rather than camera labels",
   assert.deepEqual(Object.keys(room.surfaces), [
     "floor", "wall_north", "wall_east", "wall_south", "wall_west",
   ]);
-  assert.equal(room.orientation, "SE");
+  assert.equal(room.cameraCorner, "SE");
   assert.equal(room.revision, 0);
 });
 
-test("a full orbit returns every canonical cell and orientation exactly", () => {
+test("a full orbit returns every canonical cell and cameraCorner exactly", () => {
   const size = { width: 4, height: 3 };
   const canonical = { x: 2, y: 1 };
-  let orientation: "SE" | "SW" | "NW" | "NE" = "SE";
-  for (let index = 0; index < 4; index += 1) orientation = rotateOrientation(orientation, 1);
-  assert.equal(orientation, "SE");
-  assert.deepEqual(rotateCanonicalCell(canonical, size, orientation), canonical);
+  let cameraCorner: "SE" | "SW" | "NW" | "NE" = "SE";
+  for (let index = 0; index < 4; index += 1) cameraCorner = rotateCameraCorner(cameraCorner, 1);
+  assert.equal(cameraCorner, "SE");
+  assert.deepEqual(rotateCanonicalCell(canonical, size, cameraCorner), canonical);
   assert.deepEqual(presentedRoomSize(size, "SW"), { width: 3, height: 4 });
   assert.deepEqual(presentedRoomSize(size, "NW"), size);
 });
 
-test("isometric projection is deterministic and orientation-aware", () => {
+test("isometric projection is deterministic and camera-corner-aware", () => {
   const size = { width: 4, height: 3 };
   assert.deepEqual(projectCanonicalCell({ x: 0, y: 0 }, size, "SE"), { x: 0, y: 0 });
   assert.deepEqual(projectCanonicalCell({ x: 0, y: 0 }, size, "SW"), { x: 64, y: 32 });

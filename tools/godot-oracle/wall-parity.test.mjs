@@ -31,7 +31,7 @@ function godotTrace() {
 // the gap is visible rather than hidden behind a permissive comparison.
 const UNPORTED_OPS = new Set(["parseLegacyWallKeys", "boundaryCells", "cutawayPresentation"]);
 
-test("Godot and TypeScript agree on canonical wall orientation facts", { skip: !available }, () => {
+test("Godot and TypeScript agree on canonical camera-corner wall facts", { skip: !available }, () => {
   const godot = godotTrace();
   const ts = runWallParityScenario();
 
@@ -42,7 +42,7 @@ test("Godot and TypeScript agree on canonical wall orientation facts", { skip: !
   const mismatches = compareParityTraces(comparable, ts, { ignoredPathPrefixes: ["$.implementation", "$.donor"] });
   assert.deepEqual(mismatches, [],
     `cross-runtime wall differences:\n  ${mismatches.slice(0, 15).map((m) => `${m.path}: godot=${JSON.stringify(m.expected)} ts=${JSON.stringify(m.actual)}`).join("\n  ")}`);
-  console.log(`  wall parity OK across ${ts.steps.length} orientation steps`);
+  console.log(`  wall parity OK across ${ts.steps.length} camera-corner steps`);
 });
 
 test("cutaway mode vocabulary matches the donor", { skip: !available }, () => {

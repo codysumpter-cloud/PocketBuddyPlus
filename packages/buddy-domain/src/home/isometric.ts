@@ -1,7 +1,7 @@
 import {
-  ROOM_ORIENTATIONS,
+  CAMERA_CORNERS,
   type GridCell,
-  type RoomOrientation,
+  type CameraCorner,
   type WorldWall,
 } from "./room-document.js";
 
@@ -15,28 +15,28 @@ export interface ProjectedPoint {
   readonly y: number;
 }
 
-const NEAR_WALLS: Readonly<Record<RoomOrientation, readonly WorldWall[]>> = Object.freeze({
+const NEAR_WALLS: Readonly<Record<CameraCorner, readonly WorldWall[]>> = Object.freeze({
   SE: ["east", "south"],
   SW: ["south", "west"],
   NW: ["west", "north"],
   NE: ["north", "east"],
 });
 
-export function orientationQuarter(orientation: RoomOrientation): 0 | 1 | 2 | 3 {
-  return ROOM_ORIENTATIONS.indexOf(orientation) as 0 | 1 | 2 | 3;
+export function cornerQuarter(cameraCorner: CameraCorner): 0 | 1 | 2 | 3 {
+  return CAMERA_CORNERS.indexOf(cameraCorner) as 0 | 1 | 2 | 3;
 }
 
-export function rotateOrientation(
-  orientation: RoomOrientation,
+export function rotateCameraCorner(
+  cameraCorner: CameraCorner,
   deltaQuarter: number,
-): RoomOrientation {
-  const current = orientationQuarter(orientation);
+): CameraCorner {
+  const current = cornerQuarter(cameraCorner);
   const normalized = ((current + Math.trunc(deltaQuarter)) % 4 + 4) % 4;
-  return ROOM_ORIENTATIONS[normalized] as RoomOrientation;
+  return CAMERA_CORNERS[normalized] as CameraCorner;
 }
 
-export function presentedRoomSize(size: RoomSize, orientation: RoomOrientation): RoomSize {
-  const quarter = orientationQuarter(orientation);
+export function presentedRoomSize(size: RoomSize, cameraCorner: CameraCorner): RoomSize {
+  const quarter = cornerQuarter(cameraCorner);
   return quarter % 2 === 0
     ? { width: size.width, height: size.height }
     : { width: size.height, height: size.width };
@@ -49,9 +49,9 @@ export function presentedRoomSize(size: RoomSize, orientation: RoomOrientation):
 export function rotateCanonicalCell(
   cell: GridCell,
   size: RoomSize,
-  orientation: RoomOrientation,
+  cameraCorner: CameraCorner,
 ): GridCell {
-  switch (orientationQuarter(orientation)) {
+  switch (cornerQuarter(cameraCorner)) {
     case 0:
       return { x: cell.x, y: cell.y };
     case 1:
@@ -80,28 +80,28 @@ export function projectPresentedCell(
 export function projectCanonicalCell(
   cell: GridCell,
   size: RoomSize,
-  orientation: RoomOrientation,
+  cameraCorner: CameraCorner,
   tileWidth = 64,
   tileHeight = 32,
 ): ProjectedPoint {
   return projectPresentedCell(
-    rotateCanonicalCell(cell, size, orientation),
+    rotateCanonicalCell(cell, size, cameraCorner),
     tileWidth,
     tileHeight,
   );
 }
 
-export function nearWalls(orientation: RoomOrientation): readonly WorldWall[] {
-  return NEAR_WALLS[orientation];
+export function nearWalls(cameraCorner: CameraCorner): readonly WorldWall[] {
+  return NEAR_WALLS[cameraCorner];
 }
 
-export function isNearWall(wall: WorldWall, orientation: RoomOrientation): boolean {
-  return nearWalls(orientation).includes(wall);
+export function isNearWall(wall: WorldWall, cameraCorner: CameraCorner): boolean {
+  return nearWalls(cameraCorner).includes(wall);
 }
 
 export function wallDepthBand(
   wall: WorldWall,
-  orientation: RoomOrientation,
+  cameraCorner: CameraCorner,
 ): "near" | "rear" {
-  return isNearWall(wall, orientation) ? "near" : "rear";
+  return isNearWall(wall, cameraCorner) ? "near" : "rear";
 }
