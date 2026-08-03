@@ -119,11 +119,48 @@ export async function readHomeCatalog(): Promise<unknown | null> {
       warn("home", "content pack catalog is not an object");
       return null;
     }
-    return parsed;
+    return upgradeSurfacesToTileSize(root, parsed as Record<string, unknown>);
   } catch (error) {
     warn("home", "content pack catalog unreadable", { error: String(error) });
     return null;
   }
+}
+
+/**
+ * Point floor and wall surfaces at the pack's 128px art.
+ *
+ * The donor tileset is a 128x64 isometric tile, but the catalog references the
+ * `surfaces64` variant. Drawing 64px art on a 128px grid leaves a visible gap
+ * between every tile -- the room looks like scattered tiles rather than a
+ * floor. Each rewrite is checked against the filesystem and silently skipped if
+ * the larger asset is missing, so a pack without it still renders.
+ */
+function upgradeSurfacesToTileSize(root: string, catalog: Record<string, unknown>): Record<string, unknown> {
+  let upgraded = 0;
+  const bigger = (src: unknown): unknown => {
+    if (typeof src !== "string") return src;
+    const candidate = src.replace("/surfaces64/", "/surfaces/").replace("_64_", "_128_").replace("(64)", "(128)");
+    if (candidate === src) return src;
+    const onDisk = join(root, candidate.replace(/^\/+/, "").replace(/^tinyhouse\//, ""));
+    if (!existsSync(onDisk)) return src;
+    upgraded += 1;
+    return candidate;
+  };
+
+  for (const key of ["floors", "walls"]) {
+    const list = catalog[key];
+    if (!Array.isArray(list)) continue;
+    catalog[key] = list.map((entry) => {
+      if (!entry || typeof entry !== "object") return entry;
+      const record = { ...(entry as Record<string, unknown>) };
+      for (const field of ["src", "left", "right"]) {
+        if (field in record) record[field] = bigger(record[field]);
+      }
+      return record;
+    });
+  }
+  info("home", "surface art resolved to donor tile size", { upgraded });
+  return catalog;
 }
 
 /**
