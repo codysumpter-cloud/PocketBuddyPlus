@@ -25,3 +25,6 @@ third-parties/
 # Headless UI verification output (never packaged)
 verification-artifacts/
 apps/desktop/verification-artifacts/
+
+# TypeScript test build output
+dist-tests/

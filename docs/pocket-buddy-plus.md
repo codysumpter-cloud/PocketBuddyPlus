@@ -8,14 +8,27 @@ and the successful Pocket Buddy interaction model natively in TypeScript.
 
 ## Product boundary
 
-- **Pocket Buddy** remains the stable Godot application in `prismtek-apps`.
-- **Pocket Buddy+** lives in this repository and uses Electron, TypeScript,
-  React, Tailwind, Vite, and pnpm workspaces directly.
-- Pocket Buddy+ does not embed, launch, bridge to, or require Godot.
-- The Godot game is a read-only behavioral and visual reference while deeper
-  systems are ported.
-- The two products use distinct app IDs, executables, storage, settings, logs,
-  saves, conversations, and release artifacts.
+Pocket Buddy+ is the canonical desktop product. The long-term user-facing model
+is one durable Buddy moving between four Electron-native experiences:
+
+- **Desktop** — ambient pet windows, perches, reactions, attached controls;
+- **Home** — the isometric house, building, household activities, and world;
+- **Play** — Buddy Ascent and future game experiences;
+- **Studio** — appearance, rigging, outfits, and creation tools.
+
+The existing Godot Pocket Buddy and Prismtek Buddies/Tiny House applications in
+`prismtek-apps` remain read-only donor implementations during migration. They are
+behavioral oracles, visual references, save donors, and temporary playable
+builds—not permanent competing products.
+
+Pocket Buddy+ does not adopt a permanent embedded-Godot architecture. Home is
+being rebuilt natively in Electron/TypeScript with a GPU-backed 2D renderer.
+Godot remains available until Electron passes the same behavior, persistence,
+and visible-runtime receipts. Existing saves remain isolated until explicit
+read-only importers are shipped; neither runtime may advance the same Buddy.
+
+See [home-electron-migration.md](home-electron-migration.md) for the complete
+migration and Claude handoff contract.
 
 ## Exact visible identity
 
@@ -72,6 +85,7 @@ platform-management surfaces. Pocket Buddy+ adds:
 - a living Buddy dashboard card
 - persistent light, dark, and system appearance controls
 - the Buddy+ center for creature-specific features
+- navigation into Desktop, Home, Play, and Studio as those experiences land
 
 ### Buddy+ center
 
@@ -102,31 +116,33 @@ galleries, and new Buddy surfaces rather than scattering one-off colors.
 
 ## State authority
 
-`apps/desktop/src/buddy/buddy-core.ts` owns deterministic creature transitions:
+The current renderer-local Buddy state is transitional. The destination is a
+single Electron main-process Buddy host with atomic storage and narrow preload
+APIs. React and canvas renderers receive bounded snapshots and submit intentions;
+they never write needs, relationships, inventory, room ownership, memories, or
+progression directly.
 
-- identity
-- needs and biology
-- mood and activity derivation
-- time advancement
-- affection
-- care actions
-- bounded UI snapshots
-
-The product UI calls those functions and never writes need values directly. The
-current renderer persistence is versioned and isolated under the Pocket Buddy+
-Electron profile. A future main-process Buddy host will move persistence and
-periodic simulation behind narrow IPC without changing the visible contracts.
+`packages/buddy-domain` is the renderer-independent contract layer. It currently
+contains donor-parity drives/personality plus the first canonical Home room and
+cross-runtime parity contracts. A subsystem does not become authoritative merely
+because a TypeScript type with the same name exists—it needs behavior tests and,
+for donor behavior, golden trace parity.
 
 ## Next system ports
 
-1. Bind wardrobe choices and care reactions to the active desktop pet renderer.
-2. Route attached-pet menu actions into the same Buddy state authority.
-3. Add durable main-process Buddy storage with atomic writes and recovery.
-4. Port multiple Buddy identities and relationships.
-5. Port episodic/semantic memory and cloud/local cortex routing.
-6. Port Pocket Bird movement, species, hats, feathers, petting, and sleep parity.
-7. Add an explicit, read-only importer for existing Pocket Buddy data.
-8. Add optional advanced sprite, rigged 2D, and later 3D renderers.
+1. Build the Godot→TypeScript golden trace emitters and run them against the
+   parity comparator already in `packages/buddy-domain/src/parity/`.
+2. Move durable Buddy storage and periodic simulation into the Electron main
+   process with atomic writes and recovery.
+3. Bind wardrobe choices and care reactions to the active desktop pet renderer.
+4. Route attached-pet menu actions into the same Buddy state authority.
+5. Build the Electron-native Home room shell from the canonical Home document.
+6. Port the Tiny House catalog, placement, interactions, and one-Buddy loop.
+7. Port multiple Buddy identities, relationships, memory, cortex routing,
+   household life, PrismWorld, and PrismScript incrementally.
+8. Port Pocket Bird movement, species, hats, feathers, petting, and sleep parity.
+9. Add explicit, read-only importers for existing Pocket Buddy and house saves.
+10. Add optional advanced sprite, rigged 2D, and later 3D renderers.
 
 ## Upstream discipline
 

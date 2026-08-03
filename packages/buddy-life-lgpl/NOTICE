@@ -1,0 +1,77 @@
+# openc2e-derived Buddy Life substrate
+
+The files in this `buddy_life/` directory are a Godot/GDScript compatibility port derived
+from behavioral algorithms and data structures in the openc2e project.
+
+- Upstream project: `openc2e/openc2e`
+- Reviewed upstream revision: `6a4396c83152fe9f9152be924b5a8edc8e759a6a`
+- Upstream license: GNU Lesser General Public License 2.1 or later
+- Port license: GNU Lesser General Public License 2.1 or later
+- Port date: 2026-07-29
+
+The port covers the independently packaged biological library only:
+
+- 256 normalized chemicals and C2e half-life decay (`buddy_biology_chemical_pool.gd`);
+- ATP/ADP energy accounting, injury and organ life force (`buddy_biology_organ.gd`);
+- reactions, emitters, receptors and loci (`buddy_biology_organ.gd`);
+- 48-byte state-variable rules (`buddy_biology_sv_rule.gd`);
+- brain lobes, neurons, tracts and dendrites (`buddy_biology_brain.gd`);
+- instinct processing (`buddy_biology_instinct.gd`);
+- genes and their life-stage switch-on (`buddy_genome.gd`);
+- persistent substrate state and the bridge to Prismtek Buddy Core
+  (`buddy_biology_substrate.gd`).
+
+It does **not** include openc2e rendering, SDL world execution, CAOS, original
+Creatures game data, genomes, sprites, sounds or other proprietary assets.
+
+Each source file carries an SPDX `LGPL-2.1-or-later` identifier. The complete
+license text and the redistribution terms this module is offered under are in
+`LICENSE.md` beside this file; `THIRD_PARTY_NOTICES.md` at the package root records
+the same attribution for the Buddy Core package as a whole.
+
+Because the module ships as GDScript source inside this repository and inside every
+exported pack, the corresponding source required by the LGPL travels with each
+distributed build. Retain this notice, `LICENSE.md`, and the SPDX headers when
+redistributing the module or a modified version.
+
+---
+
+## Pocket Buddy+ TypeScript port
+
+This package is a further port of the above Godot/GDScript module into
+TypeScript for Pocket Buddy+.
+
+- Immediate donor: `codysumpter-cloud/prismtek-apps`,
+  `packages/godot/prismtek-buddy-core/addons/prismtek_buddy_core/life/`
+- Original upstream project: `openc2e/openc2e`
+- Reviewed upstream revision: `6a4396c83152fe9f9152be924b5a8edc8e759a6a`
+- Upstream license: GNU Lesser General Public License 2.1 or later
+- This port's license: GNU Lesser General Public License 2.1 or later
+- Modified by: Prismtek, for Pocket Buddy+
+- Modification: translation from GDScript to TypeScript. Behaviour, constants,
+  equations, loci and ordering are preserved; no algorithmic changes are
+  intended. Any deliberate deviation is recorded in
+  `docs/BUDDY_BRAIN_PORT_MATRIX.md`.
+- Port date: 2026-08-02
+
+### Scope and boundary
+
+This package is LGPL-2.1-or-later. The rest of Pocket Buddy+ is MIT. LGPL-derived
+implementation MUST NOT be copied into an MIT package; `scripts/check-license-boundary.mjs`
+enforces this automatically.
+
+It does not include openc2e rendering, SDL world execution, CAOS, original
+Creatures game data, genomes, sprites, sounds or other proprietary assets.
+
+### Your rights under the LGPL
+
+This module ships as identifiable, replaceable TypeScript with its complete
+corresponding source, declarations, build scripts and source maps. You may modify
+it and run Pocket Buddy+ against your modified build. See
+`docs/LICENSE_MATRIX.md` for the documented override path.
+
+### Warranty disclaimer
+
+This library is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
