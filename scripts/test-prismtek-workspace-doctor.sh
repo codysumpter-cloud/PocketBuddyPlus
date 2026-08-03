@@ -10,8 +10,6 @@ TEST_HOME="$SANDBOX/home"
 REMOTES="$SANDBOX/remotes"
 mkdir -p "$TEST_HOME/Documents" "$TEST_HOME/Desktop" "$TEST_HOME/Downloads" "$REMOTES"
 
-git config --global --add safe.directory '*' >/dev/null 2>&1 || true
-
 seed_remote() {
   name="$1"
   bare="$REMOTES/$name.git"
