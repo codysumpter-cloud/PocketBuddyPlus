@@ -107,3 +107,18 @@ test("saved room documents are strictly checked at the boundary", () => {
   const duplicate = { ...room, items: [item("same", 0, 0), item("same", 1, 0)] };
   assert.throws(() => parseHomeRoomDocument(duplicate), /duplicate item id/);
 });
+
+test("a legacy document keyed by orientation is rejected, never silently mirrored", () => {
+  // The persisted field was renamed orientation -> cameraCorner with no
+  // migration, which was only safe because no writer existed yet. This pins the
+  // property that made that call defensible: if such a document ever does turn
+  // up, parsing must fail loudly. The dangerous outcome is not an error, it is
+  // a missing cameraCorner quietly defaulting to "SE" and mirroring the room.
+  const room = createHomeRoomDocument({ roomId: "home" });
+  const { cameraCorner, ...withoutCorner } = room;
+  const legacy = { ...withoutCorner, orientation: cameraCorner };
+  assert.throws(() => parseHomeRoomDocument(legacy), /cameraCorner is invalid/);
+
+  // A corner name that is merely unknown must fail the same way.
+  assert.throws(() => parseHomeRoomDocument({ ...room, cameraCorner: "NNE" }), /cameraCorner is invalid/);
+});

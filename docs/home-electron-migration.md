@@ -37,7 +37,7 @@ until the Electron surface passes the same receipts.
 - `pocket-buddy-home-room-v1`, a versioned room document;
 - canonical floor and north/east/south/west wall identities;
 - strict JSON-safe save validation;
-- deterministic room orientation and isometric projection;
+- deterministic camera corner and isometric projection;
 - near/rear wall classification for all four views;
 - canonical footprint occupancy and support relationships;
 - immutable item upsert and cascading support removal.
@@ -52,6 +52,32 @@ until the Electron surface passes the same receipts.
 - bounded failure output.
 
 This is a foundation, not a claim that Home is playable in Electron.
+
+### Camera corner vocabulary
+
+SE/SW/NW/NE is a `cameraCorner` — the corner the camera sits in. It is
+deliberately *not* called an orientation, because `InteriorWallModel.Orientation`
+in the Godot donor means a **wall direction** (NORTH/EAST/SOUTH/WEST). Both
+senses travel in the same parity trace, so one word for both is how a wall
+eventually gets mistaken for a camera position and a room silently mirrors.
+Godot keeps `orientation` for wall directions; its save contracts are unchanged.
+
+Corner order is `["SE", "SW", "NW", "NE"]`: clockwise from the shipped room
+default, aligned index-for-index with Godot quarter turns 0..3, so
+`cornerQuarter` is a plain array index. Reordering would rotate every room.
+
+The persisted field was renamed `orientation` -> `cameraCorner` with **no
+migration**, which was safe only because it was done before any writer existed:
+
+- the schema id appears in source and docs only, in no data file on disk;
+- all four Electron storage roots (`Pocket Buddy+`, `OpenPets`, `openpets`,
+  `Electron`) exist and hold real persisted state, yet contain no `orientation`
+  or `cameraCorner` key — the absence is evidence, not an unrun app;
+- `@open-pets/buddy-domain` is `private: true`, so no external consumer;
+- no `package.json` in the workspace depends on it yet.
+
+That window is now closed. Once the Home renderer writes its first room, any
+further change to this schema needs a real parser migration.
 
 ## Migration sequence
 
@@ -82,7 +108,7 @@ Create an Electron Home route/window using a GPU-backed 2D canvas renderer.
 Implement only the room contract first:
 
 - floor and four physical walls;
-- four camera orientations;
+- four camera corners;
 - near-wall fade/hide presentation;
 - deterministic depth sorting;
 - zoom/pan;
@@ -150,7 +176,7 @@ bounded assignment is:
 3. Run `compareParityTraces` and fix every mismatch without weakening epsilon or
    ignoring behavioral paths.
 4. Scaffold the Home canvas renderer with placeholder assets only.
-5. Produce four orientation screenshots and a short interaction recording.
+5. Produce four camera-corner screenshots and a short interaction recording.
 6. Keep Godot and Electron saves isolated; do not advance the same Buddy from
    both runtimes.
 7. Open draft PRs in both repositories with exact-head test and capture receipts.
