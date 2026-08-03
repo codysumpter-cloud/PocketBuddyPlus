@@ -8,10 +8,9 @@ directories:
 
 artifactName: Pocket-Buddy-Plus-${version}-${os}-${arch}.${ext}
 
-# NOTE: do not add `extraMetadata` here. In this pnpm workspace electron-builder
-# resolves the "project" to the workspace root and rewrites the root package.json
-# in place, clobbering the workspace manifest. The Plus build is instead
-# identified at runtime from `executableName` below (see src/product.ts).
+# Compatibility contract inherited by the actual Pocket Buddy+ release config.
+# Do not add `extraMetadata`: electron-builder resolves this pnpm project to the
+# workspace root and would rewrite the root package.json in place.
 
 files:
   - dist/**

@@ -19,6 +19,16 @@ export type I18nContextValue = {
   reload: () => void;
 };
 
+const PRODUCT_NAME = "Pocket Buddy+";
+const PRODUCT_SHORT_NAME = "Buddy+";
+
+export function brandVisibleText(value: string): string {
+  return value
+    .replace(/Pocket\s+Buddy\s+Plus/giu, PRODUCT_NAME)
+    .replace(/Buddy\s+Plus/giu, PRODUCT_SHORT_NAME)
+    .replace(/Open(?:\s|-)*Pets/giu, PRODUCT_NAME);
+}
+
 function interpolate(template: string, vars?: Record<string, string | number>): string {
   if (!vars) return template;
   return template.replace(/\{(\w+)\}/g, (match, name: string) =>
@@ -30,7 +40,7 @@ const fallback: I18nContextValue = {
   locale: "en",
   localePreference: "system",
   availableLocales: [],
-  t: (key) => key,
+  t: (key) => brandVisibleText(key),
   reload: () => {},
 };
 
@@ -42,7 +52,7 @@ export function I18nProvider({ snapshot, onReload, children }: { snapshot: I18nS
         locale: snapshot.locale,
         localePreference: snapshot.localePreference,
         availableLocales: snapshot.availableLocales,
-        t: (key, vars) => interpolate(snapshot.messages[key] ?? key, vars),
+        t: (key, vars) => brandVisibleText(interpolate(snapshot.messages[key] ?? key, vars)),
         reload: onReload,
       }
     : { ...fallback, reload: onReload };

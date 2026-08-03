@@ -1,0 +1,42 @@
+{
+  "preferences": {
+    "defaultPetId": "builtin"
+  },
+  "pets": {
+    "installed": [
+      {
+        "id": "builtin",
+        "displayName": "Professor Hoot",
+        "description": "The bundled companion.",
+        "builtIn": true,
+        "protected": true,
+        "installed": true
+      },
+      {
+        "id": "catalog-fox",
+        "displayName": "Ember Fox",
+        "description": "A catalog companion.",
+        "builtIn": false,
+        "protected": false,
+        "installed": true,
+        "source": {
+          "kind": "catalog",
+          "catalogVersion": 2,
+          "zip": "ember-fox.zip",
+          "preview": ""
+        }
+      },
+      {
+        "id": "codex-owl",
+        "displayName": "Codex Owl",
+        "builtIn": false,
+        "protected": false,
+        "installed": true,
+        "source": {
+          "kind": "codex",
+          "path": "/tmp/verify-ui/codex/codex-owl"
+        }
+      }
+    ]
+  }
+}

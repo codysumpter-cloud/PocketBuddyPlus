@@ -1,114 +1,139 @@
-# Pocket Buddy Plus
+# Pocket Buddy+
 
-Pocket Buddy Plus is Prismtek's OpenPets-derived desktop companion platform.
-It keeps the complete OpenPets desktop shell, plugin SDK, pet catalog, agent
+Pocket Buddy+ is Prismtek's OpenPets-derived living desktop companion platform.
+It keeps the complete upstream desktop runtime, plugin SDK, pet catalog, agent
 integrations, permission model, IPC, packaging, and cross-platform window work,
-then ports the living Buddy systems and the successful Pocket Buddy interaction
-model into that native TypeScript/Electron architecture.
+then adds Buddy identity, care, biology, conversation, collections, notes/tasks,
+and the successful Pocket Buddy interaction model natively in TypeScript.
 
 ## Product boundary
 
 - **Pocket Buddy** remains the stable Godot application in `prismtek-apps`.
-- **Pocket Buddy Plus** lives in this repository and uses the OpenPets stack
-  directly: Electron, TypeScript, React, Tailwind, Vite, and pnpm workspaces.
-- Pocket Buddy Plus does not embed, launch, or require the Godot runtime.
-- The Godot game is a read-only behavioral reference while features are ported.
+- **Pocket Buddy+** lives in this repository and uses Electron, TypeScript,
+  React, Tailwind, Vite, and pnpm workspaces directly.
+- Pocket Buddy+ does not embed, launch, bridge to, or require Godot.
+- The Godot game is a read-only behavioral and visual reference while deeper
+  systems are ported.
 - The two products use distinct app IDs, executables, storage, settings, logs,
   saves, conversations, and release artifacts.
 
+## Exact visible identity
+
+The only user-facing product name is **Pocket Buddy+**. `OpenPets`, `Open Pets`,
+`Pocket Buddy Plus`, and `Buddy Plus` are normalized at UI boundaries before
+being displayed.
+
+Inherited names remain only where technically or legally required:
+
+- internal `@open-pets/*` package names
+- IPC method and protocol identifiers
+- catalog/schema compatibility keys
+- environment-variable names
+- upstream Git remote and source URLs
+- license notices and contributor attribution
+
+Those technical identifiers must not leak into visible menus, windows, dialogs,
+notifications, setup guidance, or generated product copy.
+
 ## Product identity and packaging
 
-The canonical product values live in `apps/desktop/src/product.ts`.
-Pocket Buddy Plus packages use:
+Canonical values live in `apps/desktop/src/product.ts`:
 
 - app ID: `dev.prismtek.pocketbuddyplus`
-- product name: `Pocket Buddy Plus`
+- visible product name: `Pocket Buddy+`
 - executable: `pocket-buddy-plus`
 - output directory: `apps/desktop/dist-electron-plus`
+- repository: `codysumpter-cloud/PocketBuddyPlus`
 
-The inherited `electron-builder.yml` remains unchanged so the upstream OpenPets
-packaging contract and its regression checks remain useful. Plus is packaged
-through the separate `electron-builder.plus.yml` target:
+The inherited `electron-builder.yml` remains unchanged for upstream regression
+coverage. `electron-builder.plus.yml` remains the verified compatibility base.
+Actual Pocket Buddy+ releases use
+`electron-builder.pocket-buddy-plus.yml`, which extends that base and applies the
+exact visible name, installer name, shortcut name, uninstall name, and artifact
+name.
 
-- `pnpm package:desktop:plus:dir` — build an unpacked Plus application
-- `pnpm package:desktop:plus` — build Plus installers and archives
+Commands:
 
-The inherited OpenPets package target is not the Pocket Buddy Plus release path.
+- `pnpm package:desktop:plus:dir` — build an unpacked Pocket Buddy+ application
+- `pnpm package:desktop:plus` — build Pocket Buddy+ installers and archives
 
-## UI ownership
+## Existing UI, evolved rather than duplicated
 
-Pocket Buddy Plus has two complementary surfaces.
+Pocket Buddy+ extends the mature inherited Control Center and pet interactions.
+It does not build a second competing management shell.
 
-### Buddy menu
+### Control Center
 
-Clicking the active Buddy opens the compact, creature-attached menu. Its layout,
-wording, visual hierarchy, and behavior should remain faithful to the working
-Pocket Buddy menu:
+Existing Dashboard, Pets, Plugins, Integrations, and Settings routes remain the
+platform-management surfaces. Pocket Buddy+ adds:
 
-- Pet the bird
-- Talk to Buddy
-- Name your Buddy
-- Buddies
-- Status
-- Collection
-- Notes & Tasks
-- How Buddy works
-- Field Guide
-- Wardrobe
-- Settings
+- exact product wordmark and branding
+- a Buddy+ navigation entry
+- a living Buddy dashboard card
+- persistent light, dark, and system appearance controls
+- the Buddy+ center for creature-specific features
 
-The menu is intimate and specific to the selected Buddy. It must not become a
-full-screen administration surface.
+### Buddy+ center
 
-### Plus dock
+The first native vertical slice provides:
 
-The OpenPets Control Center evolves into a collapsible dock for platform-wide
-features:
+- **Status** — live name, mood, activity, affection, dominant need, age, last care
+  action, and all six need pressures
+- **Talk** — durable local, mood-aware conversation
+- **Notes & Tasks** — real notes, add/complete/delete tasks, and persistence
+- **Collection** — interaction-driven unlockable moments
+- **Field Guide** — needs, care behavior, temperament, activity, and bond details
+- **Wardrobe** — durable appearance/accessory preference ready for sprite binding
+- **Care actions** — pet, feed, play, rest, and clean through the pure Buddy core
 
-- Buddy overview
-- Pets and appearance gallery
-- Plugins
-- Integrations
-- AI providers
-- Global settings
+The dashboard card exposes quick petting and opens the full center.
 
-The dock manages the platform. The attached Buddy menu manages the creature.
+## Appearance
+
+Pocket Buddy+ supports:
+
+- **System** — follows the operating-system appearance and updates live
+- **Light**
+- **Dark**
+
+The selected mode persists under the isolated Pocket Buddy+ profile. Shared
+semantic tokens style inherited cards, navigation, forms, dialogs, plugin views,
+galleries, and new Buddy surfaces rather than scattering one-off colors.
 
 ## State authority
 
-The ported Buddy runtime owns:
+`apps/desktop/src/buddy/buddy-core.ts` owns deterministic creature transitions:
 
-- identity and personality
+- identity
 - needs and biology
-- mood and emotions
-- intent selection and activities
-- episodic and semantic memory
-- relationships
-- conversation state
-- durable saves
+- mood and activity derivation
+- time advancement
+- affection
+- care actions
+- bounded UI snapshots
 
-Plugins, agent integrations, language models, menus, and renderers may propose
-or display actions. They do not directly rewrite authoritative Buddy state.
+The product UI calls those functions and never writes need values directly. The
+current renderer persistence is versioned and isolated under the Pocket Buddy+
+Electron profile. A future main-process Buddy host will move persistence and
+periodic simulation behind narrow IPC without changing the visible contracts.
 
-## Migration sequence
+## Next system ports
 
-1. Establish Pocket Buddy Plus product identity and separate packaging.
-2. Preserve the upstream OpenPets feature set and tests.
-3. Add the Plus dock shell without removing existing Control Center routes.
-4. Recreate the Pocket Buddy attached menu in React/Tailwind.
-5. Port Pocket Bird movement, species, hats, feathers, petting, sleep, and notes.
-6. Port Buddy Core into deterministic TypeScript packages with parity fixtures.
-7. Port chat, memory promotion, relationships, and multiple Buddy identities.
+1. Bind wardrobe choices and care reactions to the active desktop pet renderer.
+2. Route attached-pet menu actions into the same Buddy state authority.
+3. Add durable main-process Buddy storage with atomic writes and recovery.
+4. Port multiple Buddy identities and relationships.
+5. Port episodic/semantic memory and cloud/local cortex routing.
+6. Port Pocket Bird movement, species, hats, feathers, petting, and sleep parity.
+7. Add an explicit, read-only importer for existing Pocket Buddy data.
 8. Add optional advanced sprite, rigged 2D, and later 3D renderers.
-9. Add a read-only, explicit one-time importer for existing Pocket Buddy data.
 
 ## Upstream discipline
 
-OpenPets is MIT-licensed and remains the upstream platform. Preserve its license,
-notices, contributor attribution, and Git history. Keep Prismtek changes in small,
-reviewable commits so security and platform improvements can continue to flow
+OpenPets is MIT-licensed and remains the upstream source platform. Preserve its
+license, notices, contributor attribution, and Git history. Keep Prismtek changes
+small and reviewable so security and platform improvements can continue to flow
 from `alvinunreal/openpets`.
 
-Do not rename the internal `@open-pets/*` protocol and SDK packages merely for
-branding. Those package names are compatibility contracts and should change only
-through an intentional migration with downstream impact measured first.
+Do not rename internal `@open-pets/*` protocol and SDK packages merely for
+branding. They are compatibility contracts, not visible product copy.

@@ -784,7 +784,10 @@ function Button({
 }
 function GlassCard({ children, className = "" }: { children: React.ReactNode; className?: string }) { return <section className={`glass ${className}`}>{children}</section>; }
 function StatusPill({ children, tone = "blue" }: { children: React.ReactNode; tone?: keyof typeof statusPillToneClass }) { return <span className={`pill ${statusPillToneClass[tone]}`}>{children}</span>; }
-function SearchInput(props: React.InputHTMLAttributes<HTMLInputElement>) { const { t } = useI18n(); return <input className="search" placeholder={t("pets.search.placeholder")} {...props} />; }
+// A placeholder is not a dependable accessible name (it is dropped by several
+// screen readers once the field has a value), so the label is set explicitly.
+// `props` is spread last so a caller can still override the label.
+function SearchInput(props: React.InputHTMLAttributes<HTMLInputElement>) { const { t } = useI18n(); return <input className="search" type="search" placeholder={t("pets.search.placeholder")} aria-label={t("pets.search.placeholder")} {...props} />; }
 
 function isAllowedCatalogPreview(value: string | undefined): value is string {
   if (!value) return false;
@@ -2599,6 +2602,7 @@ function PluginsView() {
                       <input
                         className="settings-toggle plugin-card-toggle"
                         type="checkbox"
+                        aria-label={t("plugins.card.toggleLabel", { name: entry.installed.name ?? entry.id })}
                         checked={entry.installed.enabled}
                         disabled={!!busy || entry.installed.catalogDisabled || Boolean(entry.installed.brokenReason)}
                         onChange={(event) => {

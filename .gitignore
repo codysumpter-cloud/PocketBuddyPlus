@@ -21,3 +21,7 @@ third-parties/
 .slim/clonedeps/repos/
 # END oh-my-opencode-slim clonedeps
 
+
+# Headless UI verification output (never packaged)
+verification-artifacts/
+apps/desktop/verification-artifacts/

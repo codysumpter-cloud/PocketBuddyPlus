@@ -1,0 +1,136 @@
+{
+  "selectedPetId": "builtin",
+  "commandMode": "published",
+  "localDevAvailable": false,
+  "petOptions": [
+    {
+      "id": "builtin",
+      "displayName": "Professor Hoot",
+      "default": true
+    },
+    {
+      "id": "catalog-fox",
+      "displayName": "Ember Fox",
+      "default": false
+    }
+  ],
+  "preview": {
+    "commandMode": "published",
+    "add": {
+      "command": "claude",
+      "args": [
+        "mcp",
+        "add",
+        "--scope",
+        "user",
+        "openpets",
+        "--",
+        "npx",
+        "-y",
+        "@open-pets/mcp",
+        "--pet",
+        "builtin"
+      ]
+    },
+    "remove": {
+      "command": "claude",
+      "args": [
+        "mcp",
+        "remove",
+        "--scope",
+        "user",
+        "openpets"
+      ]
+    },
+    "mcpJson": {
+      "mcpServers": {
+        "openpets": {
+          "type": "stdio",
+          "command": "npx",
+          "args": [
+            "-y",
+            "@open-pets/mcp",
+            "--pet",
+            "builtin"
+          ]
+        }
+      }
+    },
+    "displayCommand": "claude mcp add --scope user openpets -- npx -y @open-pets/mcp --pet builtin"
+  },
+  "status": {
+    "state": "needs_setup",
+    "label": "Needs setup",
+    "details": "Claude Code was not configured for this companion yet.",
+    "mcpListWorks": false,
+    "openPetsEntry": {
+      "present": false,
+      "source": "none",
+      "verified": false,
+      "matchesExpected": false
+    },
+    "canConfigure": true,
+    "canReplace": false,
+    "canRemove": false
+  },
+  "hookStatus": {
+    "status": "not_installed",
+    "settingsPath": "/tmp/verify-ui/claude/settings.json",
+    "exists": false,
+    "valid": false,
+    "message": "Hooks are not installed.",
+    "preview": {},
+    "asyncSupported": true
+  },
+  "memoryStatus": {
+    "status": "not_installed",
+    "message": "Memory file is not installed.",
+    "claudeMdPath": "/tmp/verify-ui/claude/CLAUDE.md",
+    "openPetsMemoryPath": "/tmp/verify-ui/claude/openpets.md"
+  },
+  "opencodeStatus": {
+    "state": "not_detected",
+    "label": "Not detected",
+    "details": "OpenCode was not found on this machine.",
+    "configDir": "/tmp/verify-ui/opencode",
+    "canInstall": true,
+    "canRemove": false
+  },
+  "opencodePreview": {
+    "global": true,
+    "configDir": "/tmp/verify-ui/opencode",
+    "configPath": "/tmp/verify-ui/opencode/opencode.json",
+    "cleanupConfigPaths": [],
+    "mcpCommand": [
+      "npx",
+      "-y",
+      "@open-pets/mcp"
+    ],
+    "plugin": [],
+    "instructionPath": "/tmp/verify-ui/opencode/AGENTS.md",
+    "configPreview": {}
+  },
+  "cursorStatus": {
+    "state": "not_detected",
+    "label": "Not detected",
+    "details": "Cursor global MCP config was not found.",
+    "configPath": "/tmp/verify-ui/cursor/mcp.json",
+    "canInstall": true,
+    "canReplace": false,
+    "canRemove": false
+  },
+  "cursorPreview": {
+    "global": true,
+    "configPath": "/tmp/verify-ui/cursor/mcp.json",
+    "mcpEntry": {},
+    "rulesPath": "/tmp/verify-ui/cursor/rules.mdc",
+    "rulesContent": "",
+    "commandMode": "published"
+  },
+  "commandPaths": {
+    "claude": "claude",
+    "node": "node",
+    "opencode": "opencode"
+  },
+  "busy": false
+}

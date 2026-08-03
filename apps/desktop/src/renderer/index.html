@@ -1,15 +1,15 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme-mode="system">
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://openpets.dev openpets-codex: openpets-installed: openpets-pet-preview: openpets-plugin-asset:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Placeholder only. Both electron-builder targets ship this same document,
-         so the real title is applied per-build from the main process. -->
-    <title>Control Center</title>
+    <meta name="theme-color" content="#176df2" />
+    <title>Pocket Buddy+ — Control Center</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/product-ui.ts"></script>
   </body>
 </html>
