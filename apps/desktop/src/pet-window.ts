@@ -189,12 +189,83 @@ export function recoverPetMouseInterop(window: BrowserWindow, reason: string): v
   debug("pet.window", "mouse interop recovery skipped", { windowId: window.id, reason, skippedReason: "unregistered-window" });
 }
 
+/**
+ * A serializable view of an Electron menu template, so a themed renderer can
+ * draw the very same items (including plugin submenus) that the native menu
+ * would have shown. Click handlers stay in the main process and are addressed
+ * by id -- the renderer never receives a callback.
+ */
+export interface PetMenuItemView {
+  readonly id: string;
+  readonly label: string;
+  readonly type: "normal" | "separator" | "checkbox";
+  readonly enabled: boolean;
+  readonly checked: boolean;
+  readonly submenu: readonly PetMenuItemView[];
+}
+
+export interface PetMenuPresentation {
+  readonly items: readonly PetMenuItemView[];
+  readonly invoke: (id: string) => void;
+}
+
+export type PetContextMenuPresenter = (
+  window: BrowserWindow,
+  presentation: PetMenuPresentation,
+) => boolean;
+
+let petContextMenuPresenter: PetContextMenuPresenter | null = null;
+
+/**
+ * Registered by the Pocket Buddy Plus surfaces so right-click opens the combined
+ * themed panel. Unregistered on the inherited OpenPets build, which keeps the
+ * native context menu untouched.
+ */
+export function setPetContextMenuPresenter(presenter: PetContextMenuPresenter | null): void {
+  petContextMenuPresenter = presenter;
+}
+
+function serializePetMenuTemplate(
+  template: readonly Electron.MenuItemConstructorOptions[],
+  handlers: Map<string, () => void>,
+  prefix = "m",
+): PetMenuItemView[] {
+  return template.map((item, index) => {
+    const id = `${prefix}-${index}`;
+    if (typeof item.click === "function") {
+      const click = item.click as () => void;
+      handlers.set(id, () => click());
+    }
+    const submenu = Array.isArray(item.submenu)
+      ? serializePetMenuTemplate(item.submenu as Electron.MenuItemConstructorOptions[], handlers, id)
+      : [];
+    return {
+      id,
+      label: typeof item.label === "string" ? item.label : "",
+      type: item.type === "separator" ? "separator" : item.type === "checkbox" ? "checkbox" : "normal",
+      enabled: item.enabled !== false,
+      checked: item.checked === true,
+      submenu,
+    };
+  });
+}
+
 function installPetContextMenu(window: BrowserWindow, action: { readonly label: string; readonly click: () => void; readonly defaultPet?: boolean; readonly focusSessionWindow?: () => void }): void {
   const webContents = window.webContents;
   const handleContextMenu = (event: Electron.Event): void => {
     event.preventDefault();
     if (window.isDestroyed()) return;
-    void buildPetContextMenuTemplate(action).then((template) => Menu.buildFromTemplate(template).popup({ window })).catch((error) => { logError("pet.window", "context menu build failed", error); Menu.buildFromTemplate([{ label: action.label, click: action.click }]).popup({ window }); });
+    void buildPetContextMenuTemplate(action).then((template) => {
+      const presenter = petContextMenuPresenter;
+      if (presenter) {
+        const handlers = new Map<string, () => void>();
+        const items = serializePetMenuTemplate(template, handlers);
+        // The presenter returns false when it cannot draw (e.g. host not ready),
+        // in which case we fall back to the inherited native menu.
+        if (presenter(window, { items, invoke: (id) => handlers.get(id)?.() })) return;
+      }
+      Menu.buildFromTemplate(template).popup({ window });
+    }).catch((error) => { logError("pet.window", "context menu build failed", error); Menu.buildFromTemplate([{ label: action.label, click: action.click }]).popup({ window }); });
   };
   webContents.on("context-menu", handleContextMenu);
   window.once("closed", () => {
@@ -318,6 +389,17 @@ function buildPluginCommandFormUrl(title: string, form: PluginCommandForm, chann
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
+
+let petDragSuppressed: () => boolean = () => false;
+
+/** Registered by the Pocket Buddy Plus surfaces; a no-op on the inherited build. */
+export function setPetDragSuppressor(predicate: (() => boolean) | null): void {
+  petDragSuppressed = predicate ?? (() => false);
+}
+
+function getPetDragSuppressed(): () => boolean {
+  return petDragSuppressed;
+}
 
 function installMousePassthroughAndDrag(window: BrowserWindow, hooks: PetWindowInteractionHooks = {}): void {
   const { onBubbleDismissed, onBubbleAction, onBubbleSubmit, onPetEvent } = hooks;
@@ -484,6 +566,12 @@ function installMousePassthroughAndDrag(window: BrowserWindow, hooks: PetWindowI
 
   const handleDragStart = (event: IpcMainEvent, point: unknown): void => {
     if (!isFromWindow(event) || !isScreenPoint(point) || window.isDestroyed()) return;
+    // While a Buddy's attached menu is open, swallow drags so the pet cannot be
+    // pulled out from under its own menu.
+    if (getPetDragSuppressed()()) {
+      debug("pet.window", "drag start suppressed while buddy menu is open", { windowId });
+      return;
+    }
     if (useWaylandNativeDrag) {
       debug("pet.window", "manual drag start ignored on Wayland native drag", { windowId });
       return;

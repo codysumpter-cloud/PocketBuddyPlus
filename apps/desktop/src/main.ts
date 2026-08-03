@@ -17,9 +17,10 @@ import { initializePluginPlatformSettings } from "./plugin-platform-settings.js"
 import { ElectronPluginJsHost } from "./plugin-js-host.js";
 import { initializePluginService } from "./plugin-service.js";
 import { initializeBuddyHost } from "./buddy/buddy-host.js";
-import { openBuddyDock } from "./buddy/buddy-surfaces.js";
+import { isBuddyMenuOpen, openBuddyDock, presentPetContextMenu } from "./buddy/buddy-surfaces.js";
 import { APP_ID } from "./product.js";
 import { applyPlusUserDataPath, getRuntimeProductName, isPlusRuntime } from "./product-runtime.js";
+import { setPetContextMenuPresenter, setPetDragSuppressor } from "./pet-window.js";
 import { createAppTray, refreshTrayMenu } from "./tray.js";
 import { checkForGitHubReleaseUpdate } from "./update-checker.js";
 import { installInternalUiHandlers, installInternalUiProtocol } from "./windows.js";
@@ -115,6 +116,8 @@ if (!gotSingleInstanceLock) {
     // attached menu or dock can ask it for a snapshot.
     if (isPlusBuild) {
       initializeBuddyHost();
+      setPetDragSuppressor(isBuddyMenuOpen);
+      setPetContextMenuPresenter(presentPetContextMenu);
       openBuddyDock();
     }
     startLanController();

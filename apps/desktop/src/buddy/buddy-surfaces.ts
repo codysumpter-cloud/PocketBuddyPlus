@@ -11,6 +11,7 @@
  * inherited plugin command form already uses.
  */
 import { BrowserWindow, app, ipcMain, screen, type IpcMainEvent, type IpcMainInvokeEvent } from "electron";
+import { pathToFileURL } from "node:url";
 
 import { debug, error as logError, info } from "../logger.js";
 import { openControlCenterWindow, type ControlCenterRoute } from "../windows.js";
@@ -28,17 +29,20 @@ import {
   setDockPreferences,
   subscribeToBuddy,
 } from "./buddy-host.js";
-import { dockEdges, type DockEdge } from "./buddy-store.js";
+import { buddyThemes, dockEdges, type DockEdge, type BuddyTheme } from "./buddy-store.js";
 import { isPlusRuntime } from "../product-runtime.js";
+import type { PetMenuPresentation } from "../pet-window.js";
 
-const menuWidth = 236;
-const menuHeight = 372;
+const menuWidth = 258;
+const menuHeight = 430;
 
 let menuWindow: BrowserWindow | null = null;
 let dockWindow: BrowserWindow | null = null;
 /** Pet handle whose menu is currently open, so multi-pet routing stays correct. */
 let menuOwnerPetId: string | null = null;
 let menuOpen = false;
+/** Live surfaces, so preference changes can be pushed to all of them. */
+const surfaceTokens = new Map<BrowserWindow, string>();
 
 export function isBuddyMenuOpen(): boolean {
   return menuOpen;
@@ -66,52 +70,86 @@ const placeholderSources: Readonly<Record<string, string>> = {
 };
 
 function buildSurfaceUrl(kind: "menu" | "dock", payload: unknown): string {
-  const csp = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-src 'none'";
+  // font-src file: mirrors the inherited pet window, which loads its bundled
+  // emoji font the same way. Everything else stays locked down.
+  const csp = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src file:; img-src 'none'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-src 'none'";
   const data = JSON.stringify(payload).replace(/</g, "\\u003c");
-  const html = kind === "menu" ? renderMenuDocument(csp, data) : renderDockDocument(csp, data);
+  const theme = getDockPreferences().theme;
+  const html = kind === "menu" ? renderMenuDocument(csp, data, theme) : renderDockDocument(csp, data, theme);
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
 
 // Shared visual language: dark translucent pixel-friendly surface, warm gold
 // accent, hard-edged rendering rather than blurry game UI.
-const sharedStyle = `
+function bundledFontUrl(): string {
+  return pathToFileURL(`${app.getAppPath()}/assets/Monocraft.otf`).toString();
+}
+
+/**
+ * Shared visual language for both Plus surfaces.
+ *
+ * Monocraft (SIL OFL 1.1, Idrees Hassan) is the same pixel face the Pocket Bird
+ * and Godot Pocket Buddy UIs use, bundled in assets/ with its license. Themes are
+ * plain CSS custom properties so the menu and dock always render identically;
+ * the active theme is persisted with the dock preferences.
+ */
+function sharedStyle(): string {
+  return `
+@font-face{font-family:"Monocraft";src:url("${bundledFontUrl()}") format("opentype");font-display:block}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:transparent;overflow:hidden;-webkit-user-select:none;user-select:none}
-body{font-family:"Monocraft","Minecraftia",ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12px;color:#f4ead8;image-rendering:pixelated;-webkit-font-smoothing:none}
-.panel{background:rgba(18,16,22,.94);border:2px solid #c9a227;border-radius:2px;box-shadow:0 6px 0 rgba(0,0,0,.45)}
+:root{
+  --surface:rgba(18,16,22,.94);--accent:#c9a227;--accent-bright:#f7d774;
+  --text:#f4ead8;--muted:#a79c8a;--faint:#8d8272;--hover:rgba(201,162,39,.22);
+  --line:rgba(201,162,39,.5);--track:rgba(255,255,255,.10);--good:#8fd694;
+  --shadow:0 6px 0 rgba(0,0,0,.45);--on-accent:#12101a;
+}
+:root[data-theme="light"]{
+  --surface:rgba(247,242,230,.97);--accent:#a8791b;--accent-bright:#6b4a06;
+  --text:#241f18;--muted:#6b6151;--faint:#857a67;--hover:rgba(168,121,27,.20);
+  --line:rgba(168,121,27,.55);--track:rgba(36,31,24,.14);--good:#1f7a34;
+  --shadow:0 6px 0 rgba(120,100,60,.28);--on-accent:#fdf8ec;
+}
+body{font-family:"Monocraft",ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12px;color:var(--text);image-rendering:pixelated;-webkit-font-smoothing:none}
+.panel{background:var(--surface);border:2px solid var(--accent);border-radius:2px;box-shadow:var(--shadow)}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
 `;
+}
 
-function renderMenuDocument(csp: string, data: string): string {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><title>Buddy</title><style>${sharedStyle}
+function renderMenuDocument(csp: string, data: string, theme: BuddyTheme): string {
+  return `<!doctype html><html data-theme="${theme}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><title>Buddy</title><style>${sharedStyle()}
 .panel{height:100%;display:flex;flex-direction:column}
-header{padding:8px 10px;border-bottom:2px solid rgba(201,162,39,.5);display:flex;flex-direction:column;gap:2px}
-header .name{color:#f7d774;letter-spacing:.5px}
-header .mood{font-size:10px;color:#a79c8a}
+header{padding:8px 10px;border-bottom:2px solid var(--line);display:flex;flex-direction:column;gap:2px}
+header .name{color:var(--accent-bright);letter-spacing:.5px}
+header .mood{font-size:10px;color:var(--muted)}
 nav{flex:1;overflow-y:auto;padding:4px 0}
 nav button{display:block;width:100%;padding:6px 10px;line-height:1.2}
-nav button:hover,nav button:focus{background:rgba(201,162,39,.22);outline:none}
-nav button .hint{display:block;font-size:9px;color:#8d8272}
+nav button:hover,nav button:focus{background:var(--hover);outline:none}
+nav button .hint{display:block;font-size:9px;color:var(--faint)}
+nav .sect{padding:7px 10px 3px;font-size:9px;color:var(--faint);letter-spacing:1px;border-top:1px solid var(--line);margin-top:4px}
+nav .sect:first-child{border-top:0;margin-top:0}
+nav button .arrow{float:right;color:var(--faint)}
+nav button[disabled]{opacity:.45;cursor:default}
 .view{flex:1;overflow-y:auto;padding:8px 10px;display:none}
 .view.active{display:block}
 nav.hidden{display:none}
 .row{display:flex;justify-content:space-between;gap:8px;padding:2px 0;font-size:11px}
-.row span:last-child{color:#f7d774}
-.bar{height:5px;background:rgba(255,255,255,.10);margin-top:2px}
-.bar i{display:block;height:100%;background:#c9a227}
-h2{font-size:11px;color:#f7d774;margin-bottom:6px;letter-spacing:.5px}
-.note{font-size:10px;color:#a79c8a;line-height:1.45}
-.src{margin-top:6px;font-size:10px;color:#f0c04a;line-height:1.4}
-footer{padding:6px 10px;border-top:2px solid rgba(201,162,39,.5)}
-footer button{font-size:10px;color:#a79c8a}
-footer button:hover{color:#f7d774}
-.react{padding:6px 10px;font-size:10px;color:#8fd694;min-height:14px}
+.row span:last-child{color:var(--accent-bright)}
+.bar{height:5px;background:var(--track);margin-top:2px}
+.bar i{display:block;height:100%;background:var(--accent)}
+h2{font-size:11px;color:var(--accent-bright);margin-bottom:6px;letter-spacing:.5px}
+.note{font-size:10px;color:var(--muted);line-height:1.45}
+.src{margin-top:6px;font-size:10px;color:var(--accent-bright);line-height:1.4}
+footer{padding:6px 10px;border-top:2px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+footer button{font-size:10px;color:var(--muted)}
+footer button:hover{color:var(--accent-bright)}
+.react{padding:6px 10px;font-size:10px;color:var(--good);min-height:14px}
 </style></head><body><div class="panel">
 <header><span class="name" id="name">Buddy</span><span class="mood" id="mood"></span></header>
 <div class="react" id="react"></div>
 <nav id="nav"></nav>
 <div class="view" id="view"></div>
-<footer><button id="back" type="button">&lt; Back</button></footer>
+<footer><button id="back" type="button">&lt; Back</button><button id="theme" type="button">Theme</button></footer>
 </div><script>
 const data=${data};const api=window.pocketBuddyPlus;
 const nav=document.getElementById('nav'),view=document.getElementById('view'),back=document.getElementById('back');
@@ -132,10 +170,36 @@ return '<h2>Status</h2>'+
 '<div class="row"><span>Needs most</span><span>'+snapshot.dominantNeed+'</span></div>'+
 '<h2 style="margin-top:8px">Need pressure</h2>'+rows;}
 function renderPlaceholder(item){return '<h2>'+item.label+'</h2><p class="note">Not ported yet. This panel is a placeholder so the menu never pretends a feature works.</p><p class="src">Source system still to port:<br>'+item.source+'</p>';}
-function paintNav(){nav.innerHTML='';for(var i=0;i<data.items.length;i++){(function(item){
-var b=document.createElement('button');b.type='button';b.textContent=item.label;
-if(!item.implemented){var h=document.createElement('span');h.className='hint';h.textContent='not ported yet';b.appendChild(h);}
-b.addEventListener('click',function(){onAction(item);});nav.appendChild(b);})(data.items[i]);}}
+function section(title){var d=document.createElement('div');d.className='sect';d.textContent=title;nav.appendChild(d);}
+function openPetsButton(item){
+  if(item.type==='separator')return null;
+  var b=document.createElement('button');b.type='button';
+  b.textContent=(item.checked?'\u2713 ':'')+item.label;
+  if(!item.enabled)b.disabled=true;
+  if(item.submenu&&item.submenu.length){
+    var a=document.createElement('span');a.className='arrow';a.textContent='\u203a';b.appendChild(a);
+    b.addEventListener('click',function(){renderSubmenu(item);});
+  }else{
+    b.addEventListener('click',function(){api.invokeMenuAction('openpets:'+item.id);});
+  }
+  return b;
+}
+function renderSubmenu(parent){
+  nav.innerHTML='';section(parent.label.toUpperCase());
+  for(var i=0;i<parent.submenu.length;i++){var b=openPetsButton(parent.submenu[i]);if(b)nav.appendChild(b);}
+  var back=document.createElement('button');back.type='button';back.textContent='\u2039 Back';
+  back.addEventListener('click',paintNav);nav.appendChild(back);
+}
+function paintNav(){nav.innerHTML='';
+  section('POCKET BUDDY');
+  for(var i=0;i<data.items.length;i++){(function(item){
+    var b=document.createElement('button');b.type='button';b.textContent=item.label;
+    if(!item.implemented){var h=document.createElement('span');h.className='hint';h.textContent='not ported yet';b.appendChild(h);}
+    b.addEventListener('click',function(){onAction(item);});nav.appendChild(b);})(data.items[i]);}
+  var op=data.openPets||[];
+  if(op.length){section('OPENPETS');
+    for(var j=0;j<op.length;j++){var b2=openPetsButton(op[j]);if(b2)nav.appendChild(b2);}}
+}
 async function onAction(item){
   if(item.action==='status'){showView(renderStatus());return;}
   if(!item.implemented){showView(renderPlaceholder(item));return;}
@@ -146,6 +210,10 @@ async function onAction(item){
   if(item.action==='pet'&&view.classList.contains('active'))showView(renderStatus());
 }
 back.addEventListener('click',showNav);
+document.getElementById('theme').addEventListener('click',function(){
+  var next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',next);api.setDockPreferences({theme:next});});
+api.onPreferences(function(p){if(p&&p.theme)document.documentElement.setAttribute('data-theme',p.theme);});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(view.classList.contains('active'))showNav();else api.close();}});
 api.onSnapshot(function(next){snapshot=next;paintHeader();if(view.classList.contains('active')&&view.querySelector('h2')&&view.querySelector('h2').textContent==='Status')showView(renderStatus());});
 api.getSnapshot().then(function(next){snapshot=next;paintHeader();});
@@ -153,25 +221,25 @@ paintNav();showNav();
 </script></body></html>`;
 }
 
-function renderDockDocument(csp: string, data: string): string {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><title>Dock</title><style>${sharedStyle}
+function renderDockDocument(csp: string, data: string, theme: BuddyTheme): string {
+  return `<!doctype html><html data-theme="${theme}"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><title>Dock</title><style>${sharedStyle()}
 .panel{height:100%;display:flex;align-items:center;gap:6px;padding:6px 8px;overflow:hidden}
 .panel.vertical{flex-direction:column;align-items:stretch}
 .panel.collapsed{padding:0;justify-content:center;align-items:center;cursor:pointer}
-.buddy{display:flex;flex-direction:column;justify-content:center;min-width:120px;padding-right:8px;border-right:2px solid rgba(201,162,39,.4)}
-.panel.vertical .buddy{border-right:0;border-bottom:2px solid rgba(201,162,39,.4);padding:0 0 6px;min-width:0}
-.buddy .n{color:#f7d774}
-.buddy .m{font-size:10px;color:#a79c8a}
+.buddy{display:flex;flex-direction:column;justify-content:center;min-width:120px;padding-right:8px;border-right:2px solid var(--line)}
+.panel.vertical .buddy{border-right:0;border-bottom:2px solid var(--line);padding:0 0 6px;min-width:0}
+.buddy .n{color:var(--accent-bright)}
+.buddy .m{font-size:10px;color:var(--muted)}
 .acts{display:flex;gap:4px;flex:1;overflow:auto}
 .panel.vertical .acts{flex-direction:column}
-.acts button{padding:6px 8px;border:1px solid rgba(201,162,39,.45);border-radius:2px;white-space:nowrap;font-size:11px}
-.acts button:hover{background:rgba(201,162,39,.22)}
+.acts button{padding:6px 8px;border:1px solid var(--line);border-radius:2px;white-space:nowrap;font-size:11px}
+.acts button:hover{background:var(--hover)}
 .ctrl{display:flex;gap:4px}
 .panel.vertical .ctrl{flex-direction:column}
-.ctrl button{padding:4px 6px;font-size:10px;color:#a79c8a;border:1px solid rgba(201,162,39,.3);border-radius:2px}
-.ctrl button:hover{color:#f7d774}
-.ctrl button[aria-pressed="true"]{color:#12101a;background:#c9a227}
-.handle{font-size:10px;color:#c9a227;letter-spacing:2px}
+.ctrl button{padding:4px 6px;font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:2px}
+.ctrl button:hover{color:var(--accent-bright)}
+.ctrl button[aria-pressed="true"]{color:var(--on-accent);background:var(--accent)}
+.handle{font-size:10px;color:var(--accent);letter-spacing:2px}
 </style></head><body><div class="panel" id="panel">
 <div class="buddy" id="buddy"><span class="n" id="n">Buddy</span><span class="m" id="m"></span></div>
 <div class="acts" id="acts"></div>
@@ -198,8 +266,13 @@ for(var j=0;j<data.edges.length;j++){(function(e){
   b.addEventListener('click',function(){setPrefs({edge:e});
     var all=ctrl.querySelectorAll('button[aria-pressed]');for(var k=0;k<all.length;k++)all[k].setAttribute('aria-pressed','false');
     b.setAttribute('aria-pressed','true');});ctrl.appendChild(b);})(data.edges[j]);}
+var themeBtn=document.createElement('button');themeBtn.type='button';themeBtn.textContent='\\u25d1';themeBtn.title='Toggle light/dark theme';
+themeBtn.addEventListener('click',function(){
+  var next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+  document.documentElement.setAttribute('data-theme',next);setPrefs({theme:next});});ctrl.appendChild(themeBtn);
 var collapse=document.createElement('button');collapse.type='button';collapse.textContent='\\u2212';collapse.title='Collapse dock';
 collapse.addEventListener('click',function(){setPrefs({collapsed:true});});ctrl.appendChild(collapse);
+api.onPreferences(function(p){if(p&&p.theme)document.documentElement.setAttribute('data-theme',p.theme);});
 api.onSnapshot(paintSnapshot);api.getSnapshot().then(paintSnapshot);
 applyLayout();
 </script></body></html>`;
@@ -223,6 +296,8 @@ function registerSurfaceIpc(
     if (!fromWindow(event)) return null;
     const next = setDockPreferences(preferences);
     applyDockBounds();
+    // Keep the other surface in sync so the menu and dock never disagree.
+    broadcastPreferences(next);
     return next;
   };
   const handleMenuAction = async (event: IpcMainInvokeEvent, action: unknown): Promise<unknown> => {
@@ -245,12 +320,14 @@ function registerSurfaceIpc(
   ipcMain.on(`${channel}:open-control-center`, handleOpenControlCenter);
   ipcMain.on(`${channel}:close`, handleClose);
 
+  surfaceTokens.set(window, token);
   const unsubscribe = subscribeToBuddy((snapshot) => {
     if (!window.isDestroyed()) window.webContents.send(`${channel}:snapshot`, snapshot);
   });
 
   return {
     dispose: () => {
+      surfaceTokens.delete(window);
       ipcMain.removeHandler(`${channel}:get-snapshot`);
       ipcMain.removeHandler(`${channel}:get-dock`);
       ipcMain.removeHandler(`${channel}:set-dock`);
@@ -260,6 +337,14 @@ function registerSurfaceIpc(
       unsubscribe();
     },
   };
+}
+
+/** Push preference changes (notably the theme) to every open Plus surface. */
+function broadcastPreferences(preferences: unknown): void {
+  for (const [window, token] of surfaceTokens) {
+    if (window.isDestroyed()) continue;
+    window.webContents.send(`pocketbuddyplus:surface:${token}:preferences`, preferences);
+  }
 }
 
 const controlCenterRoutes: readonly ControlCenterRoute[] = ["dashboard", "pets", "settings", "plugins", "integrations"];
@@ -314,10 +399,11 @@ export function closeBuddyMenu(): void {
  * closes the previous menu first so the menu always belongs to one selected
  * Buddy.
  */
-export function openBuddyMenuForPet(petHandleId: string, petBounds: Rect): void {
+export function openBuddyMenuForPet(petHandleId: string, petBounds: Rect, presentation: PetMenuPresentation): void {
   if (menuWindow && !menuWindow.isDestroyed()) {
-    if (menuOwnerPetId === petHandleId) { closeBuddyMenu(); return; }
+    const sameBuddy = menuOwnerPetId === petHandleId;
     closeBuddyMenu();
+    if (sameBuddy) return;
   }
 
   const display = screen.getDisplayNearestPoint({
@@ -333,41 +419,64 @@ export function openBuddyMenuForPet(petHandleId: string, petBounds: Rect): void 
   menuOpen = true;
   hardenSurface(window);
 
-  const items = getBuddyMenuItems({ supportsProcessExit: true }).map((item) => ({
+  const buddyItems = getBuddyMenuItems({ supportsProcessExit: true }).map((item) => ({
     action: item.action,
     label: item.label,
     implemented: implementedActions.has(item.action),
     source: placeholderSources[item.action] ?? "",
   }));
 
-  const handlers = registerSurfaceIpc(window, token, async (action) => handleMenuAction(action, petHandleId));
+  const handlers = registerSurfaceIpc(window, token, async (action) => {
+    // Ids coming back from the inherited OpenPets section are addressed by id;
+    // the Pocket Buddy section uses its own action names.
+    if (typeof action === "string" && action.startsWith("openpets:")) {
+      presentation.invoke(action.slice("openpets:".length));
+      closeBuddyMenu();
+      return { closed: true };
+    }
+    return handleMenuAction(action, petHandleId);
+  });
 
-  window.once("ready-to-show", () => { window.show(); window.focus(); });
-  // Click-away closes the menu, matching the Pocket Buddy interaction model.
-  window.on("blur", () => { if (!window.isDestroyed()) window.close(); });
+  // Click-away closes the menu, matching the Pocket Buddy interaction model --
+  // but only once the menu has actually held focus. A pet click does not
+  // activate the app, so when another application is frontmost the menu receives
+  // a blur before it is ever focused and would otherwise close instantly,
+  // leaving the menu invisible even though it was created.
+  let hasBeenFocused = false;
+  window.on("focus", () => { hasBeenFocused = true; });
+  window.on("blur", () => { if (hasBeenFocused && !window.isDestroyed()) window.close(); });
+  window.once("ready-to-show", () => {
+    window.show();
+    // Take focus the way a context menu does, so click-away and Escape work and
+    // the pet cannot be dragged out from under the open menu.
+    app.focus({ steal: true });
+    window.focus();
+  });
   window.once("closed", () => {
     handlers.dispose();
     if (menuWindow === window) { menuWindow = null; menuOwnerPetId = null; menuOpen = false; }
   });
 
-  window.loadURL(buildSurfaceUrl("menu", { items })).catch((error: unknown) => {
+  window.loadURL(buildSurfaceUrl("menu", { items: buddyItems, openPets: presentation.items })).catch((error: unknown) => {
     logError("buddy", "attached menu load failed", error);
   });
-  debug("buddy", "attached menu opened", { petHandleId, bounds });
+  debug("buddy", "combined pet menu opened", { petHandleId, bounds, openPetsItems: presentation.items.length });
 }
 
 /**
- * Convenience entry point for pet controllers: open the attached menu for a live
- * pet window. No-ops on the inherited OpenPets build so that target keeps its
- * original behavior.
+ * Presenter registered with pet-window: draws the combined themed panel instead
+ * of the native context menu. Returns false so the caller falls back to the
+ * native menu when this build should not draw it.
  */
-export function openBuddyMenuForPetWindow(petHandleId: string, window: BrowserWindow | null): void {
-  if (!isPlusRuntime()) return;
-  if (!window || window.isDestroyed() || !window.isVisible()) return;
+export function presentPetContextMenu(window: BrowserWindow, presentation: PetMenuPresentation): boolean {
+  if (!isPlusRuntime()) return false;
+  if (window.isDestroyed() || !window.isVisible()) return false;
   try {
-    openBuddyMenuForPet(petHandleId, window.getBounds());
+    openBuddyMenuForPet(`pet-${window.id}`, window.getBounds(), presentation);
+    return true;
   } catch (error) {
-    logError("buddy", "attached menu open failed", error);
+    logError("buddy", "combined pet menu failed; falling back to the native menu", error);
+    return false;
   }
 }
 

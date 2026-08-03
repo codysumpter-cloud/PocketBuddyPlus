@@ -12,7 +12,6 @@ import { PetBubbleArbiter, type ActiveBubble, type PetBubbleSink } from "./plugi
 import { publishPluginPetEvent } from "./plugin-events-source.js";
 import { reclampAgentPetWindows } from "./agent-pet-controller.js";
 import { reclampPluginPetWindows } from "./plugin-pet-registry.js";
-import { openBuddyMenuForPetWindow } from "./buddy/buddy-surfaces.js";
 
 let defaultPetWindow: BrowserWindow | null = null;
 let paused = false;
@@ -304,12 +303,7 @@ function getOrCreateDefaultPetWindow(): BrowserWindow {
     onBubbleDismissed: handleBubbleDismissed,
     onBubbleAction: (token, actionId) => defaultPetBubbleArbiter.handleAction(token, actionId),
     onBubbleSubmit: (token, values) => defaultPetBubbleArbiter.handleSubmit(token, values),
-    onPetEvent: (name, payload) => {
-      publishPluginPetEvent("default", name, payload);
-      // Pocket Buddy Plus: a click on the Buddy opens its attached menu. Routed
-      // per pet handle so multi-pet setups open the menu for the right Buddy.
-      if (name === "pet:clicked") openBuddyMenuForPetWindow("default", defaultPetWindow);
-    },
+    onPetEvent: (name, payload) => publishPluginPetEvent("default", name, payload),
   }, getCurrentDismissToken());
   const windowId = defaultPetWindow.id;
   info("pet.default", "created", { windowId, position, paused, petId: getAppStateSnapshot().preferences.defaultPetId });

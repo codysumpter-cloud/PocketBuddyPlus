@@ -32,6 +32,7 @@ import {
   getBuddyStoreDir,
   getBuddyStorePath,
   loadBuddyStore,
+  buddyThemes,
   normalizeDockPreferences,
   parseBuddyState,
   saveBuddyStore,
@@ -162,14 +163,28 @@ for (const bad of [null, undefined, 42, "x", [], {}, { schemaVersion: 1 }]) {
 
 // --- Dock preference normalization -------------------------------------------
 
-assert.deepEqual(normalizeDockPreferences(undefined), { edge: "bottom", collapsed: false });
-assert.deepEqual(normalizeDockPreferences({}), { edge: "bottom", collapsed: false });
-assert.deepEqual(normalizeDockPreferences({ edge: "left", collapsed: true }), { edge: "left", collapsed: true });
-assert.deepEqual(normalizeDockPreferences({ edge: "right", collapsed: false }), { edge: "right", collapsed: false });
+const defaults = { edge: "bottom", collapsed: false, theme: "dark" };
+assert.deepEqual(normalizeDockPreferences(undefined), defaults);
+assert.deepEqual(normalizeDockPreferences({}), defaults);
+assert.deepEqual(normalizeDockPreferences({ edge: "left", collapsed: true, theme: "light" }), { edge: "left", collapsed: true, theme: "light" });
+assert.deepEqual(normalizeDockPreferences({ edge: "right", collapsed: false, theme: "dark" }), { edge: "right", collapsed: false, theme: "dark" });
 // Unknown or hostile values fall back rather than reaching window code.
-assert.deepEqual(normalizeDockPreferences({ edge: "top", collapsed: "yes" }), { edge: "bottom", collapsed: false });
-assert.deepEqual(normalizeDockPreferences({ edge: 7, collapsed: null }), { edge: "bottom", collapsed: false });
-assert.deepEqual(normalizeDockPreferences("left"), { edge: "bottom", collapsed: false });
+assert.deepEqual(normalizeDockPreferences({ edge: "top", collapsed: "yes", theme: "neon" }), defaults);
+assert.deepEqual(normalizeDockPreferences({ edge: 7, collapsed: null, theme: 3 }), defaults);
+assert.deepEqual(normalizeDockPreferences("left"), defaults);
+// Both themes must survive normalization, and only those two.
+for (const theme of buddyThemes) {
+  assert.equal(normalizeDockPreferences({ theme }).theme, theme);
+}
+assert.deepEqual([...buddyThemes], ["dark", "light"]);
+// Theme must round-trip through the durable store like any other preference.
+{
+  const dir = tempUserData();
+  const base = createDefaultBuddyStore(1_000);
+  const themed = { ...base, dock: { ...base.dock, theme: "light" as const, edge: "right" as const, collapsed: true } };
+  saveBuddyStore(dir, themed);
+  assert.deepEqual(loadBuddyStore(dir, 2_000, "s").store.dock, { edge: "right", collapsed: true, theme: "light" });
+}
 
 // --- Attached menu display clamping ------------------------------------------
 

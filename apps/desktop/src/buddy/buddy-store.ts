@@ -3,8 +3,9 @@
  *
  * This store is deliberately independent of the stable Godot Pocket Buddy save
  * directory: it lives under the Pocket Buddy Plus Electron userData directory
- * (isolated from the inherited OpenPets build by electron-builder.plus.yml's
- * extraMetadata.name override) and never reads or writes the Godot location.
+ * (isolated from the inherited OpenPets build by product-runtime.ts, which
+ * applies a Plus-only userData path) and never reads or writes the Godot
+ * location.
  * There is no automatic import from the Godot saves yet, by design.
  *
  * Every function here takes its base directory explicitly so the whole module is
@@ -31,9 +32,14 @@ export const BUDDY_STORE_FILE_NAME = "buddy-store.v1.json";
 export const dockEdges = ["bottom", "left", "right"] as const;
 export type DockEdge = typeof dockEdges[number];
 
+export const buddyThemes = ["dark", "light"] as const;
+export type BuddyTheme = typeof buddyThemes[number];
+
 export interface DockPreferences {
   readonly edge: DockEdge;
   readonly collapsed: boolean;
+  /** Shared by both Plus surfaces so the menu and dock always match. */
+  readonly theme: BuddyTheme;
 }
 
 export interface BuddyStoreFile {
@@ -42,7 +48,7 @@ export interface BuddyStoreFile {
   readonly dock: DockPreferences;
 }
 
-export const defaultDockPreferences: DockPreferences = { edge: "bottom", collapsed: false };
+export const defaultDockPreferences: DockPreferences = { edge: "bottom", collapsed: false, theme: "dark" };
 
 const moods: readonly BuddyMood[] = ["content", "curious", "playful", "hungry", "tired", "lonely", "uncomfortable"];
 const activities: readonly BuddyActivity[] = ["idle", "exploring", "sleeping", "eating", "playing", "socializing", "grooming"];
@@ -68,7 +74,8 @@ export function normalizeDockPreferences(input: unknown): DockPreferences {
   if (!isRecord(input)) return defaultDockPreferences;
   const edge = dockEdges.includes(input.edge as DockEdge) ? (input.edge as DockEdge) : defaultDockPreferences.edge;
   const collapsed = typeof input.collapsed === "boolean" ? input.collapsed : defaultDockPreferences.collapsed;
-  return { edge, collapsed };
+  const theme = buddyThemes.includes(input.theme as BuddyTheme) ? (input.theme as BuddyTheme) : defaultDockPreferences.theme;
+  return { edge, collapsed, theme };
 }
 
 function parseNeeds(value: unknown): Readonly<Record<BuddyNeedId, number>> | null {
