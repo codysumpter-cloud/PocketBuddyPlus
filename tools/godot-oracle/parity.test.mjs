@@ -12,7 +12,9 @@ import { generateOracle, replayFixture, diffFixture } from "./run-oracle.mjs";
 import { BuddyBiologyChemicalPool } from "../../packages/buddy-life-lgpl/dist/chemical-pool.js";
 
 const GODOT = process.env.PBP_GODOT_BIN || "/opt/homebrew/bin/godot";
-const DONOR = process.env.PBP_BUDDY_CORE_DIR || "/Users/prismtek/Prismtek/prismtek-apps/packages/godot/prismtek-buddy-core";
+const DONOR =
+  process.env.PBP_BUDDY_CORE_DIR ||
+  "/Users/prismtek/Prismtek/active/prismtek-apps/packages/godot/prismtek-buddy-core";
 const available = existsSync(GODOT) && existsSync(DONOR);
 
 if (!available) {
