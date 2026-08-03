@@ -11,7 +11,7 @@ import {
   projectCanonicalCell,
   removeRoomItem,
   rotateCanonicalCell,
-  rotateOrientation,
+  rotateCameraCorner,
   upsertRoomItem,
   type HomeRoomItem,
 } from "../src/home/index.js";
@@ -38,22 +38,22 @@ test("room documents use canonical physical surfaces rather than camera labels",
   assert.deepEqual(Object.keys(room.surfaces), [
     "floor", "wall_north", "wall_east", "wall_south", "wall_west",
   ]);
-  assert.equal(room.orientation, "SE");
+  assert.equal(room.cameraCorner, "SE");
   assert.equal(room.revision, 0);
 });
 
-test("a full orbit returns every canonical cell and orientation exactly", () => {
+test("a full orbit returns every canonical cell and cameraCorner exactly", () => {
   const size = { width: 4, height: 3 };
   const canonical = { x: 2, y: 1 };
-  let orientation: "SE" | "SW" | "NW" | "NE" = "SE";
-  for (let index = 0; index < 4; index += 1) orientation = rotateOrientation(orientation, 1);
-  assert.equal(orientation, "SE");
-  assert.deepEqual(rotateCanonicalCell(canonical, size, orientation), canonical);
+  let cameraCorner: "SE" | "SW" | "NW" | "NE" = "SE";
+  for (let index = 0; index < 4; index += 1) cameraCorner = rotateCameraCorner(cameraCorner, 1);
+  assert.equal(cameraCorner, "SE");
+  assert.deepEqual(rotateCanonicalCell(canonical, size, cameraCorner), canonical);
   assert.deepEqual(presentedRoomSize(size, "SW"), { width: 3, height: 4 });
   assert.deepEqual(presentedRoomSize(size, "NW"), size);
 });
 
-test("isometric projection is deterministic and orientation-aware", () => {
+test("isometric projection is deterministic and camera-corner-aware", () => {
   const size = { width: 4, height: 3 };
   assert.deepEqual(projectCanonicalCell({ x: 0, y: 0 }, size, "SE"), { x: 0, y: 0 });
   assert.deepEqual(projectCanonicalCell({ x: 0, y: 0 }, size, "SW"), { x: 64, y: 32 });
@@ -106,4 +106,19 @@ test("saved room documents are strictly checked at the boundary", () => {
   );
   const duplicate = { ...room, items: [item("same", 0, 0), item("same", 1, 0)] };
   assert.throws(() => parseHomeRoomDocument(duplicate), /duplicate item id/);
+});
+
+test("a legacy document keyed by orientation is rejected, never silently mirrored", () => {
+  // The persisted field was renamed orientation -> cameraCorner with no
+  // migration, which was only safe because no writer existed yet. This pins the
+  // property that made that call defensible: if such a document ever does turn
+  // up, parsing must fail loudly. The dangerous outcome is not an error, it is
+  // a missing cameraCorner quietly defaulting to "SE" and mirroring the room.
+  const room = createHomeRoomDocument({ roomId: "home" });
+  const { cameraCorner, ...withoutCorner } = room;
+  const legacy = { ...withoutCorner, orientation: cameraCorner };
+  assert.throws(() => parseHomeRoomDocument(legacy), /cameraCorner is invalid/);
+
+  // A corner name that is merely unknown must fail the same way.
+  assert.throws(() => parseHomeRoomDocument({ ...room, cameraCorner: "NNE" }), /cameraCorner is invalid/);
 });
