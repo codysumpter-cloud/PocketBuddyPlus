@@ -79,7 +79,11 @@ establishes this same boundary.
 
 ## Status legend
 
-`ported` behaviour reproduced + parity tests · `partial` some behaviour ported ·
+`ported` behaviour reproduced + **live cross-runtime Godot oracle** ·
+`ported (contract-tested)` behaviour reproduced + tests transcribed from the
+donor source, but NOT yet diffed against a running Godot donor — a translation
+error consistent with my reading of the donor would survive ·
+`partial` some behaviour ported ·
 `inventoried` donor read, contract captured, not yet ported · `pending` not started
 
 ## Matrix
@@ -87,8 +91,9 @@ establishes this same boundary.
 | Feature | Donor file | Target | Status | Notes |
 |---|---|---|---|---|
 | Drive set (11 unmet-need pressures) | `creature/buddy_drive_set.gd` | `packages/buddy-domain/src/drive-set.ts` | **ported** | Keys, `DEFAULT_PRESSURES`, `DEFAULT_DRIFT_PER_SECOND` transcribed verbatim. Sign convention preserved (0 satisfied → 1 urgent; `energy` = *needs* energy). `apply_relief` positive-satisfies, `most_urgent` tie-break by name asc, `from_dict` legacy fallback, negative-elapsed floor. 12 parity tests. |
+| Mood model | `creature/buddy_mood_model.gd` | `packages/buddy-domain/src/mood-model.ts` | **ported (contract-tested)** | Exact weights for valence/arousal/dominance and the ORDER-SENSITIVE label ladder (first match wins). `evaluate` mutates state and returns a copy, per the donor. Timestamp injected rather than read from the clock, so results are deterministic. |
 | Personality traits | `creature/buddy_personality_profile.gd` | `packages/buddy-domain/src/personality.ts` | **ported** | 11 traits + `DEFAULT_TRAITS` verbatim. Unknown trait reads as neutral `0.5` (donor `value`), unknown writes ignored (donor `set_value`). |
-| Creature identity + durable state | `creature/buddy_creature_state.gd` | `packages/buddy-domain/src/creature-state.ts` | **inventoried** | Schema `prismtek-buddy-creature-v1`. Fields captured: `buddy_id`, `display_name`, `created_unix`, `revision`, `current_intent`, `current_goal`, `evolution_stage`, `DEFAULT_RELATIONSHIP` (affection .50 / trust .50 / familiarity .10 / respect .40), `DEFAULT_STATS` (level, experience, skill_points, rerolls, health 10, max_health 10, stamina 10, max_stamina 10, strength 1, defense 1, speed 1, focus 1), `learned_associations`, `action_counts`, `cooldown_until_unix`, `last_actions`, `working_memory`, `episodic_memory_refs`, `active_tasks`, `inventory`, `customization`, `flags`, `mood` (label/valence/arousal/dominance). |
+| Creature identity + durable state | `creature/buddy_creature_state.gd` | `packages/buddy-domain/src/creature-state.ts` | **ported (contract-tested)** | Schema `prismtek-buddy-creature-v1`. Fields captured: `buddy_id`, `display_name`, `created_unix`, `revision`, `current_intent`, `current_goal`, `evolution_stage`, `DEFAULT_RELATIONSHIP` (affection .50 / trust .50 / familiarity .10 / respect .40), `DEFAULT_STATS` (level, experience, skill_points, rerolls, health 10, max_health 10, stamina 10, max_stamina 10, strength 1, defense 1, speed 1, focus 1), `learned_associations`, `action_counts`, `cooldown_until_unix`, `last_actions`, `working_memory`, `episodic_memory_refs`, `active_tasks`, `inventory`, `customization`, `flags`, `mood` (label/valence/arousal/dominance). |
 | Life runtime / tick | `life/buddy_life_runtime.gd` | `packages/buddy-runtime` | **inventoried** | Deterministic elapsed-time advancement; must not depend on frame rate. |
 | Biology substrate | `life/buddy_biology_substrate.gd` | `packages/buddy-runtime` | **inventoried** | Largest donor unit (~22 KB). Organs, homeostasis. |
 | Biology brain | `life/buddy_biology_brain.gd` | `packages/buddy-runtime` | **inventoried** | |
