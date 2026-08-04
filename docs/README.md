@@ -68,6 +68,9 @@ Docs here are the *narrative* layer on top of those maps.
 
 - **[development.md](development.md)** — DX: monorepo layout, the command
   surface, dev modes, build conventions, and the npm/desktop release flows.
+- **[workspace-cleanup.md](workspace-cleanup.md)** — the safe Mac workspace
+  consolidation flow, backups, quarantine rules, and habits for canonical repos,
+  worktrees, private assets, and downloads.
 - **[testing-and-validation.md](testing-and-validation.md)** — the full quality
   gate: behavior tests, contract tests, runtime checks, plugin release
   validators (`validate-release` / `validate-live`), catalog verification, and
