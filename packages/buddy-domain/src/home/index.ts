@@ -1,3 +1,4 @@
+export * from "./brush.js";
 export * from "./content-catalog.js";
 export * from "./isometric.js";
 export * from "./placement.js";
