@@ -59,10 +59,10 @@ jobs:
           grep -Fq 'electron-builder.pocket-buddy-plus.yml' apps/desktop/package.json
 
   macos-app:
-    name: Package and smoke-launch macOS app
+    name: Package, smoke-launch, and verify playable Home
     needs: verify
     runs-on: macos-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -111,6 +111,18 @@ jobs:
           fi
           kill "$APP_PID" || true
           wait "$APP_PID" || true
+
+      - name: Verify playable Home interactions and captures
+        run: pnpm --filter @open-pets/desktop capture:home
+
+      - name: Upload playable Home verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pocket-Buddy+-Home-verification
+          path: apps/desktop/artifacts/home-corners
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload Pocket Buddy+ macOS package
         if: always()
