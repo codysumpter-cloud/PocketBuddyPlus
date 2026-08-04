@@ -178,8 +178,11 @@ async function run() {
          if (!canvas) return null; const rect = canvas.getBoundingClientRect();
          return { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) }; })()`,
     );
-    if (!canvasBox || canvasBox.width < 64 || canvasBox.height < 64) {
-      throw new Error(`no usable Home canvas for ${corner}: ${JSON.stringify(canvasBox)}`);
+    // A technically valid canvas can still be useless when toolbar wrapping
+    // crushes it into a narrow strip. Keep enough actual game space to show the
+    // complete room and actors at the compact CI viewport.
+    if (!canvasBox || canvasBox.width < 640 || canvasBox.height < 280) {
+      throw new Error(`Home canvas is missing or visually crushed for ${corner}: ${JSON.stringify(canvasBox)}`);
     }
 
     const shot = await win.webContents.capturePage();
