@@ -129,7 +129,7 @@ function brushButton(brush: HomeBrush): string {
 function itemButton(asset: (typeof HOME_PUBLIC_ASSETS)[number]): string {
   const active = asset.assetId === selectedAssetId ? "active" : "";
   return `<button type="button" data-home-item-asset="${asset.assetId}" class="${active}" title="${asset.label}">
-    <span class="pb-home-item-dot" style="--home-item-color:#${asset.color.toString(16).padStart(6, "0")}" aria-hidden="true"></span>
+    <span class="pb-home-item-dot" aria-hidden="true"></span>
     ${asset.label}
   </button>`;
 }
