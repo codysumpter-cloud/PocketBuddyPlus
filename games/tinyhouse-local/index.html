@@ -18,56 +18,76 @@
           <div id="placement-ghost" hidden></div>
         </div>
 
-        <div id="brand" aria-label="TinyHouse local game logo">
-          <span class="globe">◈</span><span class="tiny">TINY</span><span class="house">HOUSE!</span>
-          <small>POCKET BUDDY+ LOCAL GAME</small>
-        </div>
-
-        <div id="window-buttons">
-          <button id="clear-room" title="Clear placed items">×</button>
-          <button id="reset-room" title="Reset room">↶</button>
-        </div>
-
-        <div id="selection-tools" class="pixel-panel" hidden>
-          <button data-action="activate" title="Play animation / interact (Enter)">▶</button>
-          <button data-action="flip" title="Flip / rotate (R)">↔</button>
-          <button data-action="layer-down" title="Move behind">↓</button>
-          <button data-action="layer-up" title="Move in front">↑</button>
-          <button data-action="duplicate" title="Duplicate">⧉</button>
-          <button data-action="delete" title="Delete">⌫</button>
-        </div>
-
-        <div id="camera-tools">
-          <div class="camera-buttons">
-            <button id="zoom-in" title="Zoom in">⌕+</button>
-            <button id="zoom-out" title="Zoom out">⌕−</button>
-            <button id="center-view" title="Center room">✥</button>
-            <button id="export-room" title="Export room image">◉</button>
+        <header id="top-hud" class="pixel-frame" aria-label="Room controls">
+          <div id="brand" aria-label="Pocket Buddy TinyHouse builder">
+            <span class="brand-mark" aria-hidden="true">⌂</span>
+            <span class="brand-copy"><b>TINYHOUSE</b><small>POCKET BUDDY+ BUILDER</small></span>
           </div>
-          <div class="space-hint">CLICK ASSET · CLICK FLOOR OR TABLE<br><span>DRAG FREELY · DOUBLE-CLICK TO INTERACT · SPACE TO PAN</span></div>
+          <div id="window-buttons" class="command-row">
+            <button id="save-room" class="command primary" title="Save room (Ctrl/Cmd+S)"><span>▣</span>SAVE</button>
+            <button id="load-room" class="command" title="Load room (Ctrl/Cmd+L)"><span>↥</span>LOAD</button>
+            <button id="export-room" class="command" title="Export room image"><span>◉</span>EXPORT</button>
+            <button id="clear-room" class="command danger" title="Clear placed items"><span>×</span>CLEAR</button>
+            <button id="reset-room" class="command" title="Reset room"><span>↶</span>RESET</button>
+          </div>
+        </header>
+
+        <aside id="catalog" class="builder-panel pixel-frame" aria-label="Asset catalog">
+          <div class="panel-heading">
+            <div>
+              <span class="panel-kicker">BUILD MODE</span>
+              <h1>Asset Library</h1>
+            </div>
+            <span id="catalog-count" class="count-chip">0 ITEMS</span>
+          </div>
+          <p id="asset-pack-summary" class="pack-summary">Select your licensed TinyHouse folder to begin.</p>
+          <label class="search-field">
+            <span aria-hidden="true">⌕</span>
+            <input id="search" type="search" placeholder="Search furniture, decor…" aria-label="Search assets" />
+          </label>
+          <nav id="tabs" class="category-tabs" aria-label="Asset categories"></nav>
+          <div id="asset-grid" class="asset-grid" aria-live="polite"></div>
+          <div class="pager" aria-label="Asset pages">
+            <button id="prev-page" aria-label="Previous page">◀</button>
+            <span id="page-label">1 / 1</span>
+            <button id="next-page" aria-label="Next page">▶</button>
+          </div>
+        </aside>
+
+        <section id="selection-tools" class="inspector-panel pixel-frame" hidden aria-label="Selected object controls">
+          <div class="inspector-heading">
+            <span class="panel-kicker">SELECTED OBJECT</span>
+            <h2 id="selection-name">Nothing selected</h2>
+            <p id="selection-meta">Choose an object in the room.</p>
+          </div>
+          <div class="tool-grid">
+            <button data-action="activate" data-label="INTERACT" title="Play animation / interact (Enter)">▶</button>
+            <button data-action="flip" data-label="FLIP" title="Flip / rotate (R)">↔</button>
+            <button data-action="layer-down" data-label="BEHIND" title="Move behind">↓</button>
+            <button data-action="layer-up" data-label="FRONT" title="Move in front">↑</button>
+            <button data-action="duplicate" data-label="COPY" title="Duplicate">⧉</button>
+            <button data-action="delete" data-label="DELETE" class="danger" title="Delete">⌫</button>
+          </div>
+          <div class="inspector-tip">Drag to move · double-click to interact</div>
+        </section>
+
+        <div id="camera-tools" class="camera-dock pixel-frame">
+          <div class="camera-buttons">
+            <button id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+            <button id="center-view" title="Center room" aria-label="Center room">✥</button>
+            <button id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+          </div>
+          <div class="space-hint"><kbd>SPACE</kbd><span>DRAG TO PAN</span></div>
+        </div>
+
+        <div id="mode-hint" class="mode-hint pixel-frame">
+          <b>PLACE</b><span>Click an asset, then click the floor or a highlighted tabletop.</span>
+          <kbd>ESC</kbd><span>Cancel selection</span>
         </div>
 
         <div id="toast" role="status" aria-live="polite"></div>
         <pre id="selftest-report" hidden></pre>
       </div>
-
-      <aside id="catalog" class="notebook" aria-label="Asset catalog">
-        <div class="rings" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-        <div class="catalog-head">
-          <input id="search" type="search" placeholder="Search assets" aria-label="Search assets" />
-          <div class="catalog-actions">
-            <button id="save-room" title="Save room">SAVE</button>
-            <button id="load-room" title="Load room">LOAD</button>
-          </div>
-        </div>
-        <div id="asset-grid" class="asset-grid" aria-live="polite"></div>
-        <div class="pager">
-          <button id="prev-page" aria-label="Previous page">◀</button>
-          <span id="page-label">1 / 1</span>
-          <button id="next-page" aria-label="Next page">▶</button>
-        </div>
-        <nav id="tabs" class="vertical-tabs" aria-label="Asset categories"></nav>
-      </aside>
     </div>
   </main>
   <script src="manifest.js"></script>
