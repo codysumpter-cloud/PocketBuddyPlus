@@ -35,14 +35,15 @@
     "plugins:release": "pnpm plugins:package && pnpm plugins:validate-release && pnpm plugins:publish && pnpm plugins:deploy && pnpm plugins:validate-live",
     "workspace:doctor": "bash scripts/prismtek-workspace-doctor.sh",
     "test:workspace-doctor": "bash scripts/test-prismtek-workspace-doctor.sh",
-    "test": "pnpm check:licenses && pnpm test:workspace-doctor && pnpm build && pnpm -r --if-present test && pnpm test:oracle",
+    "test": "pnpm test:tinyhouse-local && pnpm check:licenses && pnpm test:workspace-doctor && pnpm build && pnpm -r --if-present test && pnpm test:oracle",
     "check": "pnpm -r check",
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build",
     "verify:ui": "pnpm --filter @open-pets/desktop verify:ui",
     "verify:ui:selftest": "pnpm --filter @open-pets/desktop verify:ui:selftest",
     "check:licenses": "node scripts/check-license-boundary.mjs",
-    "test:oracle": "node --test tools/godot-oracle/parity.test.mjs tools/godot-oracle/wall-parity.test.mjs"
+    "test:oracle": "node --test tools/godot-oracle/parity.test.mjs tools/godot-oracle/wall-parity.test.mjs",
+    "test:tinyhouse-local": "node games/tinyhouse-local/test-contract.mjs"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
