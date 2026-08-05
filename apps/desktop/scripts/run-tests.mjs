@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 /**
  * Desktop test runner
  * Runs preload checks, builds and runs behavior tests, contract tests, then remaining dist checks.
@@ -16,12 +16,15 @@ const behaviorTests = [
   ".test-dist/tests/lease-manager.test.js",
   ".test-dist/tests/lease-manager-fixes.test.js",
   ".test-dist/tests/lan-state.test.js",
+  ".test-dist/tests/lan-pet-presence.test.js",
+  ".test-dist/tests/lan-pet-activity.test.js",
   ".test-dist/tests/lan-auth.test.js",
   ".test-dist/tests/lan-controller.test.js",
   ".test-dist/tests/lan-client-retry.test.js",
   ".test-dist/tests/lan-persistence.test.js",
   ".test-dist/tests/default-pet-external-show.test.js",
   ".test-dist/tests/onboarding-state.test.js",
+  ".test-dist/tests/opencode-command.test.js",
   ".test-dist/tests/buddy-foundation.test.js",
   ".test-dist/tests/product-identity.test.js",
   ".test-dist/tests/pet-source-contract.test.js",
