@@ -18,12 +18,28 @@ export type LanClientRecord = {
   readonly host: string;
   readonly lastSeen: number;
   readonly position?: LanPoint;
+  readonly petId?: string;
+};
+
+export type LanPetRecord = {
+  readonly ownerHost: string;
+  readonly petId: string;
+  readonly currentHost: string;
+  readonly position?: LanPoint;
+  readonly activity?: LanPetActivity;
+};
+
+export type LanPetActivity = {
+  readonly kind: "work";
+  readonly sequence: number;
+  readonly createdAt: number;
 };
 
 export type LanState = {
   readonly enabled: true;
   readonly currentHost: string | null;
   readonly clients: readonly LanClientRecord[];
+  readonly pets?: readonly LanPetRecord[];
   readonly updatedAt: number;
 };
 
@@ -36,6 +52,9 @@ export interface LanCoordinatorOptions {
 export class LanCoordinator {
   readonly #staleClientMs: number;
   readonly #clients = new Map<string, LanClientRecord>();
+  readonly #pets = new Map<string, LanPetRecord>();
+  readonly #activitySequences = new Map<string, number>();
+  readonly #petEdgeArmed = new Set<string>();
   readonly #topology: LanTopology;
   #currentHost: string | null = null;
   #preferredHost: string | null = null;
@@ -55,8 +74,22 @@ export class LanCoordinator {
     }
   }
 
-  register(host: string, position: LanPoint | undefined, now: number): LanState {
-    this.#clients.set(host, { host, lastSeen: now, position });
+  register(host: string, position: LanPoint | undefined, now: number, petId?: string): LanState {
+    const normalizedPetId = normalizeLanPetId(petId) ?? undefined;
+    this.#clients.set(host, { host, lastSeen: now, position, petId: normalizedPetId });
+    if (normalizedPetId) {
+      const existingPet = this.#pets.get(host);
+      this.#pets.set(host, {
+        ownerHost: host,
+        petId: normalizedPetId,
+        currentHost: existingPet?.currentHost && this.#clients.has(existingPet.currentHost) ? existingPet.currentHost : host,
+        position: existingPet?.position ?? position,
+        activity: existingPet?.activity,
+      });
+    } else {
+      this.#pets.delete(host);
+      this.#petEdgeArmed.delete(host);
+    }
     if (host === this.#preferredHost && this.#currentHost !== host) {
       this.#currentHost = host;
       this.#edgeArmed = false;
@@ -76,8 +109,10 @@ export class LanCoordinator {
     return this.snapshot(now);
   }
 
-  updatePosition(host: string, position: LanPoint | undefined, edge: LanEdge | null, now: number): LanState {
-    this.#clients.set(host, { host, lastSeen: now, position });
+  updatePosition(host: string, position: LanPoint | undefined, edge: LanEdge | null, now: number, ownerHost?: string): LanState {
+    const existingClient = this.#clients.get(host);
+    this.#clients.set(host, { host, lastSeen: now, position, petId: existingClient?.petId });
+    if (ownerHost) this.#updatePetPosition(host, ownerHost, position, edge);
     if (host === this.#preferredHost && this.#currentHost !== host) {
       this.#currentHost = host;
       this.#edgeArmed = false;
@@ -98,12 +133,50 @@ export class LanCoordinator {
     return this.#currentHost;
   }
 
+  hasClient(host: string, now: number): boolean {
+    this.prune(now);
+    return this.#clients.has(host);
+  }
+
+  publishActivity(ownerHost: string, now: number): LanState | null {
+    const pet = this.#pets.get(ownerHost);
+    const meetingSize = pet
+      ? [...this.#pets.values()].filter((candidate) => candidate.currentHost === pet.currentHost).length
+      : 0;
+    if (!pet || pet.currentHost === ownerHost || meetingSize < 2) return null;
+    const sequence = Math.max((this.#activitySequences.get(ownerHost) ?? 0) + 1, now);
+    this.#activitySequences.set(ownerHost, sequence);
+    this.#pets.set(ownerHost, {
+      ...pet,
+      activity: {
+        kind: "work",
+        sequence,
+        createdAt: now,
+      },
+    });
+    return this.snapshot(now);
+  }
+
+  returnPet(host: string, ownerHost: string, now: number): LanState | null {
+    const pet = this.#pets.get(ownerHost);
+    if (!pet || pet.currentHost !== host || pet.ownerHost === host || !this.#clients.has(pet.ownerHost)) return null;
+    const { activity: _activity, ...rest } = pet;
+    this.#pets.set(ownerHost, {
+      ...rest,
+      currentHost: pet.ownerHost,
+      position: this.#clients.get(pet.ownerHost)?.position,
+    });
+    this.#petEdgeArmed.delete(ownerHost);
+    return this.snapshot(now);
+  }
+
   snapshot(now: number): LanState {
     this.prune(now);
     return {
       enabled: true,
       currentHost: this.#currentHost,
       clients: [...this.#clients.values()].sort((a, b) => a.host.localeCompare(b.host)),
+      pets: [...this.#pets.values()].filter((pet) => this.#clients.has(pet.ownerHost) && this.#clients.has(pet.currentHost)).sort((a, b) => a.ownerHost.localeCompare(b.ownerHost)),
       updatedAt: now,
     };
   }
@@ -112,10 +185,41 @@ export class LanCoordinator {
     for (const [host, record] of this.#clients) {
       if (now - record.lastSeen > this.#staleClientMs) this.#clients.delete(host);
     }
+    for (const [ownerHost, pet] of this.#pets) {
+      if (!this.#clients.has(ownerHost)) {
+        this.#pets.delete(ownerHost);
+        this.#petEdgeArmed.delete(ownerHost);
+      } else if (!this.#clients.has(pet.currentHost)) {
+        this.#pets.set(ownerHost, { ...pet, currentHost: ownerHost });
+        this.#petEdgeArmed.delete(ownerHost);
+      }
+    }
     if (this.#currentHost && !this.#clients.has(this.#currentHost)) {
       this.#currentHost = this.#clients.keys().next().value ?? null;
       this.#edgeArmed = false;
     }
+  }
+
+  #updatePetPosition(host: string, ownerHost: string, position: LanPoint | undefined, edge: LanEdge | null): void {
+    const pet = this.#pets.get(ownerHost);
+    if (!pet || pet.currentHost !== host) return;
+    let currentHost = pet.currentHost;
+    if (!edge) this.#petEdgeArmed.add(ownerHost);
+    else if (this.#petEdgeArmed.has(ownerHost)) {
+      this.#petEdgeArmed.delete(ownerHost);
+      if (position) currentHost = this.#getPetNeighbor(currentHost, edge) ?? currentHost;
+    }
+    this.#pets.set(ownerHost, { ...pet, currentHost, position });
+  }
+
+  #getPetNeighbor(currentHost: string, edge: LanEdge): string | null {
+    const configured = this.#topology[currentHost]?.[edge];
+    if (configured && this.#clients.has(configured)) return configured;
+    const hosts = [...this.#clients.keys()].sort();
+    if (hosts.length < 2) return null;
+    const index = hosts.indexOf(currentHost);
+    if (index < 0) return null;
+    return edge === "right" || edge === "down" ? hosts[(index + 1) % hosts.length] : hosts[(index - 1 + hosts.length) % hosts.length];
   }
 
   #migrate(edge: LanEdge): void {
@@ -157,6 +261,10 @@ export function normalizeLanPoint(value: unknown): LanPoint | undefined {
 
 export function normalizeLanEdge(value: unknown): LanEdge | null {
   return value === "left" || value === "right" || value === "up" || value === "down" ? value : null;
+}
+
+export function normalizeLanPetId(value: unknown): string | null {
+  return typeof value === "string" && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(value) ? value : null;
 }
 
 export function normalizeLanTopology(value: unknown): LanTopology {
