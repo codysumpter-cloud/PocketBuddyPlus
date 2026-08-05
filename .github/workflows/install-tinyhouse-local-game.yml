@@ -27,19 +27,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          sha256sum .tinyhouse-payload/part*
           cat <<'HASHES' | sha256sum -c -
           a7c9b3e58dc467dc7101452dfd6e239e5f5fdbff8654158e6562516f7eb2a6a5  .tinyhouse-payload/part00
           a8718f59ffd2bb032783ada1c65613651240d6e42c43d2e78489c68f706a274d  .tinyhouse-payload/part01
           962577c53125b8b54c265715689e5b21d16cbc1c8baed972ec76ce2ea368cdb0  .tinyhouse-payload/part02
-          4d972182309020679ff0e80b22dfd81352d65b22aa4b54920bc480eb78ebce19  .tinyhouse-payload/part03
+          c98a776ee08dfd7180767663319529b27af9e6e527d598e28db5bcb13ebd19ec  .tinyhouse-payload/part03a
+          a371429ca75317ce4c551a8aebe3fcac460637e457e9a3ee654466c0b19e13ee  .tinyhouse-payload/part03b
           412f85099152d1ab71f7963518df10aad8a9021a18ba8e08ae4002e8fc037455  .tinyhouse-payload/part04a
           9469dc84bbebb8281ec748c7398a1df3ee2c022423f8a9cf5554d418fcbffdc2  .tinyhouse-payload/part04b
           f49656a6eec33d44bc8023bbfdb7e8369fae6e48c033f3e484656478480055cc  .tinyhouse-payload/part05
           9072070da5bd80b2db3494865838bae2e8e38eed11cafdfb8856681587ad42f3  .tinyhouse-payload/part06
           HASHES
 
-          cat .tinyhouse-payload/part00 .tinyhouse-payload/part01 .tinyhouse-payload/part02 .tinyhouse-payload/part03 .tinyhouse-payload/part04a .tinyhouse-payload/part04b .tinyhouse-payload/part05 .tinyhouse-payload/part06 | base64 -d > /tmp/tinyhouse-game.tgz
+          cat .tinyhouse-payload/part00 .tinyhouse-payload/part01 .tinyhouse-payload/part02 .tinyhouse-payload/part03a .tinyhouse-payload/part03b .tinyhouse-payload/part04a .tinyhouse-payload/part04b .tinyhouse-payload/part05 .tinyhouse-payload/part06 | base64 -d > /tmp/tinyhouse-game.tgz
           echo "c644af10c0923e8c4aeb19a93e263682210cbef16b4f51f69a1b5ac9eb0abd18  /tmp/tinyhouse-game.tgz" | sha256sum -c -
           tar -xzf /tmp/tinyhouse-game.tgz
 
