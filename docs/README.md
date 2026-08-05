@@ -19,6 +19,7 @@ Docs here are the *narrative* layer on top of those maps.
   Home, Play, and Studio experiences; parity, authority, assets, and Claude handoff.
 - **[phaser-home.md](phaser-home.md)** — Phaser 4 engine choice, Electron/React/
   Phaser/domain ownership, the first isometric tile-painting slice, and creator direction.
+- **[tinyhouse-local-game.md](tinyhouse-local-game.md)** — public-safe playable TinyHouse room builder that loads a user-owned local asset folder at runtime.
 - **[architecture.md](architecture.md)** — the upstream platform mental model:
   runtime topology, the package spine, end-to-end flows, cross-cutting invariants,
   and a glossary.
