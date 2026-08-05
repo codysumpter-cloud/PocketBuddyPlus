@@ -22,11 +22,15 @@ import { createAppTray, refreshTrayMenu } from "./tray.js";
 import { checkForGitHubReleaseUpdate } from "./update-checker.js";
 import { installInternalUiHandlers, installInternalUiProtocol } from "./windows.js";
 
-// Pocket Buddy Plus does not store browser passwords, cookies, or encrypted app secrets.
-// Keep Chromium/Electron from prompting for macOS Keychain or Linux keyring access
-// during startup/profile initialization.
+// Pocket Buddy Plus stores plugin secrets through Electron safeStorage, which requires
+// a real encryption backend. Linux uses the system keyring; macOS and Windows keep
+// Chromium from prompting during startup/profile initialization.
 app.commandLine.appendSwitch("use-mock-keychain");
-app.commandLine.appendSwitch("password-store", "basic");
+if (process.platform === "linux") {
+  app.commandLine.appendSwitch("password-store", "gnome-libsecret");
+} else {
+  app.commandLine.appendSwitch("password-store", "basic");
+}
 
 // Chromium's native window occlusion tracker treats every window on a display
 // as occluded while a fullscreen app is active there and stops painting it.
