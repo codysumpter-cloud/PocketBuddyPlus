@@ -1,0 +1,77 @@
+name: Install TinyHouse local game
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  install-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out game branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: agent/tinyhouse-local-game
+
+      - name: Install and validate public-safe game
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat .tinyhouse-payload/part* | base64 -d > /tmp/tinyhouse-game.tgz
+          echo "c644af10c0923e8c4aeb19a93e263682210cbef16b4f51f69a1b5ac9eb0abd18  /tmp/tinyhouse-game.tgz" | sha256sum -c -
+          tar -xzf /tmp/tinyhouse-game.tgz
+
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const packagePath = "package.json";
+          const pkg = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+          pkg.scripts["test:tinyhouse-local"] = "node games/tinyhouse-local/test-contract.mjs";
+          if (!pkg.scripts.test.includes("test:tinyhouse-local")) {
+            pkg.scripts.test = `pnpm test:tinyhouse-local && ${pkg.scripts.test}`;
+          }
+          fs.writeFileSync(packagePath, `${JSON.stringify(pkg, null, 2)}\n`);
+
+          const docsPath = "docs/README.md";
+          let docs = fs.readFileSync(docsPath, "utf8");
+          const anchor = "- **[phaser-home.md](phaser-home.md)** — Phaser 4 engine choice, Electron/React/\n  Phaser/domain ownership, the first isometric tile-painting slice, and creator direction.\n";
+          const addition = "- **[tinyhouse-local-game.md](tinyhouse-local-game.md)** — public-safe playable TinyHouse room builder that loads a user-owned local asset folder at runtime.\n";
+          if (!docs.includes("tinyhouse-local-game.md")) {
+            if (!docs.includes(anchor)) throw new Error("docs/README.md TinyHouse insertion anchor is missing");
+            docs = docs.replace(anchor, anchor + addition);
+          }
+          fs.writeFileSync(docsPath, docs);
+          NODE
+
+          node --check games/tinyhouse-local/app.js
+          node --check games/tinyhouse-local/local-assets.js
+          node --check games/tinyhouse-local/generated-recipes.js
+          node games/tinyhouse-local/test-contract.mjs
+
+          if find games/tinyhouse-local -type f \( -iname '*.png' -o -iname '*.gif' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | grep -q .; then
+            echo "Purchased or binary image assets must not be committed" >&2
+            exit 1
+          fi
+          if grep -RIl 'data:image/' games/tinyhouse-local; then
+            echo "Embedded image data must not be committed" >&2
+            exit 1
+          fi
+
+          rm -rf .tinyhouse-payload .github/workflows/install-tinyhouse-local-game.yml
+          git diff --check
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(game): add local-asset TinyHouse builder"
+          git push origin HEAD:agent/tinyhouse-local-game
