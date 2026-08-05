@@ -4,7 +4,7 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-  const PAGE_SIZE = 18;
+  const PAGE_SIZE = 12;
   const SAVE_KEY = "pocket-buddy-plus-tinyhouse-local-v1";
   const LEGACY_SAVE_KEY = "prismtek-tinyhouse-playable-v3";
   const ROOM = Object.freeze({
@@ -59,6 +59,10 @@
   const tabs = $("#tabs");
   const tools = $("#selection-tools");
   const toast = $("#toast");
+  const catalogCount = $("#catalog-count");
+  const selectionName = $("#selection-name");
+  const selectionMeta = $("#selection-meta");
+  const assetPackSummary = $("#asset-pack-summary");
   let toastTimer = 0;
   let memorySave = null;
   let animationTimer = 0;
@@ -248,6 +252,10 @@
       image.src = frameUrl(asset, 0);
       image.alt = asset.name;
       button.append(image);
+      const label = document.createElement("span");
+      label.className = "asset-name";
+      label.textContent = asset.name;
+      button.append(label);
       if (asset.animated) {
         const badge = document.createElement("span");
         badge.className = "ani";
@@ -267,6 +275,7 @@
     $("#page-label").textContent = `${state.page + 1} / ${pageCount}`;
     $("#prev-page").disabled = state.page === 0;
     $("#next-page").disabled = state.page >= pageCount - 1;
+    if (catalogCount) catalogCount.textContent = `${assets.length.toLocaleString()} ITEMS`;
   }
 
   function selectCatalogAsset(asset) {
@@ -412,6 +421,20 @@
       activate.disabled = !asset?.animated;
       activate.textContent = placement?.playing ? "Ⅱ" : "▶";
       activate.title = asset?.animated ? `${animationBadge(asset)}: ${asset.name}` : "This item has no animation";
+    }
+    if (selectionName) selectionName.textContent = asset?.name || "Nothing selected";
+    if (selectionMeta) {
+      if (!placement || !asset) {
+        selectionMeta.textContent = "Choose an object in the room.";
+      } else {
+        const support = placement.supportId ? findPlacement(placement.supportId) : null;
+        const supportAsset = support && findAsset(support.assetId);
+        const location = placement.supportId
+          ? `On ${supportAsset?.name || "tabletop"}`
+          : `Grid ${placement.column.toFixed(1)}, ${placement.row.toFixed(1)}`;
+        const behavior = asset.animated ? ` · ${animationBadge(asset)}` : "";
+        selectionMeta.textContent = `${asset.category} · ${location}${behavior}`;
+      }
     }
   }
 
@@ -1084,6 +1107,7 @@
     const data = window.TINYHOUSE_MANIFEST;
     if (!data || !Array.isArray(data.assets)) throw new Error("Could not load the TinyHouse asset manifest");
     state.manifest = data.assets;
+    if (assetPackSummary) assetPackSummary.textContent = `${data.count.toLocaleString()} objects · ${data.animationGroups} animations · local licensed art`;
     chooseDefaults();
     buildTabs();
     bindUI();
