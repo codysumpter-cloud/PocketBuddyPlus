@@ -7,6 +7,7 @@ const app = readFileSync(new URL("app.js", root), "utf8");
 const loader = readFileSync(new URL("local-assets.js", root), "utf8");
 const recipesSource = readFileSync(new URL("generated-recipes.js", root), "utf8");
 const html = readFileSync(new URL("index.html", root), "utf8");
+const styles = readFileSync(new URL("styles.css", root), "utf8");
 const manifestSource = readFileSync(new URL("manifest.js", root), "utf8");
 
 const context = { window: {} };
@@ -35,15 +36,29 @@ assert.match(app, /placeSelectedOnSupport/);
 assert.match(app, /attachPlacementToSupport/);
 assert.match(app, /tickAnimations/);
 assert.match(app, /await window\.TINYHOUSE_ASSETS_READY/);
+assert.match(app, /asset-name/);
+assert.match(app, /catalog-count/);
+assert.match(app, /selection-name/);
+
+assert.match(html, /id="top-hud"/);
+assert.match(html, /id="catalog-count"/);
+assert.match(html, /id="asset-pack-summary"/);
+assert.match(html, /id="selection-name"/);
+assert.match(html, /id="selection-meta"/);
+assert.match(html, /class="category-tabs"/);
+assert.match(html, /generated-recipes\.js/);
+assert.match(html, /local-assets\.js/);
+assert.match(styles, /grid-template-columns:repeat\(3,1fr\)/);
+assert.match(styles, /\.asset-card \.asset-name/);
+assert.match(styles, /\.inspector-panel/);
+assert.match(styles, /\.camera-dock/);
 
 assert.match(loader, /webkitRelativePath/);
 assert.match(loader, /URL\.createObjectURL/);
 assert.match(loader, /frameDataUrls/);
 assert.match(loader, /renderRecipe/);
-assert.match(html, /generated-recipes\.js/);
 assert.match(loader, /webkitdirectory/);
-assert.match(html, /local-assets\.js/);
 assert.doesNotMatch(manifestSource, /data:image\//, "public manifest must not embed purchased image bytes");
-assert.doesNotMatch(html + app + loader + recipesSource, /data:image\//, "public runtime must not embed purchased image bytes");
+assert.doesNotMatch(html + app + loader + recipesSource + styles, /data:image\//, "public runtime must not embed purchased image bytes");
 
-console.log(`TinyHouse local game contract passed: ${manifest.count} objects, ${manifest.animationGroups} animation groups.`);
+console.log(`TinyHouse local game contract passed: ${manifest.count} objects, ${manifest.animationGroups} animation groups, refreshed pixel UI.`);
