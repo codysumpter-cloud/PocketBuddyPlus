@@ -7,11 +7,12 @@
   <title>Pocket Buddy+ TinyHouse Local Game</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="cozy.css" />
+  <link rel="stylesheet" href="house-grid.css" />
 </head>
 <body>
   <main id="app" aria-label="TinyHouse playable room builder">
     <div id="game-shell">
-      <div id="world-viewport" tabindex="0" aria-label="Interactive isometric room">
+      <div id="world-viewport" tabindex="0" aria-label="Interactive isometric house grid">
         <div id="world-stage">
           <div id="floor-layer" class="world-layer"></div>
           <div id="wall-layer" class="world-layer"></div>
@@ -22,14 +23,14 @@
         <header id="top-hud" class="pixel-frame" aria-label="Room controls">
           <div id="brand" aria-label="Pocket Buddy TinyHouse builder">
             <span class="brand-mark" aria-hidden="true">⌂</span>
-            <span class="brand-copy"><b>TINYHOUSE</b><small>POCKET BUDDY+ BUILDER</small></span>
+            <span class="brand-copy"><b>TINYHOUSE</b><small>POCKET BUDDY+ HOUSE BUILDER</small></span>
           </div>
           <div id="window-buttons" class="command-row">
-            <button id="save-room" class="command primary" title="Save room (Ctrl/Cmd+S)"><span>▣</span>SAVE</button>
-            <button id="load-room" class="command" title="Load room (Ctrl/Cmd+L)"><span>↥</span>LOAD</button>
+            <button id="save-room" class="command primary" title="Save house (Ctrl/Cmd+S)"><span>▣</span>SAVE</button>
+            <button id="load-room" class="command" title="Load house (Ctrl/Cmd+L)"><span>↥</span>LOAD</button>
             <button id="export-room" class="command" title="Export room image"><span>◉</span>EXPORT</button>
             <button id="clear-room" class="command danger" title="Clear placed items"><span>×</span>CLEAR</button>
-            <button id="reset-room" class="command" title="Reset room"><span>↶</span>RESET</button>
+            <button id="reset-room" class="command" title="Reset house"><span>↶</span>RESET</button>
           </div>
         </header>
 
@@ -59,7 +60,7 @@
           <div class="inspector-heading">
             <span class="panel-kicker">SELECTED OBJECT</span>
             <h2 id="selection-name">Nothing selected</h2>
-            <p id="selection-meta">Choose an object in the room.</p>
+            <p id="selection-meta">Choose an object in the house.</p>
           </div>
           <div class="tool-grid">
             <button data-action="activate" data-label="INTERACT" title="Play animation / interact (Enter)">▶</button>
@@ -82,8 +83,8 @@
         </div>
 
         <div id="mode-hint" class="mode-hint pixel-frame">
-          <b>PLACE</b><span>Click an asset, then click the floor or a highlighted tabletop.</span>
-          <kbd>ESC</kbd><span>Cancel selection</span>
+          <b>PLACE</b><span>Use Structure to alter the house, or choose an asset and click a floor/table/wall.</span>
+          <kbd>B</kbd><span>Toggle structure tools</span>
         </div>
 
         <div id="toast" role="status" aria-live="polite"></div>
@@ -99,6 +100,10 @@
   <script src="wall-core.js"></script>
   <script src="drag-pointer-lock.js"></script>
   <script src="wall-mount.js"></script>
+  <script src="house-grid-core.js"></script>
+  <script src="house-grid.js"></script>
+  <script src="house-grid-render.js"></script>
+  <script src="house-grid-editor.js"></script>
   <script src="cozy-core.js"></script>
   <script src="cozy.js"></script>
 </body>
