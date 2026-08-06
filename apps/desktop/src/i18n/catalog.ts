@@ -3,6 +3,7 @@
 // tests, and — if ever bundled — the renderer). The stateful main-process
 // wrapper lives in ./index.ts.
 import { en } from "./locales/en.js";
+import { buddyBrainEn } from "./locales/buddy-brain-en.js";
 import { ja } from "./locales/ja.js";
 import { ko } from "./locales/ko.js";
 import { zhHans } from "./locales/zh-Hans.js";
@@ -10,7 +11,9 @@ import { zhHant } from "./locales/zh-Hant.js";
 import { ptBR } from "./locales/pt-BR.js";
 import { es419 } from "./locales/es-419.js";
 
-export type MessageKey = keyof typeof en;
+const english = { ...en, ...buddyBrainEn } as const;
+
+export type MessageKey = keyof typeof english;
 export type Messages = Record<MessageKey, string>;
 
 export const SUPPORTED_LOCALES = ["en", "ja", "ko", "zh-Hans", "zh-Hant", "pt-BR", "es-419"] as const;
@@ -32,7 +35,7 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const catalogs: Record<Locale, Partial<Messages>> = {
-  en,
+  en: english,
   ja,
   ko,
   "zh-Hans": zhHans,
@@ -54,13 +57,13 @@ export function interpolate(template: string, vars?: Record<string, string | num
 }
 
 export function translate(locale: Locale, key: MessageKey, vars?: Record<string, string | number>): string {
-  const template = catalogs[locale]?.[key] ?? en[key];
+  const template = catalogs[locale]?.[key] ?? english[key];
   return interpolate(template, vars);
 }
 
 /** Fully-resolved message map for a locale (English-backed), for the renderer. */
 export function getMessages(locale: Locale): Messages {
-  return { ...en, ...catalogs[locale] };
+  return { ...english, ...catalogs[locale] };
 }
 
 /** Map a raw BCP-47 tag (e.g. `app.getLocale()`) to a supported locale. */

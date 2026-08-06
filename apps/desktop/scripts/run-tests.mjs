@@ -30,6 +30,7 @@ const behaviorTests = [
   ".test-dist/tests/pet-source-contract.test.js",
   ".test-dist/tests/update-version.test.js",
   ".test-dist/tests/reaction-animation-mapping.test.js",
+  ".test-dist/tests/buddy-brain.test.js",
   ".test-dist/tests/pet-animation-manifest.test.js",
   ".test-dist/tests/zip-safety.test.js",
   ".test-dist/tests/codex-pets.test.js",
@@ -131,10 +132,10 @@ async function main() {
     await run("node", [check]);
   }
 
-  console.log("\nâœ“ All tests passed!");
+  console.log("\n✓ All tests passed!");
 }
 
 main().catch((err) => {
-  console.error("\nâœ— Test suite failed:", err.message);
+  console.error("\n✗ Test suite failed:", err.message);
   process.exit(1);
 });
