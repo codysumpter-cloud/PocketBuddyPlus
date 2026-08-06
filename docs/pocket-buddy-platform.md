@@ -15,7 +15,7 @@ The Pocket Buddy+ host owns:
 - Buddy identity, profile, personality, needs, progression, and memory contracts
 - installed Buddy and sprite-pack management
 - animations, reactions, movement, speech bubbles, and status surfaces
-- AI provider routing and encrypted credentials
+- AI provider routing, model-backed Buddy Talk, local fallback, and encrypted credentials
 - plugin installation, permissions, quotas, lifecycle, and diagnostics
 - events, commands, schedules, panels, notifications, audio, voice, and safe networking
 - shared save/version/migration contracts
@@ -27,7 +27,7 @@ A host capability should be added only when multiple plugins need a consistent, 
 
 Plugins can build experiences such as:
 
-- Buddy chat personalities and specialist assistants
+- alternate Buddy chat personalities and specialist assistants
 - battles, training, abilities, and progression modes
 - trading, gifting, shops, collections, and crafting
 - games, challenges, parties, and multiplayer encounters
@@ -40,7 +40,7 @@ Plugins should use shared host contracts rather than inventing private identity,
 
 ## AI architecture
 
-The existing host AI gateway remains the single credential boundary for plugin AI calls.
+The existing host AI gateway is the single credential and provider boundary for built-in Buddy Talk and plugin AI calls.
 
 Supported provider kinds:
 
@@ -49,9 +49,9 @@ Supported provider kinds:
 - NVIDIA NIM
 - Ollama
 
-Plugins request the `ai` permission and call the host gateway. They do not receive the user's API key. The provider, model, and key are selected once in Pocket Buddy+ settings and can serve multiple plugins.
+Buddy Talk sends a validated, intentionally narrow context: the current message, up to 12 recent Talk messages, and the Buddy's public mood/need snapshot. Notes, tasks, files, plugin state, screen contents, and credentials remain outside the request. When provider access is unavailable, the existing deterministic mood-aware response path remains the offline fallback.
 
-The Buddy Center's current conversation UI and local Buddy state are product foundations. First-class model-backed Buddy chat should consume the same gateway rather than introducing a second provider implementation.
+Plugins request the `ai` permission and call the same host gateway. They do not receive the user's API key. The provider, model, and key are selected once in Pocket Buddy+ settings and can serve the built-in Buddy and multiple approved plugins.
 
 ## Compatibility boundary
 
@@ -73,11 +73,11 @@ Pocket Buddy+ must not depend on an old BeMore/iBeMore application running besid
 
 ## Near-term implementation order
 
-1. Finish model-provider support and connect Buddy chat to the host AI gateway.
-2. Promote Buddy identity/profile/state into a stable plugin-readable contract.
-3. Add shared inventory, equipment, and item-definition contracts.
-4. Build one vertical-slice game plugin using those contracts.
-5. Add safe local trading first; add networked trading only after identity, persistence, confirmation, and abuse controls are proven.
-6. Port useful journal, reminders, shortcuts, GitHub, and creator-tool behavior from donor apps and Prismtek Apps.
+1. **Buddy profile contract** — promote identity, needs, stats, customization, training state, and carefully scoped memory metadata into a stable plugin-readable host API.
+2. **Inventory and equipment** — define shared items, quantities, equipment slots, ownership, and versioned persistence once.
+3. **Battle vertical slice** — build one local sparring plugin using the shared Buddy and inventory contracts.
+4. **Safe local trading** — validate explicit export/import receipts before introducing network identity, moderation, or marketplaces.
+5. **Productivity and creator ports** — move useful journal, reminders, shortcuts, GitHub, and creator-tool behavior from donor apps and Prismtek Apps into plugins.
+6. **Network features** — add parties, battles, or trading only after identity, persistence, confirmation, abuse controls, and recovery paths are proven.
 
-This sequence creates reusable foundations while still shipping visible Buddy experiences early.
+Provider parity and model-backed Buddy Talk are now the first completed platform slice. The next work should make the Buddy profile safely reusable without exposing private renderer storage wholesale.
