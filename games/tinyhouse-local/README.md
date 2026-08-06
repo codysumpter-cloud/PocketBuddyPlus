@@ -22,8 +22,8 @@ The floor and wall presentation uses the approved TinyHouse geometry, but the st
 - doors replace wall edges, animate, and change whether adjacent floor regions are connected;
 - furniture placement and dragging accept only floor cells that currently exist;
 - wall-mounted TVs, windows, pictures, and posters target only wall edges that currently exist;
-- the complete structure, furniture, wall items, door states, and furniture rotations save/load together;
-- PNG export renders the complete edited house and preserves the selected furniture directions.
+- the complete structure, furniture, wall items, and door states save/load together;
+- PNG export renders the complete edited house rather than the original fixed room.
 
 The default house still opens as the exact 5×5 room whose floor and wall seams were previously verified.
 
@@ -49,49 +49,24 @@ Keyboard shortcuts:
 
 ## Editable room templates
 
-The **Rooms** button opens four licensed local room recipes assembled from the pack's individual assets:
+The **Rooms** button opens six licensed local room recipes assembled from the pack's individual assets:
 
 - **Bathroom** — animated bath, sink, toilet, shelves, mirror, window, toiletries, and plants.
 - **Kitchen** — cabinets, animated sink and appliances, refrigerator, washing machine, oven, table, seating, and countertop props.
 - **Office** — a larger 6×6 workspace with animated computers, printers, office machines, desks, chairs, partitions, storage, and wall decor.
 - **Japanese Room** — tatami-style flooring, closet, low table, cushions, tea, shelving, bonsai, lantern, artwork, and an animated sliding door.
+- **Bedroom** — the compact yellow showcase bedroom with bed, desk, wall TV, shelf, door, rug, plants, books, console, lamp, and cat.
+- **Room** — the larger mixed-use bedroom/lounge/workspace with bed, sofa, coffee table, computer desk, wall TV, windows, plants, lava lamp, and cat.
 
-Building a template replaces the current house only after confirmation and stores a one-step complete-house backup. **Restore Previous House** restores its topology, furnishings, wall items, animation state, and rotation state. Every template object remains selectable, movable, interactive, saveable, and exportable.
+Building a template replaces the current house only after confirmation and stores a one-step complete-house backup. **Restore Previous House** restores its topology, furnishings, wall items, animation state, and furniture rotations. Every template object remains selectable, movable, rotatable where authored views exist, interactive, saveable, and exportable.
 
 The pack's animated full-room GIFs and PNG compositions can be used as optional local previews:
 
 - use **Choose Preview** on a room card for UUID-named files;
-- use **Auto-Match Named Showcases** when filenames contain words such as `bathroom`, `kitchen`, `office`, or `japanese`;
+- use **Auto-Match Named Showcases** when filenames contain words such as `bathroom`, `kitchen`, `office`, `japanese`, `bedroom`, or `room`;
 - use **Play Room Animations** to trigger the real editable objects in the current room.
 
 Showcase previews are read through temporary browser object URLs. They are never uploaded, copied into saves, or committed to the repository. The editable room recipes reference manifest IDs rather than embedding licensed image bytes.
-
-## Authored furniture rotation
-
-The original control only mirrored an image with `scaleX(-1)`, which provided two directions. The rotation runtime now uses the real directional material supplied by the pack:
-
-- A/B/C/D furniture families cycle through all four authored views;
-- front/back or base/B families combine the supplied views with safe horizontal mirrors to provide four directions;
-- multi-view book sheets are sliced locally into individual 32×32 directions instead of placing the entire 128×128 sheet;
-- single-view objects remain honest two-way mirrors rather than inventing a distorted back view;
-- **R** rotates clockwise and **Shift+R** rotates backward;
-- rotation state survives house save/load, room-template backup/restore, duplication, dragging, and PNG export.
-
-Wall-mounted decorations stay bound to their structural wall orientation. Move them to another wall rather than rotating them as floor furniture.
-
-## Diorama-style camera feel
-
-Diorama uses a true 3D orthographic camera with constrained orbit controls. TinyHouse is composed from flat pixel sprites, so continuous 3D orbit would expose nonexistent perspectives and distort the art. The builder keeps its authored fixed isometric angle but now matches the useful camera feel:
-
-- drag empty canvas space to pan;
-- Space-drag and middle-drag remain supported;
-- wheel zoom stays anchored under the pointer instead of zooming around the stage origin;
-- touch devices support two-finger pinch zoom;
-- panning has light momentum and zoom/pan settle with damping;
-- the center button smoothly fits the complete edited house;
-- reduced-motion preferences disable camera easing.
-
-A future four-quarter room-view mode can build on the same rotation metadata, but it should remain discrete rather than pretending the 2D pack is freely orbitable 3D art.
 
 ## Included furnishing behavior
 
@@ -99,9 +74,10 @@ A future four-quarter room-view mode can build on the same rotation metadata, bu
 - Pointer-locked dragging that preserves the exact grab point
 - Tabletop/support placement and parent-following movement
 - Wall mounting for compatible televisions, windows, pictures, posters, and boards
-- Authored four-direction rotation where source views exist, with honest two-way fallback
+- Authored four-way furniture rotation when the pack provides directional views, with honest two-way mirroring for single-view art
 - Grouped animation/state definitions instead of exposing raw frames
 - Selection, layers, duplication, rotation, pan, zoom, reset, save/load, and PNG export
+- Diorama-style fixed-isometric navigation: empty-canvas pan, pointer-centered wheel zoom, touch pinch, damping, momentum, and smooth fit-house
 - Local-only metadata manifest with filenames and dimensions; no purchased image bytes
 
 ## Cozy Mode upgrade
@@ -136,9 +112,9 @@ node test-cozy-contract.mjs
 
 `test-house-grid-contract.mjs` protects the real cell/edge model, exact projection, rectangular room planning, bridge-tile split detection, room expansion, door connectivity, persistence, and full-house export wiring.
 
-`test-room-templates-contract.mjs` protects the four editable recipes, complete asset-ID resolution against the shipped manifest, valid floor anchors, explicit UUID preview assignment, local-only showcase handling, one-step restore, whole-room animation controls, and script ordering.
+`test-room-templates-contract.mjs` protects the six editable recipes, complete asset-ID resolution against the shipped manifest, valid floor anchors, explicit UUID preview assignment, local-only showcase handling, one-step restore, whole-room animation controls, and script ordering.
 
-`test-rotation-camera-contract.mjs` executes the real manifest and protects four-view furniture families, local sheet slicing, two-way fallback for genuinely single-view art, persistent/exported rotation state, pointer-anchored zoom, touch pinch, camera damping, and the fixed-isometric no-fake-orbit boundary.
+`test-rotation-camera-contract.mjs` protects authored directional families, known directional spritesheets, persistent/exported rotation state, two-way fallback for single-view art, and the fixed-isometric Diorama-style navigation contract.
 
 ## Asset boundary
 
