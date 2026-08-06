@@ -1,65 +1,71 @@
 # TinyHouse local-asset game
 
-Pocket Buddy+ includes a public-safe HTML room builder at
+Pocket Buddy+ includes a public-safe HTML house builder at
 `games/tinyhouse-local/index.html`. It recreates the TinyHouse-style interior
 building workflow while keeping the purchased Pixel Salvaje image files outside
 the public repository.
 
 ## Runtime boundary
 
-The checked-in code owns room geometry, snapping, animation grouping, tabletop
-relationships, save/load behavior, the local asset loader, and the Cozy Mode
-productivity layer. The player owns the licensed TinyHouse 0.17 files and selects
-the extracted folder at startup. The browser creates temporary object URLs; the
-files are not uploaded or copied into the workspace.
+The checked-in code owns house topology, exact isometric projection, snapping,
+animation grouping, tabletop relationships, wall mounting, save/load/export,
+the local asset loader, and the Cozy Mode productivity layer. The player owns the
+licensed TinyHouse 0.17 files and selects the extracted folder at startup. The
+browser creates temporary object URLs; the files are not uploaded or copied into
+the workspace.
 
 This boundary is intentional. The asset pack may be edited and used in projects,
 but its source assets may not be redistributed. The repository therefore stores
-only filenames, dimensions, animation recipes, interaction metadata, and original
-Prismtek UI/runtime code.
+only filenames, dimensions, animation recipes, interaction metadata, structure
+coordinates, and original Prismtek UI/runtime code.
 
-## Shipped behavior
+## Editable house topology
 
-- 5×5 exact 128px isometric floor with left and right wall planes
-- shared floor/wall transform and six seam invariants
-- half-cell placement and forgiving edge clamping
-- tabletop support attachment, transfer, parent-following movement, and save/load
-- 33 grouped animation/state definitions
-- 35 client-generated frames for layered drawers/doors and the cleaning-robot sheet
-- asset search, paging, selection, duplication, depth, flip, pan, zoom, reset, and PNG export
+The initial presentation remains the previously verified 5×5 room, but it is now
+backed by a real structural model rather than a fixed rectangular render:
 
-## Cozy Mode
+- floor tiles are addressable integer cells on one 128×64 isometric grid;
+- walls and doors are canonical left/right edges between adjacent cells;
+- individual floors and edges can be added or removed;
+- the structure can expand beyond the original bounds or shrink to an irregular footprint;
+- interior walls split the floor graph into separate connected zones;
+- a structural door replaces an edge, animates, and changes graph connectivity when opened or closed;
+- connected room actions append new cells to the same coordinate system rather than drawing an unrelated room mockup;
+- furnishing placement and drag release snap only to floor cells that currently exist;
+- wall-mounted objects target only wall edges that currently exist;
+- one house save contains structure, furnishings, wall placements, and door states;
+- PNG export renders the complete edited footprint and its current doors.
 
-`cozy-core.js`, `cozy.js`, and `cozy.css` extend the verified builder without
-changing its geometry or local-asset loader. Cozy Mode provides:
+`house-grid-core.js` owns the serializable topology and connectivity rules.
+`house-grid.js`, `house-grid-render.js`, and `house-grid-editor.js` own the
+structure runtime, visual projection, editing controls, and integration with the
+existing builder. The exact projection helpers remain shared so the default
+room's floor and wall placement does not move.
 
-- wall-clock focus and break timers that reconcile after tab sleep
-- persistent tasks, active-task selection, memos, session totals, and streaks
-- original dependency-free Web Audio ambience generated locally
-- theme lighting and room-object reactions
-- JSON import/export
-- a narrow public snapshot and host bridge through `BroadcastChannel`,
-  `postMessage`, a custom DOM event, and `window.TinyRoomCozy`
+## Furnishing and Cozy behavior
 
-The bridge shares only the current theme, Buddy mood, active task text, timer
-summary, ambience enabled state, and aggregate statistics. It does not expose
-licensed file handles, object URLs, room asset bytes, memo content, or unrelated
-Pocket Buddy+ data.
+The house builder retains pointer-locked furniture dragging, tabletop attachment,
+wall mounting, grouped animation states, catalog search, camera controls, and Cozy
+Mode. Cozy Mode continues to publish only bounded productivity state and never
+publishes licensed asset handles, image bytes, or the private house save.
 
 ## Open-source design references
 
 The implementation is original Prismtek code. No third-party source, art, audio,
-or models are vendored. Design patterns were evaluated from:
-
-- Pixel Agents — persistent room layouts, external asset directories, and animated room occupants
-- Pomotroid — compact focus workflow, wall-clock timer behavior, and session statistics
-- Magenta Lo-Fi Player — object-driven ambience as an interaction concept
-
-See `docs/tinyhouse-cozy-reference-notes.md` for the adoption boundary.
+or models are vendored. Design patterns were evaluated from Pixel Agents,
+Pomotroid, and Magenta Lo-Fi Player. See
+`docs/tinyhouse-cozy-reference-notes.md` for the adoption boundary.
 
 ## Verification
 
-`games/tinyhouse-local/test-contract.mjs` verifies the original builder contracts.
-`games/tinyhouse-local/test-cozy-contract.mjs` verifies the Cozy state contract,
-timer behavior, integration entry points, and public-safe asset boundary. Both run
-through `pnpm test:tinyhouse-local`, which remains part of the root test command.
+The root `pnpm test:tinyhouse-local` command runs behavior contracts for the
+original asset boundary, pointer dragging, wall mounting, editable house topology,
+and Cozy Mode. The house-grid contract specifically protects:
+
+- the initial 25-cell/10-edge structure;
+- exact expanded-cell projection;
+- individual floor removal and growth beyond 5×5;
+- connected-room creation;
+- closed/open door traversal behavior;
+- lossless topology persistence;
+- full-house export wiring.
