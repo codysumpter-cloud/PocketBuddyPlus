@@ -15,7 +15,8 @@ import { createElectronPluginHostCapabilities } from "./plugin-host-capabilities
 import { defaultPluginPetApi } from "./plugin-pet-api.js";
 import { initializePluginPlatformSettings } from "./plugin-platform-settings.js";
 import { ElectronPluginJsHost } from "./plugin-js-host.js";
-import { initializePluginService } from "./plugin-service.js";
+import { bundledOfficialPluginIds, initializePluginService } from "./plugin-service.js";
+import { registerPocketBuddyPlusBundledPlugins } from "./product-bundled-plugins.js";
 import { APP_ID } from "./product.js";
 import { applyPlusUserDataPath, getRuntimeProductName, isPlusRuntime } from "./product-runtime.js";
 import { createAppTray, refreshTrayMenu } from "./tray.js";
@@ -105,6 +106,7 @@ if (!gotSingleInstanceLock) {
     const paths = parseDevPluginEnv(process.env.OPENPETS_DEV_PLUGIN_PATHS);
     const devPluginMode = roots.length > 0 || paths.length > 0;
     initializePluginPlatformSettings(app.getPath("userData"));
+    registerPocketBuddyPlusBundledPlugins(bundledOfficialPluginIds);
     const pluginCapabilities = createElectronPluginHostCapabilities(app.getPath("userData"));
     let devPluginWatcher: ReturnType<typeof startDevPluginWatcher> | undefined;
     const pluginService = initializePluginService(app.getPath("userData"), defaultPluginPetApi, app.getVersion(), new ElectronPluginJsHost(), writePluginRuntimeLog, process.env.OPENPETS_DISABLE_PLUGIN_CATALOG === "1" || devPluginMode, resolveBundledOfficialPluginRoots(), !devPluginMode, pluginCapabilities, undefined, (sourcePath) => devPluginWatcher?.addPaths([sourcePath]), (sourcePath) => devPluginWatcher?.removePath(sourcePath));

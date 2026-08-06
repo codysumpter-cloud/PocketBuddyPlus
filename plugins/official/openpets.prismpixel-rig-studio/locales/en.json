@@ -1,0 +1,6 @@
+{
+  "plugin.name": "PrismPixel Rig Studio",
+  "plugin.description": "Create modular outfit items from frame-aligned character states while preserving the original animation library.",
+  "command.open.title": "Open PrismPixel Rig Studio",
+  "command.open.description": "Extract, preview, validate, and export modular outfit items."
+}

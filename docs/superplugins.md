@@ -7,8 +7,9 @@ like, which ones ship, what's bundled by default, and how users invoke them.
 
 This is required reading (with [plugins.md](plugins.md)) before plugin platform,
 official-plugin, catalog, or plugin-UI work, per `AGENTS.md`. Keep the lineup and
-bundling defaults here in sync with `apps/desktop/src/plugin-service.ts` and the
-catalog generator when they change.
+bundling defaults here in sync with `apps/desktop/src/plugin-service.ts`, the
+PocketBuddy+ product bootstrap in `apps/desktop/src/main.ts`, and the catalog
+generator when they change.
 
 ## The thesis
 
@@ -29,6 +30,11 @@ commands), not by bolting bespoke windows onto the pet. Concretely:
   one big configurable one. (This is a standing product preference — a single
   plugin should explain itself by name and do one thing well.)
 
+Explicit creator tools are the narrow exception: a user-invoked `ui:panel` may
+host a focused editor or manifest builder when the work cannot fit a bubble or
+settings form. These panels stay sandboxed, load only package-local files, and
+never turn the pet itself into a general application shell.
+
 ## Right-click action strategy
 
 The primary way users invoke plugins is the **default pet's right-click menu**.
@@ -41,7 +47,7 @@ in-the-moment interactions (snooze, done, feed).
 ## Official plugin lineup
 
 Official plugins live in `plugins/official/` and are the reviewed catalog set.
-Current lineup (verified 2026-07-10 against the folder + manifests):
+Current lineup (verified 2026-08-06 against the folder + manifests):
 
 | Plugin id | What it is |
 |-----------|------------|
@@ -55,6 +61,8 @@ Current lineup (verified 2026-07-10 against the folder + manifests):
 | `openpets.magic-8-ball` | Command-driven decision/fortune responses |
 | `openpets.fortune-cookie` | Periodic or command-triggered fortunes |
 | `openpets.calendar-airmail` | Google primary-calendar reminders delivered by a selected bundled courier sprite ten minutes before and at event start |
+| `openpets.prismpixel-rig-studio` | Sandboxed modular-outfit extraction, validation, and export panel |
+| `openpets.prismcade-creator` | Sandboxed Prismcade game-manifest and character-recipe builder |
 
 The Virtual Pet plugin defaults to **casual lifecycle mode**: health can become
 critical, but the pet is never permanently lost. Users who explicitly enable
@@ -64,6 +72,7 @@ pet while preserving the restart count. Existing v1 saves migrate forward by
 adding lifecycle fields with safe defaults; they do not require a reset.
 
 `plugins/official/codemap.md` carries the per-plugin SDK-surface breakdown.
+Creator-tool details are in [prismtek-creator-plugins.md](prismtek-creator-plugins.md).
 
 ## Community plugin lineup
 
@@ -86,16 +95,20 @@ Current community lineup:
 
 ## Bundling & default-enabled
 
-Defaults are defined in `apps/desktop/src/plugin-service.ts` and the bundled
-plugins are shipped as packaging extra-resources (`plugins/official` → packaged
-`plugins/official`, enforced by `check-packaging-contract.ts`):
+The shared default bundle is defined in `apps/desktop/src/plugin-service.ts`.
+PocketBuddy+ extends that set during bootstrap in `apps/desktop/src/main.ts`.
+Bundled plugin sources ship as packaging extra-resources
+(`plugins/official` → packaged `plugins/official`, enforced by
+`check-packaging-contract.ts`):
 
 - **Bundled with the app**: `openpets.reminders`, `openpets.focus-buddy`,
-  `openpets.launch-buddy`, `openpets.virtual-pet` (`bundledOfficialPluginIds`).
-- **Enabled by default**: `openpets.reminders`, `openpets.focus-buddy`,
+  `openpets.launch-buddy`, `openpets.virtual-pet`,
+  `openpets.prismpixel-rig-studio`, and `openpets.prismcade-creator`.
+- **Enabled by default**: `openpets.reminders`, `openpets.focus-buddy`, and
   `openpets.launch-buddy` (`bundledEnabledByDefault`).
-- **Bundled but disabled by default**: `openpets.virtual-pet`; users can enable it
-  from the Plugins page.
+- **Bundled but disabled by default**: `openpets.virtual-pet`,
+  `openpets.prismpixel-rig-studio`, and `openpets.prismcade-creator`; users can
+  enable them from the Plugins page.
 - **`staleBundledPluginIds`**: an explicit cleanup list of plugin ids that were
   bundled in past builds and must be removed on upgrade (e.g. `ambient-companion`,
   `break-buddy`, `focus-buddy`-as-bundled, `github-notifications`, `pomodoro`,
@@ -105,9 +118,9 @@ plugins are shipped as packaging extra-resources (`plugins/official` → package
 Everything else in the lineup is **available via the catalog** but not bundled —
 the user installs and enables it from the Plugins page.
 
-> If you change what's bundled or enabled by default, update both the constants
-> in `plugin-service.ts` and this doc, and verify the packaging contract still
-> passes ([testing-and-validation.md](testing-and-validation.md)).
+> If you change what's bundled or enabled by default, update the runtime bundle
+> registration and this doc, then verify the packaging contract still passes
+> ([testing-and-validation.md](testing-and-validation.md)).
 
 ## Relationship to the catalog
 

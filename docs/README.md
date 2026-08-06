@@ -56,6 +56,9 @@ Docs here are the *narrative* layer on top of those maps.
 - **[superplugins.md](superplugins.md)** — the companion-first product
   direction, the official plugin lineup, bundling/enabled defaults, and the
   right-click action strategy.
+- **[prismtek-creator-plugins.md](prismtek-creator-plugins.md)** — the
+  PrismPixel Rig Studio and Prismcade Creator panel plugins, export contracts,
+  and sandbox/file-save boundary.
 - **[sdk.md](sdk.md)** — the public SDK v3 contract for plugin authors: the
   capability namespaces, the permission surface, and the deterministic test
   harness.

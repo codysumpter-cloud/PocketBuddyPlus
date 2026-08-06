@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prismcade Creator</title>
+<style>
+:root{color-scheme:dark;--bg:#0d0d15;--panel:#171727;--panel2:#202038;--line:#34345a;--ink:#f6f6ff;--muted:#a9aac4;--cyan:#5ee7ff;--green:#78f5a7;--amber:#ffd166}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 12% 0,rgba(94,231,255,.12),transparent 32rem),var(--bg);color:var(--ink);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+header{position:sticky;top:0;z-index:3;display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:2px solid var(--line);background:rgba(13,13,21,.96)}
+h1,h2,h3,p{margin-top:0}h1{margin-bottom:3px;text-transform:uppercase;letter-spacing:.07em;font-size:22px}h2{font-size:15px;color:var(--cyan)}small,.muted{color:var(--muted)}
+main{padding:16px;display:grid;grid-template-columns:360px 1fr;gap:14px}.stack{display:grid;gap:12px}.card{background:var(--panel);border:2px solid var(--line);padding:14px;box-shadow:0 3px 0 rgba(0,0,0,.24)}
+label{display:block;color:var(--cyan);font-size:12px;margin:9px 0 4px}input,select,textarea,button{font:inherit}input,select,textarea{width:100%;border:2px solid var(--line);background:#0a0a11;color:var(--ink);padding:8px}textarea{min-height:86px;resize:vertical}
+button{border:2px solid var(--line);background:var(--panel2);color:var(--ink);padding:8px 10px;cursor:pointer}button:hover{border-color:var(--cyan);color:var(--cyan)}button.primary{background:#163544;border-color:#287c91}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.templates{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}.template{padding:9px;text-align:left}.template.active{border-color:var(--green);color:var(--green)}
+.checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.check{display:flex;align-items:center;gap:7px;border:1px solid var(--line);padding:7px;color:var(--muted)}.check input{width:auto}
+pre{white-space:pre-wrap;word-break:break-word;background:#08080d;border:2px solid var(--line);padding:12px;min-height:360px;max-height:560px;overflow:auto;color:#c9f6ff}
+.status{padding:8px;border:1px solid var(--line);color:var(--muted)}.good{color:var(--green)}.warn{color:var(--amber)}.tabs{display:flex;gap:8px}.tabs button.active{border-color:var(--cyan);color:var(--cyan)}
+@media(max-width:860px){main{grid-template-columns:1fr}.checks{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+<div><h1>Prismcade Creator</h1><small>Manifest-first game and character planning inside PocketBuddy+</small></div>
+<div class="row"><button id="close">Close</button></div>
+</header>
+<main>
+<section class="stack">
+<div class="card">
+<h2>Project</h2>
+<label>Project name<input id="projectName" value="My Prismcade Game"></label>
+<label>Project id<input id="projectId" value="my-prismcade-game"></label>
+<label>Description<textarea id="description">A cozy pixel game built with Prismcade systems.</textarea></label>
+<div class="grid2">
+<label>View<select id="view"><option>isometric</option><option>top-down</option><option>side</option><option>runner</option></select></label>
+<label>Target<select id="target"><option>desktop</option><option>web</option><option>mobile</option><option>multi-platform</option></select></label>
+<label>Tile size<input id="tileSize" type="number" min="8" max="256" value="32"></label>
+<label>Player frame size<input id="frameSize" type="number" min="16" max="256" value="64"></label>
+</div>
+</div>
+<div class="card">
+<h2>Template</h2>
+<div class="templates" id="templates"></div>
+</div>
+<div class="card">
+<h2>Systems</h2>
+<div class="checks" id="systems"></div>
+</div>
+<div class="card">
+<h2>Character recipe</h2>
+<label>Character name<input id="characterName" value="Buddy Hero"></label>
+<label>Character id<input id="characterId" value="buddy-hero"></label>
+<label>Base animation library<input id="animationLibrary" value="ani-iso-human-v1"></label>
+<label>Equipped outfit item ids<textarea id="outfits">wizard-outfit</textarea></label>
+</div>
+<div class="row">
+<button id="saveGame" class="primary">Save game manifest</button>
+<button id="saveCharacter">Save character recipe</button>
+</div>
+<div id="status" class="status">Choose a template and systems, then export.</div>
+</section>
+<section class="stack">
+<div class="card">
+<div class="tabs"><button id="gameTab" class="active">Game manifest</button><button id="characterTab">Character recipe</button></div>
+<pre id="preview"></pre>
+</div>
+<div class="card">
+<h2>Build notes</h2>
+<p class="muted">This plugin exports Prismcade contracts only. It does not commit purchased art, silently fetch remote assets, or pretend a manifest is a finished game. Use PrismPixel Rig Studio for character/outfit assets and the Prismcade runtime projects for implementation.</p>
+</div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const slug=value=>(value||"untitled").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"untitled";
+const templates=[
+{id:"cozy-room",name:"Cozy Room Builder",view:"isometric",systems:["room-builder","inventory","buddy-companion"],description:"Place floors, walls, furniture, and companions."},
+{id:"pixel-rpg",name:"Pixel RPG",view:"top-down",systems:["movement","dialogue","quests","inventory","combat"],description:"Exploration, dialogue, quests, and lightweight combat."},
+{id:"skating-runner",name:"Skating Runner",view:"runner",systems:["movement","tricks","stages","leaderboard"],description:"Timing-focused skating stages with tricks and score."},
+{id:"creature-companion",name:"Creature Companion",view:"isometric",systems:["buddy-companion","care-actions","reactions","collection"],description:"A living companion with care and reaction animation support."},
+{id:"iso-sandbox",name:"Isometric Sandbox",view:"isometric",systems:["movement","room-builder","procedural-world","inventory"],description:"A flexible tile-based isometric world."},
+{id:"blank",name:"Blank Project",view:"isometric",systems:[],description:"Start with only the core project contract."}
+];
+const systemOptions=[
+["movement","Player movement"],["room-builder","Room/world builder"],["buddy-companion","Buddy companion"],["reactions","Reaction mapping"],["care-actions","Care actions"],["dialogue","Dialogue"],["quests","Quests"],["inventory","Inventory"],["combat","Combat"],["tricks","Skate/trick scoring"],["stages","Stages"],["leaderboard","Leaderboard"],["procedural-world","Procedural world"],["collection","Collection"]
+];
+const state={template:"cozy-room",activePreview:"game"};
+function renderTemplateButtons(){const host=$("templates");host.innerHTML="";templates.forEach(t=>{const b=document.createElement("button");b.className="template"+(t.id===state.template?" active":"");b.innerHTML=`<b>${t.name}</b><br><small>${t.description}</small>`;b.onclick=()=>applyTemplate(t.id);host.appendChild(b)})}
+function renderSystems(){const host=$("systems");host.innerHTML="";systemOptions.forEach(([id,label])=>{const row=document.createElement("label");row.className="check";row.innerHTML=`<input type="checkbox" value="${id}"><span>${label}</span>`;row.querySelector("input").onchange=renderPreview;host.appendChild(row)})}
+function selectedSystems(){return[...document.querySelectorAll("#systems input:checked")].map(x=>x.value)}
+function applyTemplate(id){const t=templates.find(x=>x.id===id)||templates[0];state.template=t.id;$("view").value=t.view;document.querySelectorAll("#systems input").forEach(x=>x.checked=t.systems.includes(x.value));renderTemplateButtons();renderPreview()}
+function common(){return{id:slug($("projectId").value||$("projectName").value),displayName:$("projectName").value.trim()||"Untitled Prismcade Game",description:$("description").value.trim(),view:$("view").value,target:$("target").value,tileSize:Number($("tileSize").value)||32,playerFrameSize:Number($("frameSize").value)||64}}
+function gameManifest(){const c=common();return{schemaVersion:"prismcade-game-manifest-v1",id:c.id,displayName:c.displayName,description:c.description,template:state.template,view:c.view,target:c.target,render:{pixelPerfect:true,nearestNeighbor:true,tileSize:c.tileSize,playerFrameSize:c.playerFrameSize},systems:selectedSystems(),characterRecipe:`characters/${slug($("characterId").value)}.prismcade-character.json`,assetPolicy:{allowPurchasedRuntimeAssets:true,allowPublicRedistributionOnlyWhenLicensed:true,bodyOnlyExportsBlocked:true},provenance:{tool:"PocketBuddy+ Prismcade Creator plugin",generatedAt:new Date().toISOString()}}}
+function characterRecipe(){const outfits=$("outfits").value.split(/[\n,]+/).map(slug).filter(Boolean);return{schemaVersion:"prismcade-character-recipe-v1",id:slug($("characterId").value||$("characterName").value),displayName:$("characterName").value.trim()||"Untitled Character",animationLibrary:slug($("animationLibrary").value),outfitItems:outfits,frameSize:[Number($("frameSize").value)||64,Number($("frameSize").value)||64],directions:["south","south-east","east","north-east","north","north-west","west","south-west"],renderHints:{pixelPerfect:true,nearestNeighbor:true},provenance:{tool:"PocketBuddy+ Prismcade Creator plugin",generatedAt:new Date().toISOString()}}}
+function renderPreview(){const obj=state.activePreview==="game"?gameManifest():characterRecipe();$("preview").textContent=JSON.stringify(obj,null,2)}
+function sendFile(name,data){const transferId=`tx-${Date.now()}-${Math.random().toString(16).slice(2)}`,chunkSize=40000,chunks=[];for(let i=0;i<data.length;i+=chunkSize)chunks.push(data.slice(i,i+chunkSize));window.openPetsPanel.postMessage({type:"save-begin",transferId,suggestedName:name,encoding:"utf8",totalChunks:chunks.length});chunks.forEach((chunk,index)=>window.openPetsPanel.postMessage({type:"save-chunk",transferId,index,data:chunk}));window.openPetsPanel.postMessage({type:"save-end",transferId});$("status").textContent=`Sending ${name} to the PocketBuddy+ save dialog…`}
+$("saveGame").onclick=()=>{const data=gameManifest();sendFile(`${data.id}.prismcade-game.json`,JSON.stringify(data,null,2))};
+$("saveCharacter").onclick=()=>{const data=characterRecipe();sendFile(`${data.id}.prismcade-character.json`,JSON.stringify(data,null,2))};
+$("gameTab").onclick=()=>{state.activePreview="game";$("gameTab").classList.add("active");$("characterTab").classList.remove("active");renderPreview()};
+$("characterTab").onclick=()=>{state.activePreview="character";$("characterTab").classList.add("active");$("gameTab").classList.remove("active");renderPreview()};
+["projectName","projectId","description","view","target","tileSize","frameSize","characterName","characterId","animationLibrary","outfits"].forEach(id=>$(id).addEventListener("input",renderPreview));
+$("close").onclick=()=>window.openPetsPanel.close();
+window.openPetsPanel.onMessage(msg=>{if(msg?.type==="save-complete"){$("status").innerHTML=`<span class="good">Saved ${msg.suggestedName}.</span>`}if(msg?.type==="save-error"){$("status").innerHTML=`<span class="warn">${msg.error||"Save failed."}</span>`}});
+renderSystems();applyTemplate(state.template);renderPreview();
+</script>
+</body>
+</html>
