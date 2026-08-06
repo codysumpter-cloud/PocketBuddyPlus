@@ -3,6 +3,7 @@ export const pocketBuddyPlusBundledPluginIds = [
   "openpets.prismcade-creator",
   "openpets.music-buddy",
   "openpets.buddy-training",
+  "openpets.buddy-battles",
 ] as const;
 
 /**
