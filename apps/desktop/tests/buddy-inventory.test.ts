@@ -95,9 +95,56 @@ try {
     reason: "Unknown item",
   }), /unknown Buddy item/i);
 
+  now += 1;
+  const exchanged = store.mutate("test.plugin", {
+    operation: "exchange",
+    transactionId: "trade:00000001",
+    itemId: "consumable.apple",
+    quantity: 2,
+    receivedItemId: "wardrobe.gold-star",
+    receivedQuantity: 1,
+    reason: "Trade apples for a badge",
+  });
+  assert.equal(exchanged.quantities["consumable.apple"], 1);
+  assert.equal(exchanged.quantities["wardrobe.gold-star"], 1);
+  assert.equal(exchanged.recentLedger[0]?.operation, "exchange");
+  assert.equal(exchanged.recentLedger[0]?.receivedItemId, "wardrobe.gold-star");
+  assert.equal(store.mutate("test.plugin", {
+    operation: "exchange",
+    transactionId: "trade:00000001",
+    itemId: "consumable.apple",
+    quantity: 2,
+    receivedItemId: "wardrobe.gold-star",
+    receivedQuantity: 1,
+    reason: "Trade apples for a badge",
+  }).revision, exchanged.revision, "identical exchange retries must be idempotent");
+  assert.throws(() => store.mutate("test.plugin", {
+    operation: "exchange",
+    transactionId: "trade:00000001",
+    itemId: "consumable.apple",
+    quantity: 2,
+    receivedItemId: "wardrobe.night-cap",
+    receivedQuantity: 1,
+    reason: "Trade apples for a badge",
+  }), /already used/i);
+  const beforeRejectedExchange = store.snapshot();
+  assert.throws(() => store.mutate("test.plugin", {
+    operation: "exchange",
+    transactionId: "trade:00000002",
+    itemId: "consumable.apple",
+    quantity: 2,
+    receivedItemId: "wardrobe.night-cap",
+    receivedQuantity: 1,
+    reason: "Insufficient barter",
+  }), /not enough/i);
+  const afterRejectedExchange = store.snapshot();
+  assert.equal(afterRejectedExchange.revision, beforeRejectedExchange.revision, "failed exchanges must not advance the ledger");
+  assert.deepEqual(afterRejectedExchange.quantities, beforeRejectedExchange.quantities, "failed exchanges must not partially mutate quantities");
+
   const reloaded = new BuddyInventoryStore(root, { clock: () => now }).initialize();
-  assert.equal(reloaded.revision, consumed.revision);
-  assert.equal(reloaded.quantities["consumable.apple"], 3);
+  assert.equal(reloaded.revision, exchanged.revision);
+  assert.equal(reloaded.quantities["consumable.apple"], 1);
+  assert.equal(reloaded.quantities["wardrobe.gold-star"], 1);
 
   const record = {
     id: "battle.plugin",
@@ -123,10 +170,21 @@ try {
     subscriptions,
     nextSubscriptionId: () => `inventory-test-${++nextSubscription}`,
   });
-  assert.equal(sdk.inventory.snapshot().quantities["consumable.apple"], 3);
+  assert.equal(sdk.inventory.snapshot().quantities["consumable.apple"], 1);
 
   let observedRevision = -1;
   const subscription = sdk.inventory.onChange((snapshot) => { observedRevision = snapshot.revision; });
+  now += 1;
+  const traded = sdk.inventory.exchange({
+    transactionId: "battle.trade:00000001",
+    itemId: "consumable.apple",
+    quantity: 1,
+    receivedItemId: "wardrobe.blue-scarf",
+    receivedQuantity: 1,
+    reason: "SDK barter",
+  });
+  assert.equal(traded.quantities["consumable.apple"], undefined);
+  assert.equal(traded.quantities["wardrobe.blue-scarf"], 1);
   now += 1;
   const reward = sdk.inventory.grant({
     transactionId: "battle.reward:00000001",
@@ -134,7 +192,7 @@ try {
     quantity: 1,
     reason: "Won a battle",
   });
-  assert.equal(reward.quantities["consumable.apple"], 4);
+  assert.equal(reward.quantities["consumable.apple"], 1);
   await Promise.resolve();
   assert.equal(observedRevision, reward.revision);
   sdk.inventory.offChange(subscription.subscriptionId);
@@ -156,6 +214,14 @@ try {
     quantity: 1,
     reason: "Denied",
   }), /pets:manage/i);
+  assert.throws(() => readOnlySdk.inventory.exchange({
+    transactionId: "reader.trade:00000001",
+    itemId: "consumable.apple",
+    quantity: 1,
+    receivedItemId: "wardrobe.night-cap",
+    receivedQuantity: 1,
+    reason: "Denied trade",
+  }), /pets:manage/i);
 
   const limitedSubscriptions = new Map<string, () => void>();
   const limitedSdk = decorateInventorySdk({
@@ -171,7 +237,7 @@ try {
   disposeInventorySdkSubscriptions(limitedSubscriptions);
   assert.equal(limitedSubscriptions.size, 0);
 
-  console.error("Shared Buddy inventory and equipment contract passed.");
+  console.error("Shared Buddy inventory, equipment, and atomic exchange contract passed.");
 } finally {
   rmSync(root, { recursive: true, force: true });
 }
