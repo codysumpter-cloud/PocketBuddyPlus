@@ -66,14 +66,27 @@ jobs:
           python3 <<'PY'
           from pathlib import Path
 
-          path = Path('apps/desktop/src/pet-animation-manifest.ts')
-          text = path.read_text()
-          old = '  parsePocketBuddyAnimationManifest,\n  resolvePetAnimationFrames,\n'
-          new = '  parsePocketBuddyAnimationManifest,\n  resolvePetAnimationFrames,\n  resolvePetAnimationId,\n'
-          count = text.count(old)
+          manifest_path = Path('apps/desktop/src/pet-animation-manifest.ts')
+          manifest_text = manifest_path.read_text()
+          import_old = '  parsePocketBuddyAnimationManifest,\n  resolvePetAnimationFrames,\n'
+          import_new = '  parsePocketBuddyAnimationManifest,\n  resolvePetAnimationFrames,\n  resolvePetAnimationId,\n'
+          count = manifest_text.count(import_old)
           if count != 1:
               raise SystemExit(f'expected exactly one resolver import insertion point, found {count}')
-          path.write_text(text.replace(old, new, 1))
+          manifest_path.write_text(manifest_text.replace(import_old, import_new, 1))
+
+          test_path = Path('apps/desktop/tests/pet-animation-manifest.test.ts')
+          test_text = test_path.read_text()
+          assertion_old = 'assert.match(preload, /motion === "run-left" \\? "west" : motion === "run-right" \\? "east"/, "left/right desktop motion must select directional frames");\n'
+          assertion_new = '''assert.match(preload, /const motionDirectionByState = Object\\.freeze/, "runtime must centralize motion-to-direction resolution");
+assert.match(preload, /"run-left": "west"/, "legacy run-left must keep selecting west frames");
+assert.match(preload, /"run-right": "east"/, "legacy run-right must keep selecting east frames");
+assert.match(preload, /"run-north-east": "north-east"/, "eight-way motion must select diagonal manifest frames");
+'''
+          count = test_text.count(assertion_old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one legacy preload assertion, found {count}')
+          test_path.write_text(test_text.replace(assertion_old, assertion_new, 1))
           PY
 
       - name: Install workspace dependencies
