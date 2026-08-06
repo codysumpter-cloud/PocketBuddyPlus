@@ -4,6 +4,7 @@
   const viewport = document.querySelector("#world-viewport");
   const itemLayer = document.querySelector("#item-layer");
   const core = window.TinyHouseDragCore;
+  const wallCore = window.TinyHouseWallCore;
   const playable = window.TinyHousePlayable;
   if (!viewport || !itemLayer || !core || !playable) return;
 
@@ -54,6 +55,18 @@
     return best;
   }
 
+  function previewZIndex(placement, anchor) {
+    if (placement.supportId) {
+      const support = findPlacement(placement.supportId);
+      const supportAnchor = support ? resolvedAnchor(support) : null;
+      if (supportAnchor) {
+        return 1000 + Math.round(supportAnchor.y * 10 + 600 + placement.layer);
+      }
+    }
+    if (placement.wallSide && wallCore) return wallCore.wallZIndex(placement);
+    return 1000 + Math.round(anchor.y * 10 + placement.layer);
+  }
+
   function updatePreviewPositions() {
     for (const placement of state.placements) {
       const node = itemLayer.querySelector(`[data-id="${CSS.escape(placement.id)}"]`);
@@ -64,8 +77,9 @@
       const height = asset.height * placement.scale;
       node.style.left = `${anchor.x - width / 2}px`;
       node.style.top = `${anchor.y - height}px`;
-      node.style.zIndex = String(1000 + Math.round(anchor.y * 10 + placement.layer));
+      node.style.zIndex = String(previewZIndex(placement, anchor));
       node.classList.toggle("support-target", placement.id === state.hoverSupportId);
+      node.classList.toggle("wall-mounted", Boolean(placement.wallSide));
     }
   }
 
@@ -83,15 +97,24 @@
       restoreOriginal();
       active = null;
       state.hoverSupportId = null;
+      updatePreviewPositions();
       return;
     }
 
     const pointer = screenToWorld(event.clientX, event.clientY);
     const anchor = core.anchorFromPointer(pointer, active.offset);
-    const targetSupport = asset.tabletop ? findSupportAtWorld(anchor, placement.id) : null;
+    const wallTarget = wallCore?.isWallMountable(asset)
+      ? wallCore.nearestWallTarget(pointer, asset, playable.room, anchor)
+      : null;
+    const targetSupport = !wallTarget && asset.tabletop
+      ? findSupportAtWorld(anchor, placement.id)
+      : null;
 
-    if (targetSupport) {
+    if (wallTarget) {
+      wallCore.applyWallPlacement(placement, wallTarget);
+    } else if (targetSupport) {
       const geometry = playable.supportGeometry(targetSupport);
+      wallCore?.clearWallPlacement(placement);
       placement.supportId = targetSupport.id;
       placement.supportOffsetX = roundTo(
         clamp(anchor.x - geometry.centerX, -geometry.halfWidth, geometry.halfWidth),
@@ -104,6 +127,7 @@
     } else {
       const cell = playable.worldToNearestCell(anchor.x, anchor.y);
       if (cell) {
+        wallCore?.clearWallPlacement(placement);
         placement.supportId = null;
         placement.supportOffsetX = 0;
         placement.column = cell.column;
@@ -117,6 +141,7 @@
 
     active = null;
     state.hoverSupportId = null;
+    updatePreviewPositions();
   }
 
   viewport.addEventListener("pointerdown", (event) => {
@@ -127,8 +152,6 @@
     const asset = placement && findAsset(placement.assetId);
     if (!placement || !asset) return;
 
-    // Preserve the existing behavior where clicking a table while placing a
-    // tabletop object puts the object on the table instead of dragging it.
     if (state.selectedAsset?.tabletop && asset.supportType === "tabletop") return;
 
     const pointer = screenToWorld(event.clientX, event.clientY);
@@ -163,13 +186,23 @@
     if (!active.moved) return;
 
     const anchor = core.anchorFromPointer(pointer, active.offset);
+    const wallTarget = wallCore?.isWallMountable(asset)
+      ? wallCore.nearestWallTarget(pointer, asset, playable.room, anchor)
+      : null;
+
     placement.supportId = null;
     placement.supportOffsetX = 0;
-    placement.x = anchor.x;
-    placement.y = anchor.y;
-    state.hoverSupportId = asset.tabletop
-      ? findSupportAtWorld(anchor, placement.id)?.id || null
-      : null;
+    if (wallTarget) {
+      wallCore.applyWallPlacement(placement, wallTarget);
+      state.hoverSupportId = null;
+    } else {
+      wallCore?.clearWallPlacement(placement);
+      placement.x = anchor.x;
+      placement.y = anchor.y;
+      state.hoverSupportId = asset.tabletop
+        ? findSupportAtWorld(anchor, placement.id)?.id || null
+        : null;
+    }
     updatePreviewPositions();
   }, true);
 
@@ -179,5 +212,6 @@
     restoreOriginal();
     active = null;
     state.hoverSupportId = null;
+    updatePreviewPositions();
   }, true);
 })();
