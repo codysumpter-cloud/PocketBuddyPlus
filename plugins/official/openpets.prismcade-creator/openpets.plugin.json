@@ -1,0 +1,19 @@
+{
+  "manifestVersion": 3,
+  "id": "openpets.prismcade-creator",
+  "name": "$t:plugin.name",
+  "description": "$t:plugin.description",
+  "version": "1.0.0",
+  "runtime": "javascript",
+  "icon": "plugin",
+  "sdkVersion": "3.0.0",
+  "entry": "index.js",
+  "permissions": [
+    "commands",
+    "files",
+    "ui:panel"
+  ],
+  "panels": {
+    "creator": "creator.html"
+  }
+}

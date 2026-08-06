@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-First-party SDK v3 plugin product source. These plugins are the reviewed default/catalog lineup for OpenPets and demonstrate the current SuperPlugins direction: localized manifests, command surfaces, scheduled behaviors, host-rendered alerts/bubbles, persistent storage, and bundled asset references.
+First-party SDK v3 plugin product source. These plugins are the reviewed default/catalog lineup for OpenPets and demonstrate the current SuperPlugins direction: localized manifests, command surfaces, scheduled behaviors, host-rendered alerts/bubbles, persistent storage, bundled asset references, and explicit user-invoked sandboxed tool panels.
 
 ## Design/Patterns
 
@@ -10,6 +10,7 @@ First-party SDK v3 plugin product source. These plugins are the reviewed default
 - **Localization by Reference**: Manifests use `$t:` labels/descriptions and runtime code uses `ctx.t(key, vars)` so strings resolve through plugin `locales/en.json` with locale fallback.
 - **Host-Rendered Interaction**: Plugins register right-click commands and render speech, alert, HUD, and action UI through `ctx.ui`/`ctx.pet`; the host owns validation, layout, and lifecycle.
 - **Persistent Companion State**: Stateful plugins keep reminders, routines, mood history, focus sessions, and virtual-pet stats in `ctx.storage` and reconcile with schedules after restart/sleep.
+- **Sandboxed Creator Panels**: Explicit tool plugins may declare package-local HTML panels. Panels cannot navigate or download directly; they send clone-safe chunks to the plugin, which uses the permission-gated host file save surface.
 
 ## Data & Control Flow
 
@@ -17,7 +18,8 @@ First-party SDK v3 plugin product source. These plugins are the reviewed default
 2. The sandboxed plugin host loads `index.js` and calls the exported registration hook with the SDK context.
 3. Plugin startup registers commands, schedules recurring/one-shot jobs, reads config/storage, and initializes visible state such as statuses or pinned HUD bubbles.
 4. User actions from the pet context menu or bubble buttons call registered handlers, which update storage, schedule follow-up work, and ask the host to speak/react/alert.
-5. Tests use `@open-pets/plugin-sdk/testing` to fake time/events and assert descriptor-level effects rather than pixels.
+5. User-invoked creator commands may open a declared sandboxed panel; panel exports flow back through `openPetsPanel.postMessage` and `ctx.files.save`.
+6. Tests use `@open-pets/plugin-sdk/testing` or narrow pure-helper tests to assert observable behavior without Electron.
 
 ## Plugin Inventory
 
@@ -32,6 +34,8 @@ First-party SDK v3 plugin product source. These plugins are the reviewed default
 | `openpets.mood-check-in` | Mood logging/check-in companion with configurable prompts and command entry points. | `schedule`, `storage`, `commands`, `pet`, `config` |
 | `openpets.fortune-cookie` | Periodic or command-triggered fortune messages. | `schedule`, `storage`, `commands`, `pet.speak` |
 | `openpets.virtual-pet` | Persistent virtual-pet lifecycle with hunger/energy/happiness/affection, health, mess, sickness, medicine, care mistakes, growth stages, restart-safe catch-up, pinned HUD, click handling, and optional classic death/restart behavior. | `events`, `schedule`, `storage`, `ui.bubble`, `commands`, `pet.react`, `assets`, `audio`, `config` |
+| `openpets.prismpixel-rig-studio` | Extracts modular outfit overlay/erase-mask frames from matching bare and dressed animation sheets and exports PrismPixel item/state contracts. | `commands`, `ui.panel`, `files` |
+| `openpets.prismcade-creator` | Builds Prismcade game manifests and outfit-aware character recipes in a sandboxed creator panel. | `commands`, `ui.panel`, `files` |
 
 ## Integration Points
 

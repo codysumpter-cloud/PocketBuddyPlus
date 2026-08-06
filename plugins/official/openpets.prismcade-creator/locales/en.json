@@ -1,0 +1,6 @@
+{
+  "plugin.name": "Prismcade Creator",
+  "plugin.description": "Build Prismcade game manifests and character recipes from a guided, pixel-first project panel.",
+  "command.open.title": "Open Prismcade Creator",
+  "command.open.description": "Create a Prismcade game manifest or character recipe."
+}

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PrismPixel Rig Studio</title>
+<style>
+:root{color-scheme:dark;--bg:#0d0d15;--panel:#171727;--panel2:#202038;--line:#34345a;--ink:#f6f6ff;--muted:#a9aac4;--cyan:#5ee7ff;--pink:#ff6e9c;--green:#78f5a7;--amber:#ffd166}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0,rgba(94,231,255,.12),transparent 30rem),var(--bg);color:var(--ink);font:14px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border-bottom:2px solid var(--line);background:rgba(13,13,21,.96)}
+h1,h2,h3,p{margin-top:0}h1{margin-bottom:3px;font-size:22px;text-transform:uppercase;letter-spacing:.06em}h2{font-size:15px;color:var(--cyan)}small,.muted{color:var(--muted)}
+main{padding:16px;display:grid;grid-template-columns:340px 1fr;gap:14px}.stack{display:grid;gap:12px}.card{background:var(--panel);border:2px solid var(--line);padding:14px;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+label{display:block;color:var(--cyan);font-size:12px;margin:9px 0 4px}input,select,button,textarea{font:inherit}input,select,textarea{width:100%;background:#0b0b12;color:var(--ink);border:2px solid var(--line);padding:8px}
+button{border:2px solid var(--line);background:var(--panel2);color:var(--ink);padding:8px 10px;cursor:pointer}button:hover{border-color:var(--cyan);color:var(--cyan)}button.primary{background:#163544;border-color:#287c91}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.drop{display:block;border:2px dashed var(--line);padding:10px;background:#0b0b12}.drop input{border:0;padding:4px 0}
+.preview-grid{display:grid;grid-template-columns:repeat(5,minmax(110px,1fr));gap:10px}.preview{background:#08080d;border:2px solid var(--line);padding:8px;text-align:center}.checker{background-color:#171727;background-image:linear-gradient(45deg,#26263d 25%,transparent 25%),linear-gradient(-45deg,#26263d 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#26263d 75%),linear-gradient(-45deg,transparent 75%,#26263d 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;max-width:100%;min-height:110px;object-fit:contain}.status{padding:8px;border:1px solid var(--line);color:var(--muted)}.good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--pink)}
+.timeline{display:flex;gap:6px;overflow:auto;padding:8px 0}.frame{min-width:48px;padding:5px}.frame.active{border-color:var(--cyan);color:var(--cyan)}
+pre{white-space:pre-wrap;word-break:break-word;background:#08080d;border:2px solid var(--line);padding:10px;max-height:240px;overflow:auto;color:#c9f6ff}
+@media(max-width:900px){main{grid-template-columns:1fr}.preview-grid{grid-template-columns:repeat(2,1fr)}} 
+</style>
+</head>
+<body>
+<header>
+<div><h1>PrismPixel Rig Studio</h1><small>PixelLab state → modular outfit item, using the same animation frames</small></div>
+<div class="row"><button id="play">Play</button><button id="close">Close</button></div>
+</header>
+<main>
+<section class="stack">
+<div class="card">
+<h2>1. Load matching sheets</h2>
+<label class="drop">Bare/body sprite sheet<input id="bodyFile" type="file" accept="image/png,image/webp"></label>
+<label class="drop">Baked outfit sprite sheet<input id="dressedFile" type="file" accept="image/png,image/webp"></label>
+<div class="grid2">
+<label>Columns<input id="columns" type="number" min="1" max="128" value="8"></label>
+<label>Rows<input id="rows" type="number" min="1" max="128" value="8"></label>
+<label>Frame count<input id="frameCount" type="number" min="1" max="4096" value="64"></label>
+<label>FPS<input id="fps" type="number" min="1" max="60" value="8"></label>
+</div>
+<p class="muted">The two sheets must have identical dimensions and frame order.</p>
+</div>
+<div class="card">
+<h2>2. Describe the item</h2>
+<label>Item name<input id="itemName" value="Wizard Outfit"></label>
+<label>Item id<input id="itemId" value="wizard-outfit"></label>
+<label>Character base<input id="characterId" value="ani-iso-human"></label>
+<label>Animation library<input id="libraryId" value="ani-iso-human-v1"></label>
+<label>Occupies slots<input id="slots" value="head, torso, legs, feet, back, handheld"></label>
+<div class="grid2">
+<label>Render order<select id="renderSlot"><option>rear_hair</option><option>body</option><option>pants</option><option selected>shirt</option><option>shoes</option><option>front_hair</option><option>accessory</option><option>held_item</option></select></label>
+<label>Difference tolerance<input id="threshold" type="number" min="0" max="255" value="0"></label>
+</div>
+<button id="extract" class="primary">Extract modular item</button>
+</div>
+<div class="card">
+<h2>3. Export</h2>
+<div class="stack">
+<button id="exportItem" class="primary">Save outfit item JSON</button>
+<button id="exportOverlay">Save overlay sheet PNG</button>
+<button id="exportMask">Save erase-mask sheet PNG</button>
+<button id="exportBaked">Save baked state JSON</button>
+</div>
+</div>
+<div id="status" class="status">Load a bare sheet and a matching dressed sheet.</div>
+</section>
+
+<section class="stack">
+<div class="card">
+<div class="row">
+<label style="flex:1">Frame <input id="frameSlider" type="range" min="0" max="0" value="0"></label>
+<strong id="frameLabel">1 / 1</strong>
+</div>
+<div class="preview-grid">
+<div class="preview checker"><h3>Body</h3><canvas id="bodyCanvas"></canvas></div>
+<div class="preview checker"><h3>Dressed</h3><canvas id="dressedCanvas"></canvas></div>
+<div class="preview checker"><h3>Overlay</h3><canvas id="overlayCanvas"></canvas></div>
+<div class="preview checker"><h3>Erase mask</h3><canvas id="maskCanvas"></canvas></div>
+<div class="preview checker"><h3>Recomposed</h3><canvas id="compositeCanvas"></canvas></div>
+</div>
+<div id="timeline" class="timeline"></div>
+</div>
+<div class="card">
+<h2>Validation</h2>
+<div id="validation" class="status">No extraction yet.</div>
+</div>
+<div class="card">
+<h2>Manifest preview</h2>
+<pre id="manifestPreview">{}</pre>
+</div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const state={bodyImage:null,dressedImage:null,bodyFrames:[],dressedFrames:[],overlayFrames:[],maskFrames:[],compositeFrames:[],stats:[],active:0,timer:null};
+const slug=value=>(value||"untitled").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"untitled";
+function ctx(canvas){const c=canvas.getContext("2d",{willReadFrequently:true});c.imageSmoothingEnabled=false;return c}
+function blank(w,h){const c=document.createElement("canvas");c.width=w;c.height=h;return c}
+function canvasFromImage(img,sx,sy,w,h){const c=blank(w,h);ctx(c).drawImage(img,sx,sy,w,h,0,0,w,h);return c}
+function setStatus(text,tone=""){const el=$("status");el.textContent=text;el.className="status "+tone}
+async function fileImage(file){if(typeof createImageBitmap!=="function")throw Error("This PocketBuddy+ build cannot decode local images in the sandbox.");return createImageBitmap(file)}
+function readSettings(){return{columns:Number($("columns").value)||1,rows:Number($("rows").value)||1,frameCount:Number($("frameCount").value)||1,fps:Number($("fps").value)||8,threshold:Number($("threshold").value)||0,itemId:slug($("itemId").value||$("itemName").value),displayName:$("itemName").value.trim()||"Untitled Outfit",characterId:slug($("characterId").value),libraryId:slug($("libraryId").value),slots:$("slots").value.split(",").map(slug).filter(Boolean),renderSlot:$("renderSlot").value}}
+function slice(img){const s=readSettings();if(!img)throw Error("Choose both sheets first.");if(img.width%s.columns||img.height%s.rows)throw Error("Sheet dimensions are not divisible by the selected grid.");const w=img.width/s.columns,h=img.height/s.rows,count=Math.min(s.frameCount,s.columns*s.rows);return Array.from({length:count},(_,i)=>canvasFromImage(img,(i%s.columns)*w,Math.floor(i/s.columns)*h,w,h))}
+function diff(base,dressed,threshold){const w=base.width,h=base.height,overlay=blank(w,h),mask=blank(w,h),composite=blank(w,h);const b=ctx(base).getImageData(0,0,w,h),d=ctx(dressed).getImageData(0,0,w,h),o=ctx(overlay).createImageData(w,h),m=ctx(mask).createImageData(w,h);let changed=0,added=0,removed=0;
+for(let p=0;p<b.data.length;p+=4){const delta=Math.max(Math.abs(b.data[p]-d.data[p]),Math.abs(b.data[p+1]-d.data[p+1]),Math.abs(b.data[p+2]-d.data[p+2]),Math.abs(b.data[p+3]-d.data[p+3]));if(delta<=threshold)continue;changed++;const ba=b.data[p+3],da=d.data[p+3];if(ba){m.data[p]=m.data[p+1]=m.data[p+2]=m.data[p+3]=255}if(da){o.data[p]=d.data[p];o.data[p+1]=d.data[p+1];o.data[p+2]=d.data[p+2];o.data[p+3]=da}if(!ba&&da)added++;if(ba&&!da)removed++}
+ctx(overlay).putImageData(o,0,0);ctx(mask).putImageData(m,0,0);const cd=ctx(composite);cd.drawImage(base,0,0);cd.save();cd.globalCompositeOperation="destination-out";cd.drawImage(mask,0,0);cd.restore();cd.drawImage(overlay,0,0);
+const c=ctx(composite).getImageData(0,0,w,h);let mismatch=0;for(let p=0;p<c.data.length;p+=4){if(c.data[p]!==d.data[p]||c.data[p+1]!==d.data[p+1]||c.data[p+2]!==d.data[p+2]||c.data[p+3]!==d.data[p+3])mismatch++}
+return{overlay,mask,composite,changed,added,removed,mismatch}}
+function extract(){try{const s=readSettings();if(!state.bodyImage||!state.dressedImage)throw Error("Choose both sheets first.");if(state.bodyImage.width!==state.dressedImage.width||state.bodyImage.height!==state.dressedImage.height)throw Error("Bare and dressed sheet dimensions do not match.");state.bodyFrames=slice(state.bodyImage);state.dressedFrames=slice(state.dressedImage);state.overlayFrames=[];state.maskFrames=[];state.compositeFrames=[];state.stats=[];for(let i=0;i<state.bodyFrames.length;i++){const r=diff(state.bodyFrames[i],state.dressedFrames[i],s.threshold);state.overlayFrames.push(r.overlay);state.maskFrames.push(r.mask);state.compositeFrames.push(r.composite);state.stats.push({frame:i,changedPixels:r.changed,addedPixels:r.added,removedPixels:r.removed,mismatchPixels:r.mismatch})}state.active=0;$("frameSlider").max=String(state.bodyFrames.length-1);render();setStatus(`Extracted ${state.bodyFrames.length} frames for ${s.displayName}.`,"good")}catch(e){setStatus(e.message||String(e),"bad")}}
+function draw(target,source){target.width=source?.width||64;target.height=source?.height||64;const c=ctx(target);c.clearRect(0,0,target.width,target.height);if(source)c.drawImage(source,0,0)}
+function render(){const i=Math.max(0,Math.min(state.active,state.bodyFrames.length-1));state.active=i;$("frameSlider").value=String(i);$("frameLabel").textContent=`${i+1} / ${Math.max(1,state.bodyFrames.length)}`;draw($("bodyCanvas"),state.bodyFrames[i]);draw($("dressedCanvas"),state.dressedFrames[i]);draw($("overlayCanvas"),state.overlayFrames[i]);draw($("maskCanvas"),state.maskFrames[i]);draw($("compositeCanvas"),state.compositeFrames[i]);renderTimeline();renderManifest()}
+function renderTimeline(){const host=$("timeline");host.innerHTML="";state.bodyFrames.forEach((_,i)=>{const b=document.createElement("button");b.className="frame"+(i===state.active?" active":"");b.textContent=String(i+1);b.onclick=()=>{state.active=i;render()};host.appendChild(b)})}
+function itemManifest(){const s=readSettings();const totalMismatch=state.stats.reduce((n,x)=>n+x.mismatchPixels,0);return{schemaVersion:"prismpixel-outfit-item-v1",itemId:s.itemId,displayName:s.displayName,compatibility:{characterId:s.characterId,animationLibrary:s.libraryId,frameSize:[state.bodyFrames[0]?.width||0,state.bodyFrames[0]?.height||0],frameCount:state.bodyFrames.length,fps:s.fps},equipment:{occupiesSlots:s.slots,renderSlot:s.renderSlot,composition:"replace-mask-overlay"},layers:[{id:`${s.itemId}-main`,name:s.displayName,renderSlot:s.renderSlot,offset:[0,0],blendMode:"replace-mask-overlay",overlayFrames:state.overlayFrames.map(c=>c.toDataURL("image/png")),eraseMaskFrames:state.maskFrames.map(c=>c.toDataURL("image/png"))}],validation:{valid:state.bodyFrames.length>0&&totalMismatch===0,frameCount:state.bodyFrames.length,mismatchPixels:totalMismatch,frames:state.stats},provenance:{tool:"PocketBuddy+ PrismPixel Rig Studio plugin",method:"baked-state difference extraction",pixelPerfect:true,nearestNeighbor:true,generatedAt:new Date().toISOString()}}}
+function bakedState(){const s=readSettings();return{schemaVersion:"prismpixel-baked-character-state-v1",stateId:`${s.characterId}-${s.itemId}`,displayName:`${s.displayName} — Baked`,characterId:s.characterId,animationLibrary:s.libraryId,frameSize:[state.dressedFrames[0]?.width||0,state.dressedFrames[0]?.height||0],frameCount:state.dressedFrames.length,fps:s.fps,sourceItems:[s.itemId],frames:state.dressedFrames.map((c,i)=>({id:`frame-${String(i).padStart(3,"0")}`,pngDataURL:c.toDataURL("image/png")})),renderHints:{filter:false,mipmaps:false,nearestNeighbor:true,pixelSnap:true}}}
+function renderManifest(){if(!state.bodyFrames.length){$("manifestPreview").textContent="{}";$("validation").textContent="No extraction yet.";return}const item=itemManifest();$("manifestPreview").textContent=JSON.stringify({...item,layers:item.layers.map(l=>({...l,overlayFrames:`${l.overlayFrames.length} PNG frames`,eraseMaskFrames:`${l.eraseMaskFrames.length} PNG frames`}))},null,2);const total=item.validation.mismatchPixels;$("validation").innerHTML=total===0?`<span class="good">PASS</span> — all ${item.validation.frameCount} recomposed frames match the dressed source.`:`<span class="bad">FAIL</span> — ${total} pixels differ from the dressed source.`}
+function sheet(frames){const s=readSettings(),fw=frames[0].width,fh=frames[0].height,rows=Math.ceil(frames.length/s.columns),c=blank(s.columns*fw,rows*fh),d=ctx(c);frames.forEach((f,i)=>d.drawImage(f,(i%s.columns)*fw,Math.floor(i/s.columns)*fh));return c}
+function sendFile(name,data,encoding="utf8"){const transferId=`tx-${Date.now()}-${Math.random().toString(16).slice(2)}`,chunkSize=40000,chunks=[];for(let i=0;i<data.length;i+=chunkSize)chunks.push(data.slice(i,i+chunkSize));window.openPetsPanel.postMessage({type:"save-begin",transferId,suggestedName:name,encoding,totalChunks:chunks.length});chunks.forEach((chunk,index)=>window.openPetsPanel.postMessage({type:"save-chunk",transferId,index,data:chunk}));window.openPetsPanel.postMessage({type:"save-end",transferId});setStatus(`Sending ${name} to the PocketBuddy+ save dialog…`)}
+function sendCanvas(name,canvas){const base64=canvas.toDataURL("image/png").split(",")[1]||"";sendFile(name,base64,"base64")}
+$("bodyFile").onchange=async e=>{const f=e.target.files?.[0];if(f){state.bodyImage=await fileImage(f);setStatus(`Loaded bare sheet ${f.name}.`)}};
+$("dressedFile").onchange=async e=>{const f=e.target.files?.[0];if(f){state.dressedImage=await fileImage(f);setStatus(`Loaded dressed sheet ${f.name}.`)}};
+$("extract").onclick=extract;$("frameSlider").oninput=e=>{state.active=Number(e.target.value);render()};
+$("play").onclick=()=>{const start=$("play").textContent==="Play";$("play").textContent=start?"Stop":"Play";clearInterval(state.timer);if(start)state.timer=setInterval(()=>{if(state.bodyFrames.length){state.active=(state.active+1)%state.bodyFrames.length;render()}},1000/(Number($("fps").value)||8))};
+$("exportItem").onclick=()=>{if(!state.overlayFrames.length)return setStatus("Extract an item first.","warn");const item=itemManifest();sendFile(`${item.itemId}.prismpixel-outfit.json`,JSON.stringify(item,null,2))};
+$("exportBaked").onclick=()=>{if(!state.dressedFrames.length)return setStatus("Extract an item first.","warn");const baked=bakedState();sendFile(`${baked.stateId}.prismpixel-state.json`,JSON.stringify(baked,null,2))};
+$("exportOverlay").onclick=()=>{if(!state.overlayFrames.length)return setStatus("Extract an item first.","warn");sendCanvas(`${readSettings().itemId}-overlay.png`,sheet(state.overlayFrames))};
+$("exportMask").onclick=()=>{if(!state.maskFrames.length)return setStatus("Extract an item first.","warn");sendCanvas(`${readSettings().itemId}-erase-mask.png`,sheet(state.maskFrames))};
+$("close").onclick=()=>window.openPetsPanel.close();
+window.openPetsPanel.onMessage(msg=>{if(msg?.type==="save-complete")setStatus(`Saved ${msg.suggestedName}.`,"good");if(msg?.type==="save-error")setStatus(msg.error||"Save failed.","bad")});
+render();
+</script>
+</body>
+</html>

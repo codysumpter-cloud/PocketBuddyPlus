@@ -1,0 +1,19 @@
+{
+  "manifestVersion": 3,
+  "id": "openpets.prismpixel-rig-studio",
+  "name": "$t:plugin.name",
+  "description": "$t:plugin.description",
+  "version": "1.0.0",
+  "runtime": "javascript",
+  "icon": "sparkles",
+  "sdkVersion": "3.0.0",
+  "entry": "index.js",
+  "permissions": [
+    "commands",
+    "files",
+    "ui:panel"
+  ],
+  "panels": {
+    "studio": "studio.html"
+  }
+}
