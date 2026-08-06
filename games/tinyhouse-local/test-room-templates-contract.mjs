@@ -28,10 +28,15 @@ assert.equal(core.matchPreviewFile("mystery.png"), null);
 
 assert.match(runtimeSource, /one-step backup/i);
 assert.match(runtimeSource, /PLAY ROOM ANIMATIONS/);
+assert.match(runtimeSource, /CHOOSE PREVIEW/);
+assert.match(runtimeSource, /UUID-named files/i);
+assert.match(runtimeSource, /setPreviewFile/);
 assert.match(runtimeSource, /TinyHouseWallCore/);
 assert.match(runtimeSource, /localStorage\.setItem\(BACKUP_KEY/);
 assert.match(runtimeSource, /never uploaded or committed/i);
+assert.doesNotMatch(runtimeSource, /unmatched\.slice\(0, available\.length\)/, "unnamed previews must not be assigned to arbitrary rooms");
 assert.match(css, /room-template-grid/);
+assert.match(css, /room-template-card-actions/);
 assert.match(css, /image-rendering:pixelated/);
 assert.match(html, /room-templates\.css/);
 assert.match(html, /room-templates-core\.js/);
@@ -42,4 +47,4 @@ assert.match(manifestSource, /state-washing-machine/);
 assert.match(manifestSource, /state-office-normal-table/);
 assert.match(manifestSource, /ani-japanese-door/);
 
-console.log("TinyHouse room-template contract passed: editable recipes, local GIF previews, restore backup, and whole-room animation controls.");
+console.log("TinyHouse room-template contract passed: editable recipes, explicit local GIF previews, restore backup, and whole-room animation controls.");
