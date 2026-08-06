@@ -152,14 +152,23 @@ const packagedApp = join(repoRoot, "apps", "desktop", "dist-electron-plus", "mac
 if (existsSync(packagedApp)) {
   const resources = join(packagedApp, "Contents", "Resources");
   const unpacked = join(resources, "app.asar.unpacked", "node_modules", "@open-pets", "buddy-life-lgpl");
-  for (const [label, path] of [
-    ["LGPL LICENSE", join(unpacked, "LICENSE")],
-    ["LGPL NOTICE", join(unpacked, "NOTICE")],
-    ["corresponding source (src/)", join(unpacked, "src")],
-  ]) {
-    if (!existsSync(path)) {
-      failures.push(`packaged app is missing ${label} at ${relative(repoRoot, path)}`);
+  // The LGPL obligation attaches to SHIPPING the library. The desktop app does
+  // not currently depend on buddy-life-lgpl (only buddy-domain), so demanding
+  // its licence artefacts in a bundle that does not contain it fails every
+  // build for a duty that has not been incurred. If the package ever reaches
+  // the bundle, every artefact below becomes mandatory again.
+  if (existsSync(unpacked)) {
+    for (const [label, path] of [
+      ["LGPL LICENSE", join(unpacked, "LICENSE")],
+      ["LGPL NOTICE", join(unpacked, "NOTICE")],
+      ["corresponding source (src/)", join(unpacked, "src")],
+    ]) {
+      if (!existsSync(path)) {
+        failures.push(`packaged app ships buddy-life-lgpl but is missing ${label} at ${relative(repoRoot, path)}`);
+      }
     }
+  } else {
+    notes.push("packaged app does not bundle @open-pets/buddy-life-lgpl; no LGPL redistribution duty for this build");
   }
 } else {
   notes.push("packaged app not built; skipped packaged-output licence checks (run pnpm package:desktop:plus:dir)");

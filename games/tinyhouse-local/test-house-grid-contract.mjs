@@ -11,7 +11,9 @@ const runtimeSource = readFileSync(new URL("house-grid.js", root), "utf8")
   + readFileSync(new URL("house-grid-blueprint.js", root), "utf8");
 const css = readFileSync(new URL("house-grid.css", root), "utf8");
 const html = readFileSync(new URL("index.html", root), "utf8");
-const packageJson = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
+// The script this asserts on lives in the workspace root manifest, not in this
+// folder - there is no games/tinyhouse-local/package.json and never has been.
+const packageJson = JSON.parse(readFileSync(new URL("../../package.json", root), "utf8"));
 
 const context = { window: {} };
 vm.createContext(context);
