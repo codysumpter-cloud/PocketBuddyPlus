@@ -28,6 +28,7 @@ const behaviorTests = [
   ".test-dist/tests/buddy-foundation.test.js",
   ".test-dist/tests/buddy-profile.test.js",
   ".test-dist/tests/buddy-inventory.test.js",
+  ".test-dist/tests/buddy-training-plugin.test.js",
   ".test-dist/tests/product-identity.test.js",
   ".test-dist/tests/pet-source-contract.test.js",
   ".test-dist/tests/update-version.test.js",
