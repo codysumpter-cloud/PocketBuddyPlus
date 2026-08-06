@@ -1,0 +1,75 @@
+name: Finish Prismtek creator plugin bundling
+
+on:
+  push:
+    branches:
+      - agent/add-prismtek-creator-plugins
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/add-prismtek-creator-plugins
+          fetch-depth: 0
+
+      - name: Bundle creator plugins disabled by default
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          service = Path('apps/desktop/src/plugin-service.ts')
+          text = service.read_text()
+          old = 'export const bundledOfficialPluginIds = ["openpets.reminders", "openpets.focus-buddy", "openpets.launch-buddy", "openpets.virtual-pet"] as const;'
+          new = 'export const bundledOfficialPluginIds = ["openpets.reminders", "openpets.focus-buddy", "openpets.launch-buddy", "openpets.virtual-pet", "openpets.prismpixel-rig-studio", "openpets.prismcade-creator"] as const;'
+          if text.count(old) != 1:
+              raise SystemExit('bundledOfficialPluginIds source line drifted')
+          service.write_text(text.replace(old, new))
+
+          superplugins = Path('docs/superplugins.md')
+          text = superplugins.read_text()
+          old = '''- **Bundled with the app**: `openpets.reminders`, `openpets.focus-buddy`,
+  `openpets.launch-buddy`, `openpets.virtual-pet` (`bundledOfficialPluginIds`).
+- **Enabled by default**: `openpets.reminders`, `openpets.focus-buddy`,
+  `openpets.launch-buddy` (`bundledEnabledByDefault`).
+- **Bundled but disabled by default**: `openpets.virtual-pet`; users can enable it
+  from the Plugins page.
+- **Official catalog-only creator tools**: `openpets.prismpixel-rig-studio` and
+  `openpets.prismcade-creator`. They require explicit installation and remain
+  disabled until the user enables them.'''
+          new = '''- **Bundled with the app**: `openpets.reminders`, `openpets.focus-buddy`,
+  `openpets.launch-buddy`, `openpets.virtual-pet`,
+  `openpets.prismpixel-rig-studio`, and `openpets.prismcade-creator`
+  (`bundledOfficialPluginIds`).
+- **Enabled by default**: `openpets.reminders`, `openpets.focus-buddy`,
+  `openpets.launch-buddy` (`bundledEnabledByDefault`).
+- **Bundled but disabled by default**: `openpets.virtual-pet`,
+  `openpets.prismpixel-rig-studio`, and `openpets.prismcade-creator`; users can
+  enable them from the Plugins page.'''
+          if text.count(old) != 1:
+              raise SystemExit('superplugins bundling section drifted')
+          superplugins.write_text(text.replace(old, new))
+
+          creator_docs = Path('docs/prismtek-creator-plugins.md')
+          text = creator_docs.read_text()
+          old = 'They are official catalog plugins, not default-enabled companion behaviors.'
+          new = 'They are bundled official plugins, disabled by default, and never run until the user explicitly enables and opens them.'
+          if text.count(old) != 1:
+              raise SystemExit('creator plugin status sentence drifted')
+          creator_docs.write_text(text.replace(old, new))
+          PY
+
+      - name: Remove one-shot workflow and commit
+        run: |
+          git rm .github/workflows/finish-prismtek-creator-bundling.yml
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/desktop/src/plugin-service.ts docs/superplugins.md docs/prismtek-creator-plugins.md
+          git commit -m "feat(plugins): bundle Prismtek creator tools"
+          git push origin HEAD:agent/add-prismtek-creator-plugins
