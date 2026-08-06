@@ -4,19 +4,21 @@
 
 Pocket Buddy+ keeps one Buddy identity across desktop companionship, agent integrations, creator tools, and plugin-powered experiences. The Buddy is the shared character; plugins add what the Buddy can do.
 
-> **Active development:** the desktop companion, model-backed Buddy Talk, host-owned Buddy profile, shared inventory/equipment ledger, plugin runtime, animation system, creator plugins, and agent integrations already exist. Battles, trading, and broader device sync are being built on top of those foundations rather than as separate apps.
+> **Active development:** the desktop companion, model-backed Buddy Talk, host-owned Buddy profile, shared inventory/equipment ledger, Buddy Training reward loop, plugin runtime, animation system, creator plugins, Music Buddy, and agent integrations already exist. Battles, trading, and broader device sync are being built on top of those foundations rather than as separate apps.
 
 ## What works today
 
-- Animated desktop Buddies with installable sprite packs, multi-animation manifests, reactions, movement, and per-Buddy reaction mapping.
+- Animated desktop Buddies with installable sprite packs, multi-animation manifests, reactions, synchronized eight-direction movement, and per-Buddy reaction mapping.
 - A Pocket Buddy+ Control Center with Buddy status, care, AI conversation with local fallback, notes, tasks, collection, wardrobe, pet management, plugins, and integrations.
 - A versioned host-owned Buddy profile that approved plugins can read without receiving Talk history, notes, tasks, files, or credentials.
 - A shared transactional inventory/equipment ledger with canonical item definitions, quantities, slots, idempotent mutation receipts, and sandboxed plugin access.
+- A bundled Buddy Training vertical slice that chooses drills from the public Buddy profile and issues crash-safe apple rewards through the shared ledger.
 - Sandboxed JavaScript/TypeScript plugins with declared permissions, quotas, schedules, storage, commands, panels, events, audio, notifications, secrets, and network controls.
 - Host-managed AI access for Buddy Talk and approved plugins through Anthropic, OpenAI, **NVIDIA NIM**, or Ollama.
 - Secure user-supplied API keys kept in the host secret store instead of renderer state, plugin source, or plugin configuration.
 - Claude Code, OpenCode, Cursor, Pi, MCP, and local agent-reaction integrations.
 - Bundled Prismtek creator tooling, including Prism Pixel + Rig Studio and Prismcade Creator.
+- Music Buddy with host-mediated Spotify OAuth, normalized now-playing status, and basic playback controls.
 - Official companion plugins for reminders, focus, routines, hydration, mood check-ins, virtual-pet needs, and small interactive experiences.
 
 ## One Buddy, many plugins
@@ -37,6 +39,8 @@ Platform references:
 - [`docs/pocket-buddy-platform.md`](docs/pocket-buddy-platform.md) — product and plugin architecture
 - [`docs/buddy-profile.md`](docs/buddy-profile.md) — public Buddy identity/state contract
 - [`docs/buddy-inventory.md`](docs/buddy-inventory.md) — shared item, equipment, and transaction contract
+- [`docs/buddy-training.md`](docs/buddy-training.md) — first profile-aware reward-loop plugin
+- [`docs/plugins/music-buddy.md`](docs/plugins/music-buddy.md) — Spotify provider and native music boundary
 
 ## NVIDIA AI setup
 
@@ -121,15 +125,15 @@ pnpm package:desktop:plus:dir
 ## Repository map
 
 ```text
-apps/desktop              Pocket Buddy+ Electron host and Control Center
-apps/desktop/src/buddy    Buddy identity and behavior foundation
+apps/desktop               Pocket Buddy+ Electron host and Control Center
+apps/desktop/src/buddy     Buddy identity and behavior foundation
 apps/desktop/src/inventory Shared item, equipment, and transaction ledger
-packages/sdk              Compatibility-published plugin SDK
-packages/mcp              Local MCP bridge
-packages/agent-events     Safe agent event and speech sanitization
-packages/pet-format       Pet and animation manifest contracts
-plugins/official          Bundled and catalog-ready Buddy plugins
-docs                      Architecture, plugin, provider, and release documentation
+packages/sdk               Compatibility-published plugin SDK
+packages/mcp               Local MCP bridge
+packages/agent-events      Safe agent event and speech sanitization
+packages/pet-format        Pet and animation manifest contracts
+plugins/official           Bundled and catalog-ready Buddy plugins
+docs                       Architecture, plugin, provider, and release documentation
 ```
 
 ## Safety and privacy
@@ -140,6 +144,7 @@ docs                      Architecture, plugin, provider, and release documentat
 - Plugin permissions are declared and approved before host capabilities are exposed.
 - `pets:read` permits profile/inventory snapshots; inventory mutations require the stronger `pets:manage` permission.
 - Inventory mutations accept only trusted host item definitions and produce source-attributed, idempotent receipts.
+- OAuth endpoints, scopes, PKCE, and registered loopback ports remain controlled by the trusted host.
 - JavaScript plugins run in sandboxed hosts; the application renders trusted UI descriptors.
 - Private-network and SSRF protections apply to plugin network access.
 - Dynamic speech is filtered and requires explicit host settings.

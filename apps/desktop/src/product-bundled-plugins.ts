@@ -2,12 +2,13 @@ export const pocketBuddyPlusBundledPluginIds = [
   "openpets.prismpixel-rig-studio",
   "openpets.prismcade-creator",
   "openpets.music-buddy",
+  "openpets.buddy-training",
 ] as const;
 
 /**
- * Extend the shared plugin-service bundle with PocketBuddy+-specific tools.
- * This changes only which packages are seeded; enabled-by-default remains owned
- * by the plugin service and therefore stays false for these bundled plugins.
+ * Extend the shared plugin-service bundle with Pocket Buddy+-specific tools
+ * and experiences. Enabled-by-default remains owned by the plugin service, so
+ * new bundled plugins still require an intentional permission flow.
  */
 export function registerPocketBuddyPlusBundledPlugins(ids: readonly string[]): void {
   const mutableIds = ids as unknown as string[];
