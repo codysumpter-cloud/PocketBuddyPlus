@@ -16,7 +16,7 @@ function getControlCenterApi(): BuddyBrainControlCenterApi | undefined {
 }
 
 let reconcileQueued = false;
-let migrationStarted = false;
+let migrationInFlight = false;
 
 async function ensurePluginEnabled(api: BuddyBrainControlCenterApi): Promise<boolean> {
   const snapshot = await api.getPluginsSnapshot();
@@ -39,15 +39,17 @@ async function openBuddyBrain(): Promise<void> {
 }
 
 async function runLegacyMigration(): Promise<void> {
-  if (migrationStarted || window.localStorage.getItem(MIGRATION_MARKER_KEY) === "done") return;
-  migrationStarted = true;
+  if (migrationInFlight || window.localStorage.getItem(MIGRATION_MARKER_KEY) === "done") return;
   const api = getControlCenterApi();
   if (!api) return;
+
   const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
   if (!raw) {
     window.localStorage.setItem(MIGRATION_MARKER_KEY, "done");
     return;
   }
+
+  migrationInFlight = true;
   try {
     const payload: unknown = JSON.parse(raw);
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
@@ -59,6 +61,8 @@ async function runLegacyMigration(): Promise<void> {
     window.localStorage.setItem(MIGRATION_MARKER_KEY, "done");
   } catch {
     // Keep the legacy state untouched when parsing or plugin migration fails.
+  } finally {
+    migrationInFlight = false;
   }
 }
 
