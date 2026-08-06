@@ -3,9 +3,11 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createInventoryAwarePluginJsHost } from "../src/inventory/buddy-inventory-plugin-sdk.js";
+import {
+  decorateInventorySdk,
+  disposeInventorySdkSubscriptions,
+} from "../src/inventory/buddy-inventory-sdk-api.js";
 import { BUDDY_INVENTORY_FILENAME, BuddyInventoryStore } from "../src/inventory/buddy-inventory-store.js";
-import type { PluginJsHost, PluginJsHostStartOptions } from "../src/plugin-js-host.js";
 import type { OpenPetsJavascriptPluginManifest } from "../src/plugin-manifest.js";
 import type { PluginSdkApi } from "../src/plugin-sdk-bridge.js";
 import type { PluginStateRecord } from "../src/plugin-state.js";
@@ -97,15 +99,6 @@ try {
   assert.equal(reloaded.revision, consumed.revision);
   assert.equal(reloaded.quantities["consumable.apple"], 3);
 
-  let capturedSdk: (PluginSdkApi & { inventory?: Record<string, (...args: unknown[]) => unknown> }) | undefined;
-  let stopped = false;
-  const inner: PluginJsHost = {
-    async startPlugin(options: PluginJsHostStartOptions) {
-      capturedSdk = options.sdk as typeof capturedSdk;
-      return { stop: () => { stopped = true; } };
-    },
-  };
-  const host = createInventoryAwarePluginJsHost(inner, store);
   const record = {
     id: "battle.plugin",
     approvedPermissions: ["pets:read", "pets:manage"],
@@ -120,35 +113,63 @@ try {
     entry: "index.js",
     permissions: ["pets:read", "pets:manage"],
   } as unknown as OpenPetsJavascriptPluginManifest;
-  const instance = await host.startPlugin({ record, manifest, entryPath: "/tmp/index.js", sdk: {} as PluginSdkApi, onBroken: () => undefined });
-  assert.ok(capturedSdk?.inventory);
-  const inventory = capturedSdk!.inventory!;
-  assert.equal((inventory.snapshot() as ReturnType<BuddyInventoryStore["snapshot"]>).quantities["consumable.apple"], 3);
+  const subscriptions = new Map<string, () => void>();
+  let nextSubscription = 0;
+  const sdk = decorateInventorySdk({
+    sdk: {} as PluginSdkApi,
+    record,
+    manifest,
+    store,
+    subscriptions,
+    nextSubscriptionId: () => `inventory-test-${++nextSubscription}`,
+  });
+  assert.equal(sdk.inventory.snapshot().quantities["consumable.apple"], 3);
 
   let observedRevision = -1;
-  const subscription = inventory.onChange((snapshot: unknown) => { observedRevision = (snapshot as { revision: number }).revision; }) as { subscriptionId: string };
+  const subscription = sdk.inventory.onChange((snapshot) => { observedRevision = snapshot.revision; });
   now += 1;
-  const reward = inventory.grant({ transactionId: "battle.reward:00000001", itemId: "consumable.apple", quantity: 1, reason: "Won a battle" }) as ReturnType<BuddyInventoryStore["snapshot"]>;
+  const reward = sdk.inventory.grant({
+    transactionId: "battle.reward:00000001",
+    itemId: "consumable.apple",
+    quantity: 1,
+    reason: "Won a battle",
+  });
   assert.equal(reward.quantities["consumable.apple"], 4);
   await Promise.resolve();
   assert.equal(observedRevision, reward.revision);
-  inventory.offChange(subscription.subscriptionId);
-  instance.stop();
-  assert.equal(stopped, true);
+  sdk.inventory.offChange(subscription.subscriptionId);
+  assert.equal(subscriptions.size, 0);
 
-  let readOnlySdk: typeof capturedSdk;
-  const readOnlyHost = createInventoryAwarePluginJsHost({
-    async startPlugin(options) { readOnlySdk = options.sdk as typeof readOnlySdk; return { stop() {} }; },
-  }, store);
-  await readOnlyHost.startPlugin({
+  const readOnlySubscriptions = new Map<string, () => void>();
+  const readOnlySdk = decorateInventorySdk({
+    sdk: {} as PluginSdkApi,
     record: { ...record, id: "reader.plugin", approvedPermissions: ["pets:read"] } as unknown as PluginStateRecord,
     manifest: { ...manifest, id: "reader.plugin", permissions: ["pets:read"] } as OpenPetsJavascriptPluginManifest,
-    entryPath: "/tmp/index.js",
-    sdk: {} as PluginSdkApi,
-    onBroken: () => undefined,
+    store,
+    subscriptions: readOnlySubscriptions,
+    nextSubscriptionId: () => "inventory-reader-1",
   });
-  assert.ok(readOnlySdk!.inventory!.snapshot());
-  assert.throws(() => readOnlySdk!.inventory!.grant({ transactionId: "reader.grant:00000001", itemId: "consumable.apple", quantity: 1, reason: "Denied" }), /pets:manage/i);
+  assert.ok(readOnlySdk.inventory.snapshot());
+  assert.throws(() => readOnlySdk.inventory.grant({
+    transactionId: "reader.grant:00000001",
+    itemId: "consumable.apple",
+    quantity: 1,
+    reason: "Denied",
+  }), /pets:manage/i);
+
+  const limitedSubscriptions = new Map<string, () => void>();
+  const limitedSdk = decorateInventorySdk({
+    sdk: {} as PluginSdkApi,
+    record,
+    manifest,
+    store,
+    subscriptions: limitedSubscriptions,
+    nextSubscriptionId: () => `inventory-limit-${limitedSubscriptions.size + 1}`,
+  });
+  for (let index = 0; index < 16; index++) limitedSdk.inventory.onChange(() => undefined);
+  assert.throws(() => limitedSdk.inventory.onChange(() => undefined), /quota exceeded/i);
+  disposeInventorySdkSubscriptions(limitedSubscriptions);
+  assert.equal(limitedSubscriptions.size, 0);
 
   console.error("Shared Buddy inventory and equipment contract passed.");
 } finally {
