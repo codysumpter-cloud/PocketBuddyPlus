@@ -35,6 +35,12 @@ importers:
       '@open-pets/opencode':
         specifier: workspace:*
         version: link:../../packages/opencode
+      '@open-pets/pet-format':
+        specifier: workspace:*
+        version: link:../../packages/pet-format
+      '@open-pets/pixel-asset-pipeline':
+        specifier: workspace:*
+        version: link:../../packages/pixel-asset-pipeline
       get-windows:
         specifier: ^9.3.0
         version: 9.3.0(encoding@0.1.13)
@@ -207,6 +213,9 @@ importers:
       '@open-pets/client':
         specifier: workspace:*
         version: link:../client
+      '@open-pets/pet-format':
+        specifier: workspace:*
+        version: link:../pet-format
       yauzl:
         specifier: 3.3.0
         version: 3.3.0
@@ -261,6 +270,9 @@ importers:
 
   packages/pet-format:
     devDependencies:
+      '@types/node':
+        specifier: ^25.6.2
+        version: 25.6.2
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -280,6 +292,28 @@ importers:
       '@types/node':
         specifier: ^25.6.2
         version: 25.6.2
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/pixel-asset-pipeline:
+    dependencies:
+      '@open-pets/pet-format':
+        specifier: workspace:*
+        version: link:../pet-format
+      sharp:
+        specifier: ^0.34.5
+        version: 0.34.5
+      yauzl:
+        specifier: 3.3.0
+        version: 3.3.0
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.2
+        version: 25.6.2
+      '@types/yauzl':
+        specifier: 2.10.3
+        version: 2.10.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

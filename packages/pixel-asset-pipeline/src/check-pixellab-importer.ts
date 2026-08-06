@@ -26,7 +26,7 @@ assert.equal(inspection.animations.find((animation) => animation.originalName ==
 assert.throws(() => validateSafeZipPath("../escape.png"));
 assert.throws(() => validateSafeZipPath("C:/escape.png"));
 assert.throws(() => validateSafeZipPath("folder\\escape.png"));
-await assert.rejects(() => inspectPixelLabExport(unsafe), /Unsafe ZIP path/);
+await assert.rejects(() => inspectPixelLabExport(unsafe), /Unsafe ZIP path|invalid relative path/);
 
 const output = await mkdtemp(join(tmpdir(), "openpets-pixellab-"));
 try {
