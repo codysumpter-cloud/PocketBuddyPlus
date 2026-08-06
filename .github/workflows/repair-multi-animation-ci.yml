@@ -25,6 +25,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # This workflow is intentionally one-shot and will be deleted after it commits the generated lockfile.
           python3 <<'PY'
           from pathlib import Path
 
