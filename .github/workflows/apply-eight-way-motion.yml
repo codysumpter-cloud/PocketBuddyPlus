@@ -1,0 +1,146 @@
+name: Apply eight-way pet motion
+
+on:
+  push:
+    branches:
+      - fix/manifestless-pet-reaction-settings
+    paths:
+      - .github/workflows/apply-eight-way-motion.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, '[eight-way-motion-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/manifestless-pet-reaction-settings
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Apply deterministic source patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected exactly one match in {path}, found {count}: {old[:80]!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          mapping = "apps/desktop/src/reaction-animation-mapping.ts"
+          replace_once(
+              mapping,
+              'export type PetMotionState = "idle" | "run-left" | "run-right";\n',
+              '''export const petMotionDirections = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"] as const;\nexport type PetMotionDirection = typeof petMotionDirections[number];\nexport type PetMotionState = "idle" | "run-left" | "run-right" | `run-${PetMotionDirection}`;\n\nexport const motionDirectionByState = {\n  "run-left": "west",\n  "run-right": "east",\n  "run-north": "north",\n  "run-northeast": "northeast",\n  "run-east": "east",\n  "run-southeast": "southeast",\n  "run-south": "south",\n  "run-southwest": "southwest",\n  "run-west": "west",\n  "run-northwest": "northwest",\n} as const satisfies Record<Exclude<PetMotionState, "idle">, PetMotionDirection>;\n\nexport function resolvePetMotionDirection(state: PetMotionState): PetMotionDirection | null {\n  return state === "idle" ? null : motionDirectionByState[state];\n}\n\nexport function resolvePetMotionState(dx: number, dy: number): PetMotionState {\n  if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 0.001) return "idle";\n  const octant = (Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8;\n  const direction = (["east", "southeast", "south", "southwest", "west", "northwest", "north", "northeast"] as const)[octant] ?? "east";\n  return `run-${direction}`;\n}\n''',
+          )
+          replace_once(
+              mapping,
+              '''export const motionToSpriteState = {\n  idle: "idle",\n  "run-right": "running-right",\n  "run-left": "running-left",\n} as const satisfies Record<PetMotionState, UniversalSpriteState>;''',
+              '''export const motionToSpriteState = {\n  idle: "idle",\n  "run-left": "running-left",\n  "run-right": "running-right",\n  "run-north": "running-left",\n  "run-northeast": "running-right",\n  "run-east": "running-right",\n  "run-southeast": "running-right",\n  "run-south": "running-right",\n  "run-southwest": "running-left",\n  "run-west": "running-left",\n  "run-northwest": "running-left",\n} as const satisfies Record<PetMotionState, UniversalSpriteState>;''',
+          )
+
+          manifest = "apps/desktop/src/pet-animation-manifest.ts"
+          replace_once(
+              manifest,
+              '''  defaultPetSprite,\n  reactionAnimationMetadata,\n  resolveManifestReactionAnimation,''',
+              '''  defaultPetSprite,\n  motionToSpriteState,\n  reactionAnimationMetadata,\n  resolveManifestReactionAnimation,\n  resolvePetMotionDirection,''',
+          )
+          replace_once(
+              manifest,
+              '''export async function resolvePetMotionAnimation(petId: string, motion: PetMotionState): Promise<{ readonly id: string; readonly animation?: PetAnimationDefinition; readonly direction: PetDirection }> {\n  const direction: PetDirection = motion === "run-left" ? "west" : motion === "run-right" ? "east" : "south";\n  if (petId === builtInPet.id) return { id: motion === "run-left" ? "running-left" : motion === "run-right" ? "running-right" : "idle", direction };\n  const manifest = await readInstalledPetAnimationManifest(petId);\n  if (!manifest) return { id: "idle", direction };\n  const mappingKey = motion === "run-left" ? "running-left" : motion === "run-right" ? "running-right" : "idle";\n  const requested = getAnimationById(manifest, manifest.motionMappings[mappingKey]);\n  const idle = getAnimationById(manifest, manifest.semanticDefaults.idle);\n  const animation = (requested?.complete ? requested : undefined) ?? (idle?.complete ? idle : undefined) ?? manifest.animations.find((candidate) => candidate.complete) ?? manifest.animations[0];\n  return { id: animation?.id ?? "idle", animation, direction };\n}''',
+              '''export async function resolvePetMotionAnimation(petId: string, motion: PetMotionState): Promise<{ readonly id: string; readonly animation?: PetAnimationDefinition; readonly direction: PetDirection }> {\n  const direction = resolvePetMotionDirection(motion) ?? "south";\n  if (petId === builtInPet.id) return { id: motionToSpriteState[motion], direction };\n  const manifest = await readInstalledPetAnimationManifest(petId);\n  if (!manifest) return { id: motionToSpriteState[motion], direction };\n  const leftward = direction === "west" || direction === "northwest" || direction === "southwest";\n  const rightward = direction === "east" || direction === "northeast" || direction === "southeast";\n  const mappingKey = motion === "idle" ? "idle" : leftward ? "running-left" : rightward ? "running-right" : undefined;\n  const requested = mappingKey ? getAnimationById(manifest, manifest.motionMappings[mappingKey]) : undefined;\n  const runningId = resolvePetAnimationId(manifest, "running", undefined, "running");\n  const running = runningId ? getAnimationById(manifest, runningId) : undefined;\n  const idle = getAnimationById(manifest, manifest.semanticDefaults.idle);\n  const animation = (requested?.complete ? requested : undefined)\n    ?? (running?.complete ? running : undefined)\n    ?? (idle?.complete ? idle : undefined)\n    ?? manifest.animations.find((candidate) => candidate.complete)\n    ?? manifest.animations[0];\n  return { id: animation?.id ?? "idle", animation, direction };\n}''',
+          )
+
+          engine = "apps/desktop/src/pet-motion-engine.ts"
+          replace_once(
+              engine,
+              '''import { clampToNearestDisplayIfOffscreen, clampToVisibleWorkArea, defaultPetWindowSize, isCrossDisplayRoamingEnabled, type Point } from "./display.js";\n// isPetWindowDragging''',
+              '''import { clampToNearestDisplayIfOffscreen, clampToVisibleWorkArea, defaultPetWindowSize, isCrossDisplayRoamingEnabled, type Point } from "./display.js";\nimport { resolvePetMotionState, type PetMotionState } from "./reaction-animation-mapping.js";\n// isPetWindowDragging''',
+          )
+          replace_once(
+              engine,
+              '''function getSignalPetMotionIntent(): (win: BrowserWindow, state: "idle" | "run-left" | "run-right") => void {\n  try {\n    // eslint-disable-next-line @typescript-eslint/no-require-imports\n    const mod = require("./pet-window.js") as { signalPetMotionIntent?: (win: BrowserWindow, state: "idle" | "run-left" | "run-right") => void };''',
+              '''function getSignalPetMotionIntent(): (win: BrowserWindow, state: PetMotionState) => void {\n  try {\n    // eslint-disable-next-line @typescript-eslint/no-require-imports\n    const mod = require("./pet-window.js") as { signalPetMotionIntent?: (win: BrowserWindow, state: PetMotionState) => void };''',
+          )
+          replace_once(
+              engine,
+              '''  const [intentX] = window.getPosition();\n  const intentDx = clampPosition(petHandleId, target).x - intentX;\n  if (Math.abs(intentDx) >= 1) getSignalPetMotionIntent()(window, intentDx > 0 ? "run-right" : "run-left");''',
+              '''  const [intentX, intentY] = window.getPosition();\n  const intentTarget = clampPosition(petHandleId, target);\n  const intentState = resolvePetMotionState(intentTarget.x - intentX, intentTarget.y - intentY);\n  if (intentState !== "idle") getSignalPetMotionIntent()(window, intentState);''',
+          )
+
+          window_file = "apps/desktop/src/pet-window.ts"
+          replace_once(
+              window_file,
+              '''import { defaultPetSprite, motionToSpriteState, resolveReactionSpriteState, type PetMotionState, type UniversalSpriteState } from "./reaction-animation-mapping.js";''',
+              '''import { defaultPetSprite, motionToSpriteState, resolvePetMotionState, resolveReactionSpriteState, type PetMotionState, type UniversalSpriteState } from "./reaction-animation-mapping.js";''',
+          )
+          replace_once(
+              window_file,
+              '''  const motion = {\n    idle: manifest.motionMappings.idle && animations[manifest.motionMappings.idle] ? manifest.motionMappings.idle : idleId,\n    "run-left": manifest.motionMappings["running-left"] && animations[manifest.motionMappings["running-left"]] ? manifest.motionMappings["running-left"] : aliases.running,\n    "run-right": manifest.motionMappings["running-right"] && animations[manifest.motionMappings["running-right"]] ? manifest.motionMappings["running-right"] : aliases.running,\n  };''',
+              '''  const idleMotion = manifest.motionMappings.idle && animations[manifest.motionMappings.idle] ? manifest.motionMappings.idle : idleId;\n  const runningLeft = manifest.motionMappings["running-left"] && animations[manifest.motionMappings["running-left"]] ? manifest.motionMappings["running-left"] : aliases.running;\n  const runningRight = manifest.motionMappings["running-right"] && animations[manifest.motionMappings["running-right"]] ? manifest.motionMappings["running-right"] : aliases.running;\n  const motion = {\n    idle: idleMotion,\n    "run-left": runningLeft,\n    "run-right": runningRight,\n    "run-north": aliases.running,\n    "run-northeast": runningRight,\n    "run-east": runningRight,\n    "run-southeast": runningRight,\n    "run-south": aliases.running,\n    "run-southwest": runningLeft,\n    "run-west": runningLeft,\n    "run-northwest": runningLeft,\n  } satisfies Record<PetMotionState, string>;''',
+          )
+          replace_once(window_file, '  let lastX = window.getPosition()[0];', '  let [lastX, lastY] = window.getPosition();')
+          replace_once(
+              window_file,
+              '''    const [x] = window.getPosition();\n    const deltaX = x - lastX;\n    lastX = x;\n\n    if (Math.abs(deltaX) >= 3) {\n      sendMotionState(deltaX > 0 ? "run-right" : "run-left");\n    }''',
+              '''    const [x, y] = window.getPosition();\n    const deltaX = x - lastX;\n    const deltaY = y - lastY;\n    lastX = x;\n    lastY = y;\n\n    if (Math.hypot(deltaX, deltaY) >= 3) {\n      sendMotionState(resolvePetMotionState(deltaX, deltaY));\n    }''',
+          )
+
+          preload = "apps/desktop/pet-preload.cjs"
+          replace_once(
+              preload,
+              'const allowedMotionStates = new Set(["idle", "run-left", "run-right"]);',
+              '''const allowedMotionStates = new Set(["idle", "run-left", "run-right", "run-north", "run-northeast", "run-east", "run-southeast", "run-south", "run-southwest", "run-west", "run-northwest"]);\nconst motionDirectionByState = Object.freeze({\n  "run-left": "west",\n  "run-right": "east",\n  "run-north": "north",\n  "run-northeast": "northeast",\n  "run-east": "east",\n  "run-southeast": "southeast",\n  "run-south": "south",\n  "run-southwest": "southwest",\n  "run-west": "west",\n  "run-northwest": "northwest",\n});''',
+          )
+          replace_once(
+              preload,
+              '    const wanted = motion === "run-left" ? "west" : motion === "run-right" ? "east" : (animation.defaultDirection || catalog.defaultDirection || "south");',
+              '    const wanted = motionDirectionByState[motion] || animation.defaultDirection || catalog.defaultDirection || "south";',
+          )
+
+          test = "apps/desktop/tests/reaction-animation-mapping.test.ts"
+          replace_once(
+              test,
+              '''  reactionAnimationMetadata,\n  resolveReactionSpriteState,''',
+              '''  motionToSpriteState,\n  reactionAnimationMetadata,\n  resolvePetMotionDirection,\n  resolvePetMotionState,\n  resolveReactionSpriteState,''',
+          )
+          replace_once(
+              test,
+              '\nconsole.log("Reaction animation mapping tests passed.");\n',
+              '''\n// Commanded and observed movement resolve to all eight screen-space octants.\nconst directionCases = [\n  { dx: 0, dy: -1, state: "run-north", direction: "north" },\n  { dx: 1, dy: -1, state: "run-northeast", direction: "northeast" },\n  { dx: 1, dy: 0, state: "run-east", direction: "east" },\n  { dx: 1, dy: 1, state: "run-southeast", direction: "southeast" },\n  { dx: 0, dy: 1, state: "run-south", direction: "south" },\n  { dx: -1, dy: 1, state: "run-southwest", direction: "southwest" },\n  { dx: -1, dy: 0, state: "run-west", direction: "west" },\n  { dx: -1, dy: -1, state: "run-northwest", direction: "northwest" },\n] as const;\nfor (const item of directionCases) {\n  assert.equal(resolvePetMotionState(item.dx, item.dy), item.state);\n  assert.equal(resolvePetMotionDirection(item.state), item.direction);\n  assert.ok(motionToSpriteState[item.state], `${item.state} must have a built-in spritesheet fallback`);\n}\nassert.equal(resolvePetMotionState(0, 0), "idle", "zero-length commands stay idle");\nassert.equal(resolvePetMotionState(0.1, 0), "run-east", "tiny commanded moves publish intent without the reactive 3px delay");\nassert.equal(resolvePetMotionDirection("run-left"), "west", "legacy run-left remains compatible");\nassert.equal(resolvePetMotionDirection("run-right"), "east", "legacy run-right remains compatible");\nconst boundaryLow = 22.4 * Math.PI / 180;\nconst boundaryHigh = 22.6 * Math.PI / 180;\nassert.equal(resolvePetMotionState(Math.cos(boundaryLow), Math.sin(boundaryLow)), "run-east");\nassert.equal(resolvePetMotionState(Math.cos(boundaryHigh), Math.sin(boundaryHigh)), "run-southeast");\n\nconsole.log("Reaction animation mapping tests passed.");\n''',
+          )
+          PY
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify desktop typecheck and tests
+        run: |
+          pnpm --filter @open-pets/desktop typecheck
+          pnpm --filter @open-pets/desktop test
+
+      - name: Commit verified patch and remove temporary workflow
+        shell: bash
+        run: |
+          rm .github/workflows/apply-eight-way-motion.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(pets): add eight-direction motion states [eight-way-motion-applied]"
+          git push origin HEAD:fix/manifestless-pet-reaction-settings
