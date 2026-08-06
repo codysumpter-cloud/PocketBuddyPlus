@@ -32,7 +32,11 @@ assert.equal(normalizeConfig({}).delaySeconds, 3);
 assert.equal(deterministicIndex(3, 180_000), 0);
 assert.equal(shouldGreet({ enabled: false, frequency: "everyLaunch", awayHours: 6 }, {}, 0), false);
 assert.equal(shouldGreet({ enabled: false, frequency: "everyLaunch", awayHours: 6 }, {}, 0, true), true);
-assert.equal(shouldGreet({ enabled: true, frequency: "oncePerDay", awayHours: 6 }, { lastGreetingDate: "1970-01-01" }, 1_000), false);
+// dayKey() is deliberately local-time (a user's "day" is their own day), so the
+// expected key must be derived rather than hardcoded to the UTC date. Hardcoding
+// "1970-01-01" passed only in UTC and failed for anyone behind it.
+assert.equal(shouldGreet({ enabled: true, frequency: "oncePerDay", awayHours: 6 }, { lastGreetingDate: dayKey(1_000) }, 1_000), false);
+assert.equal(shouldGreet({ enabled: true, frequency: "oncePerDay", awayHours: 6 }, { lastGreetingDate: "not-today" }, 1_000), true);
 assert.equal(shouldGreet({ enabled: true, frequency: "afterAwayHours", awayHours: 6 }, { lastGreetingAt: 0 }, 1_000), true);
 
 const PERMISSIONS = ["pet:speak", "pet:reaction", "audio", "schedule", "storage", "commands"];
@@ -127,4 +131,9 @@ const LOCALES = { en: JSON.parse(await readFile(new URL("./locales/en.json", imp
 }
 
 // Keep selectMessage covered without harness side effects.
-assert.equal(selectMessage({ t: (k) => k }, normalizeConfig({ greetingMode: "smart" }), Date.UTC(2026, 0, 1, 23)), "message.smart.night");
+// timeBucket() reads LOCAL hours, so the instant must be built in local time.
+// Date.UTC(...,23) is 23:00 UTC, which is a different bucket anywhere but UTC.
+assert.equal(selectMessage({ t: (k) => k }, normalizeConfig({ greetingMode: "smart" }), new Date(2026, 0, 1, 23).getTime()), "message.smart.night");
+assert.equal(selectMessage({ t: (k) => k }, normalizeConfig({ greetingMode: "smart" }), new Date(2026, 0, 1, 9).getTime()), "message.smart.morning");
+assert.equal(selectMessage({ t: (k) => k }, normalizeConfig({ greetingMode: "smart" }), new Date(2026, 0, 1, 14).getTime()), "message.smart.afternoon");
+assert.equal(selectMessage({ t: (k) => k }, normalizeConfig({ greetingMode: "smart" }), new Date(2026, 0, 1, 19).getTime()), "message.smart.evening");
