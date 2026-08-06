@@ -14,6 +14,8 @@ import { installAppLifecycle } from "./lifecycle.js";
 import { startLanController } from "./lan-controller.js";
 import { debug, error as logError, getLogFilePath, info, initializeLogger, warn } from "./logger.js";
 import { startLocalIpcServer } from "./local-ipc.js";
+import { createInventoryAwarePluginJsHost, installBuddyInventorySdkCallHandlers } from "./inventory/buddy-inventory-plugin-sdk.js";
+import { BuddyInventoryStore } from "./inventory/buddy-inventory-store.js";
 import { startDevPluginWatcher } from "./plugin-dev-watcher.js";
 import { createElectronPluginHostCapabilities } from "./plugin-host-capabilities.js";
 import { defaultPluginPetApi } from "./plugin-pet-api.js";
@@ -98,8 +100,12 @@ if (!gotSingleInstanceLock) {
     }
 
     initializeAppState();
-    const buddyProfileStore = new BuddyProfileStore(app.getPath("userData"));
+    const userDataPath = app.getPath("userData");
+    const buddyProfileStore = new BuddyProfileStore(userDataPath);
+    const buddyInventoryStore = new BuddyInventoryStore(userDataPath);
+    buddyInventoryStore.initialize();
     installBuddyProfileIpcHandlers(buddyProfileStore);
+    installBuddyInventorySdkCallHandlers();
     // Resolve the UI language before any window or the tray is built.
     setLocaleFromPreference(getAppStateSnapshot().preferences.locale);
     installInternalUiProtocol();
@@ -111,13 +117,14 @@ if (!gotSingleInstanceLock) {
     const roots = parseDevPluginEnv(process.env.OPENPETS_DEV_PLUGIN_ROOTS);
     const paths = parseDevPluginEnv(process.env.OPENPETS_DEV_PLUGIN_PATHS);
     const devPluginMode = roots.length > 0 || paths.length > 0;
-    initializePluginPlatformSettings(app.getPath("userData"));
+    initializePluginPlatformSettings(userDataPath);
     registerPocketBuddyPlusBundledPlugins(bundledOfficialPluginIds);
-    const pluginCapabilities = createElectronPluginHostCapabilities(app.getPath("userData"));
+    const pluginCapabilities = createElectronPluginHostCapabilities(userDataPath);
     installBuddyChatIpcHandler(pluginCapabilities.aiGateway);
     installBuddyProfilePluginCapability(pluginCapabilities, buddyProfileStore);
+    const pluginJsHost = createInventoryAwarePluginJsHost(new ElectronPluginJsHost(), buddyInventoryStore);
     let devPluginWatcher: ReturnType<typeof startDevPluginWatcher> | undefined;
-    const pluginService = initializePluginService(app.getPath("userData"), defaultPluginPetApi, app.getVersion(), new ElectronPluginJsHost(), writePluginRuntimeLog, process.env.OPENPETS_DISABLE_PLUGIN_CATALOG === "1" || devPluginMode, resolveBundledOfficialPluginRoots(), !devPluginMode, pluginCapabilities, undefined, (sourcePath) => devPluginWatcher?.addPaths([sourcePath]), (sourcePath) => devPluginWatcher?.removePath(sourcePath));
+    const pluginService = initializePluginService(userDataPath, defaultPluginPetApi, app.getVersion(), pluginJsHost, writePluginRuntimeLog, process.env.OPENPETS_DISABLE_PLUGIN_CATALOG === "1" || devPluginMode, resolveBundledOfficialPluginRoots(), !devPluginMode, pluginCapabilities, undefined, (sourcePath) => devPluginWatcher?.addPaths([sourcePath]), (sourcePath) => devPluginWatcher?.removePath(sourcePath));
     // Wall-clock schedules (daily/cron/at) re-arm deterministically after sleep.
     powerMonitor.on("resume", () => pluginService.runtime.resyncSchedules());
     if (shouldOpenDefaultPetOnLaunch()) {
