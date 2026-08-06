@@ -5,7 +5,8 @@ Monorepo workspace containing all OpenPets npm packages. Each package is publish
 ## Responsibility
 
 Provides modular, reusable components for the OpenPets ecosystem:
-- **pet-format**: Package marker interface for type identification
+- **pet-format**: Versioned pet animation manifest schema and semantic fallback resolver
+- **pixel-asset-pipeline**: Safe PixelLab 3.1 import, frame validation, previews, and package receipts
 - **agent-events**: Speech pools and validation for agent feedback messages
 - **client**: Core IPC client for communicating with OpenPets desktop app
 - **cli**: Main CLI tool for configuring agents, creating plugins from templates, and managing pets
@@ -71,7 +72,8 @@ SDK Type definitions & Test Harness (packages/sdk/)
 - `opencode` depends on: `client`, `agent-events`
 - `cursor` depends on: `client`
 - `pi` depends on: `client`, `agent-events`
-- `install-pet` depends on: `client`
+- `install-pet` depends on: `client`, `pet-format`
+- `pixel-asset-pipeline` depends on: `pet-format`, `sharp`, `yauzl`
 - `sdk` (type-only and test harness) is consumed by template code scaffolded by `cli`
 - `desktop` mirrors `sdk` through `apps/desktop/src/plugin-sdk-bridge.ts` and conformance checks
 
@@ -97,5 +99,6 @@ All packages ultimately communicate with the OpenPets desktop app via the IPC pr
 | `mcp/` | OpenPets MCP stdio server package. | [View Map](mcp/codemap.md) |
 | `opencode/` | OpenCode plugin/config integration package. | [View Map](opencode/codemap.md) |
 | `pet-format/` | Pet package identity marker package. | [View Map](pet-format/codemap.md) |
+| `pixel-asset-pipeline/` | PixelLab export importer and pet animation package builder. | [View Map](pixel-asset-pipeline/codemap.md) |
 | `pi/` | Pi coding-agent extension integration package. | [View Map](pi/codemap.md) |
 | `sdk/` | Public plugin SDK v3 type surface and test harness. | [View Map](sdk/codemap.md) |

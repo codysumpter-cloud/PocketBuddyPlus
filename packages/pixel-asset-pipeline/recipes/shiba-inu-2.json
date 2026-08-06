@@ -1,0 +1,74 @@
+{
+  "petId": "pixellab-shiba-inu",
+  "expectedArchiveName": "Shiba_Inu-2.zip",
+  "expectedArchiveSha256": "e76cc58d2a5b776c0f8ba1ebd4d9b7dd3c31833a994e75603deccfa1393eecf7",
+  "displayName": "Shiba Inu",
+  "description": "A friendly Shiba Inu imported from Cody Sumpter\u2019s PixelLab export.",
+  "includeStates": [
+    "Idle",
+    "sitting_down",
+    "Sleeping"
+  ],
+  "semanticDefaults": {
+    "idle": "Idle",
+    "running": "Running",
+    "waiting": "[state] sitting_down",
+    "failed": "The_dog_lowers_its_head_toward_the_ground_moving_i"
+  },
+  "motionMappings": {
+    "idle": "Idle",
+    "running-left": "Running",
+    "running-right": "Running"
+  },
+  "animationPolicies": {
+    "Idle": {
+      "description": "Neutral eight-direction idle.",
+      "semanticTags": [
+        "idle"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop"
+    },
+    "Running": {
+      "description": "Complete eight-direction running gait.",
+      "semanticTags": [
+        "running",
+        "locomotion"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop"
+    },
+    "[state] sitting_down": {
+      "description": "Patient seated pose used as the waiting default.",
+      "semanticTags": [
+        "waiting",
+        "sitting"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop"
+    },
+    "The_dog_lowers_its_head_toward_the_ground_moving_i": {
+      "description": "Disappointed head-lowering recovery used for failure.",
+      "semanticTags": [
+        "failed",
+        "recovery"
+      ],
+      "iterations": 1,
+      "loopMode": "recover",
+      "durationMs": 1050
+    }
+  },
+  "provenance": {
+    "creator": "Cody Sumpter / Prismtek",
+    "sourceName": "Shiba_Inu-2.zip",
+    "license": "User-owned PixelLab export; private runtime asset.",
+    "notes": [
+      "Partial Bark remains preserved but unavailable for reaction mapping. Missing review, waving, and jumping art requires PixelLab generation."
+    ]
+  },
+  "blockedGenerationSemantics": [
+    "review",
+    "waving",
+    "jumping"
+  ]
+}

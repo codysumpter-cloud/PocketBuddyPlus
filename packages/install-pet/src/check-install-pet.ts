@@ -80,9 +80,13 @@ assert.throws(() => validateCatalogV3Page({ version: 3, pets: [{ id: "review-owl
 assert.equal(validateZipEntryName("pet.json").relativeOutputPath, "pet.json");
 assert.equal(validateZipEntryName("absol/pet.json").relativeOutputPath, "pet.json");
 assert.equal(validateZipEntryName("absol/spritesheet.webp").topLevelDirectory, "absol");
+assert.equal(validateZipEntryName("animations/run/south/frame_004.png").relativeOutputPath, "animations/run/south/frame_004.png");
+assert.equal(validateZipEntryName("absol/animations/run/west/frame_000.png").relativeOutputPath, "animations/run/west/frame_000.png");
 assert.equal(validateZipEntryName("absol/").isDirectory, true);
 assert.throws(() => validateZipEntryName("a/b/pet.json"));
 assert.throws(() => validateZipEntryName("absol/README.md"));
+assert.throws(() => validateZipEntryName("animations/Bad/run/frame_000.png"));
+assert.throws(() => validateZipEntryName("animations/run/up/frame_000.png"));
 assert.throws(() => validateZipEntryName("../pet.json"));
 assert.throws(() => validateZipEntryName("/pet.json"));
 

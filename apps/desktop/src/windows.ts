@@ -6,7 +6,7 @@ import { app, BrowserWindow, dialog, ipcMain, protocol, shell, type IpcMainInvok
 
 import { getAgentSetupSnapshot, runAgentSetupAction, updateAgentSetupCommandPaths } from "./agent-setup.js";
 import { refreshAgentPetContent } from "./agent-pet-controller.js";
-import { getAppStateSnapshot, normalizePetPoolOrder, petScaleOptions, setPetPoolOrder, updatePreferences } from "./app-state.js";
+import { getAppStateSnapshot, normalizePetPoolOrder, petScaleOptions, setPetPoolOrder, setReactionAnimationOverridesForPet, updatePreferences } from "./app-state.js";
 import { applyRoamingToAllPets } from "./pet-roaming-controller.js";
 import { createAppIcon } from "./assets.js";
 import { getCatalogPageUiState, getCatalogSearchUiState, getCatalogUiState } from "./catalog.js";
@@ -21,7 +21,9 @@ import { installPet, installPetFromFolder, installPetFromZipFile, removePet, set
 import { assertSafePetId, getInstalledPetDir } from "./pet-paths.js";
 import { debug, error as logError, warn } from "./logger.js";
 import { getPluginService, type PluginConfigSoundPickResult, type PluginServiceResult } from "./plugin-service.js";
-import { defaultPetSprite, reactionAnimationMetadata, selectableAnimationMetadata } from "./reaction-animation-mapping.js";
+import { defaultPetSprite, type ReactionAnimationOverrides } from "./reaction-animation-mapping.js";
+import type { OpenPetsReaction } from "./local-ipc-protocol.js";
+import { getInstalledPetAnimationFrame, getReactionAnimationSettingsSnapshot, type ReactionAnimationSettingsSnapshot } from "./pet-animation-manifest.js";
 import { readSafePluginManifest } from "./plugin-manifest-reader.js";
 import { registerPluginAssetProtocol } from "./plugin-asset-protocol.js";
 import { checkForGitHubReleaseUpdate, getUpdateStatus, openUpdateReleasePage } from "./update-checker.js";
@@ -199,9 +201,28 @@ export function installInternalUiHandlers(): void {
     return getDashboardSnapshot();
   });
 
-  ipcMain.handle("openpets:get-reaction-animation-settings", async (event) => {
+  ipcMain.handle("openpets:get-reaction-animation-settings", async (event, petId: unknown) => {
     assertAllowedSender(event, ["control-center"]);
-    return getReactionAnimationSettingsSnapshot();
+    return getLocalizedReactionAnimationSettingsSnapshot(typeof petId === "string" ? petId : undefined);
+  });
+
+  ipcMain.handle("openpets:set-reaction-animation-overrides", async (event, petId: unknown, value: unknown) => {
+    assertAllowedSender(event, ["control-center"]);
+    if (typeof petId !== "string") throw new Error("Reaction mapping pet id is required.");
+    const snapshot = await getReactionAnimationSettingsSnapshot(petId);
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Reaction mappings must be an object.");
+    const validAnimations = new Set(snapshot.animations.filter((animation) => animation.complete).map((animation) => animation.id));
+    const overrides: ReactionAnimationOverrides = {};
+    for (const [reactionId, animationId] of Object.entries(value as Record<string, unknown>)) {
+      if (!snapshot.reactions.some((reaction) => reaction.id === reactionId)) throw new Error(`Unknown reaction mapping: ${reactionId}`);
+      if (typeof animationId !== "string" || !validAnimations.has(animationId)) throw new Error(`Animation is missing or incomplete: ${String(animationId)}`);
+      const defaultAnimation = snapshot.reactions.find((reaction) => reaction.id === reactionId)?.defaultAnimation;
+      if (animationId !== defaultAnimation) overrides[reactionId as OpenPetsReaction] = animationId;
+    }
+    setReactionAnimationOverridesForPet(petId, overrides);
+    refreshDefaultPetContent();
+    refreshAgentPetContent();
+    return getLocalizedReactionAnimationSettingsSnapshot(petId);
   });
 
   ipcMain.handle("openpets:plugins-snapshot", async (event) => {
@@ -564,20 +585,25 @@ export function installInternalUiProtocol(): void {
     try {
       if (request.method !== "GET" && request.method !== "HEAD") return new Response(null, { status: 405 });
       const url = new URL(request.url);
-      if (url.hostname !== "spritesheet" || url.search || url.hash) return new Response(null, { status: 404 });
+      if (url.hash) return new Response(null, { status: 404 });
       const petId = decodeURIComponent(url.pathname.replace(/^\//, ""));
       assertSafePetId(petId);
       const pet = getAppStateSnapshot().pets.installed.find((candidate) => candidate.id === petId && !candidate.broken);
       if (!pet) return new Response(null, { status: 404 });
+      if (url.hostname === "frame") {
+        if ([...url.searchParams.keys()].some((key) => !["animation", "direction", "index"].includes(key))) return new Response(null, { status: 404 });
+        const animation = url.searchParams.get("animation") ?? "";
+        const direction = url.searchParams.get("direction") ?? "south";
+        const index = Number(url.searchParams.get("index") ?? "0");
+        if (!/^[a-z0-9][a-z0-9._-]{0,126}$/.test(animation) || !/^(south|south-east|east|north-east|north|north-west|west|south-west)$/.test(direction) || !Number.isInteger(index) || index < 0 || index > 10000) return new Response(null, { status: 404 });
+        const frame = await getInstalledPetAnimationFrame(petId, animation, direction as import("@open-pets/pet-format").PetDirection, index);
+        return new Response(frame.buffer, { headers: { "Content-Type": frame.contentType, "Cache-Control": "private, max-age=31536000, immutable" } });
+      }
+      if (url.hostname !== "spritesheet" || url.search) return new Response(null, { status: 404 });
       const spritesheetPath = join(getInstalledPetDir(petId), "spritesheet.webp");
       const spritesheet = await stat(spritesheetPath);
       if (!spritesheet.isFile() || spritesheet.size <= 0 || spritesheet.size > 100 * 1024 * 1024) return new Response(null, { status: 404 });
-      return new Response(await readFile(spritesheetPath), {
-        headers: {
-          "Content-Type": "image/webp",
-          "Cache-Control": "private, max-age=60",
-        },
-      });
+      return new Response(await readFile(spritesheetPath), { headers: { "Content-Type": "image/webp", "Cache-Control": "private, max-age=60" } });
     } catch {
       return new Response(null, { status: 404 });
     }
@@ -760,23 +786,23 @@ function getInternalUiWindowKindForWebContents(webContentsId: number): InternalU
   return null;
 }
 
-async function getReactionAnimationSettingsSnapshot(): Promise<unknown> {
-  const state = getAppStateSnapshot();
-  const preview = await getDefaultPetPreviewSpriteInfo();
+
+async function getLocalizedReactionAnimationSettingsSnapshot(petId?: string): Promise<ReactionAnimationSettingsSnapshot> {
+  const snapshot = await getReactionAnimationSettingsSnapshot(petId);
   return {
-    reactions: reactionAnimationMetadata.map((reaction) => ({
+    ...snapshot,
+    reactions: snapshot.reactions.map((reaction) => ({
       ...reaction,
       label: t(`settings.reaction.${reaction.id}.label`),
       description: t(`settings.reaction.${reaction.id}.description`),
     })),
-    animations: selectableAnimationMetadata.map((animation) => ({
-      ...animation,
-      label: t(`settings.animation.${animation.id}.label`),
-      description: t(`settings.animation.${animation.id}.description`),
-    })),
-    sprite: defaultPetSprite,
-    overrides: state.preferences.reactionAnimationOverrides ?? {},
-    previewSpriteUrl: `openpets-pet-preview://spritesheet/default?v=${encodeURIComponent(preview.version)}`,
+    animations: snapshot.animations.map((animation) => animation.sourceState === "built-in"
+      ? {
+          ...animation,
+          label: t(`settings.animation.${animation.id}.label`),
+          description: t(`settings.animation.${animation.id}.description`),
+        }
+      : animation),
   };
 }
 

@@ -2,81 +2,136 @@ const { ipcRenderer } = require("electron");
 
 const allowedMotionStates = new Set(["idle", "run-left", "run-right"]);
 const allowedReactionStates = new Set(["idle", "running-right", "running-left", "waving", "jumping", "failed", "waiting", "running", "review"]);
+const safeAnimationId = /^[a-z0-9][a-z0-9._-]{0,126}$/;
 let lastInteractiveHit = null;
 let dragging = false;
+let manifestPlayer = null;
 
 const dismissBubble = (event) => {
   if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-
   const target = event.target;
   if (!(target instanceof Element)) return;
-
   const bubble = target.closest(".bubble");
   if (!bubble) return;
-
   const dismissToken = bubble.dataset.dismissToken;
   if (!dismissToken) return;
-
   event.preventDefault();
   event.stopPropagation();
-
   bubble.remove();
-
   const newTarget = document.elementFromPoint(event.clientX, event.clientY);
   const stillInteractive = Boolean(newTarget && newTarget.closest(".pet-hitbox, .pet-shell, .bubble")) || dragging;
   reportInteractiveHit(stillInteractive, "bubble-dismiss", true);
-
   ipcRenderer.send("openpets:bubble-dismissed", dismissToken);
 };
 
-ipcRenderer.on("openpets:pet-motion", (_event, state) => {
-  if (!allowedMotionStates.has(state)) {
-    return;
-  }
+const parseManifestCatalog = () => {
+  const node = document.getElementById("openpets-animation-catalog");
+  if (!node || node.tagName !== "SCRIPT") return null;
+  try {
+    const parsed = JSON.parse(node.textContent || "null");
+    if (!parsed || parsed.version !== 1 || typeof parsed.idle !== "string" || !parsed.animations || typeof parsed.animations !== "object") return null;
+    return parsed;
+  } catch { return null; }
+};
 
-  const apply = () => {
-    document.documentElement.dataset.motionState = state;
+const startManifestPlayer = () => {
+  if (manifestPlayer?.stop) manifestPlayer.stop();
+  const catalog = parseManifestCatalog();
+  const image = document.querySelector("img.manifest-sprite");
+  if (!catalog || !(image instanceof HTMLImageElement)) { manifestPlayer = null; return; }
+  let timer = null;
+  let generation = 0;
+  let motion = document.documentElement.dataset.motionState || "idle";
+  let reaction = document.documentElement.dataset.reactionState || catalog.idle;
+
+  const stopTimer = () => { if (timer !== null) window.clearTimeout(timer); timer = null; generation += 1; };
+  const resolveAnimationId = () => {
+    if (motion !== "idle") return catalog.motion?.[motion] || catalog.idle;
+    const direct = catalog.animations[reaction] ? reaction : catalog.aliases?.[reaction];
+    return catalog.animations[direct] ? direct : catalog.idle;
   };
+  const resolveFrames = (animation) => {
+    const wanted = motion === "run-left" ? "west" : motion === "run-right" ? "east" : (animation.defaultDirection || catalog.defaultDirection || "south");
+    if (Array.isArray(animation.frames?.[wanted]) && animation.frames[wanted].length) return animation.frames[wanted];
+    if (animation.directionIndependent) {
+      for (const frames of Object.values(animation.frames || {})) if (Array.isArray(frames) && frames.length) return frames;
+    }
+    for (const frames of Object.values(animation.frames || {})) if (Array.isArray(frames) && frames.length) return frames;
+    return [];
+  };
+  const play = () => {
+    stopTimer();
+    const token = generation;
+    const id = resolveAnimationId();
+    const animation = catalog.animations[id] || catalog.animations[catalog.idle];
+    if (!animation) return;
+    const frames = resolveFrames(animation);
+    if (!frames.length) return;
+    let frameIndex = 0;
+    let completedIterations = 0;
+    const frameMs = Math.max(40, Math.floor((Number(animation.durationMs) || 800) / frames.length));
+    image.alt = animation.label || id;
+    const tick = () => {
+      if (token !== generation) return;
+      image.src = frames[frameIndex];
+      frameIndex += 1;
+      if (frameIndex >= frames.length) {
+        frameIndex = 0;
+        completedIterations += 1;
+        const iterations = animation.iterations;
+        if (motion === "idle" && Number.isInteger(iterations) && iterations > 0 && completedIterations >= iterations) {
+          reaction = catalog.idle;
+          document.documentElement.dataset.reactionState = catalog.idle;
+          play();
+          return;
+        }
+      }
+      timer = window.setTimeout(tick, frameMs);
+    };
+    tick();
+  };
+  manifestPlayer = {
+    setMotion(next) { motion = next; play(); },
+    setReaction(next) { reaction = next; play(); },
+    stop: stopTimer,
+  };
+  play();
+};
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", apply, { once: true });
-  } else {
-    apply();
-  }
+const applyMotionState = (state) => {
+  document.documentElement.dataset.motionState = state;
+  manifestPlayer?.setMotion(state);
+};
+const applyReactionState = (state) => {
+  document.documentElement.dataset.reactionState = state;
+  manifestPlayer?.setReaction(state);
+};
+
+ipcRenderer.on("openpets:pet-motion", (_event, state) => {
+  if (!allowedMotionStates.has(state)) return;
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => applyMotionState(state), { once: true });
+  else applyMotionState(state);
 });
 
 ipcRenderer.on("openpets:pet-reaction-state", (_event, state) => {
-  if (!allowedReactionStates.has(state)) {
-    return;
-  }
-
-  const apply = () => {
-    document.documentElement.dataset.reactionState = state;
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", apply, { once: true });
-  } else {
-    apply();
-  }
+  if (typeof state !== "string" || (!allowedReactionStates.has(state) && !safeAnimationId.test(state))) return;
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => applyReactionState(state), { once: true });
+  else applyReactionState(state);
 });
 
 ipcRenderer.on("openpets:pet-content-state", (_event, state) => {
-  if (!state || typeof state.bodyHtml !== "string" || state.bodyHtml.length > 64 * 1024 || !allowedReactionStates.has(state.reactionState)) {
-    return;
-  }
-
+  if (!state || typeof state.bodyHtml !== "string" || state.bodyHtml.length > 512 * 1024 || typeof state.reactionState !== "string" || (!allowedReactionStates.has(state.reactionState) && !safeAnimationId.test(state.reactionState))) return;
   const apply = () => {
     document.documentElement.dataset.reactionState = state.reactionState;
     document.body.innerHTML = state.bodyHtml;
+    startManifestPlayer();
   };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", apply, { once: true });
-  } else {
-    apply();
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply, { once: true });
+  else apply();
 });
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", startManifestPlayer, { once: true });
+else startManifestPlayer();
 
 const getInteractiveTarget = (event) => {
   const target = document.elementFromPoint(event.clientX, event.clientY);
@@ -205,7 +260,7 @@ let spriteOverrideElement = null;
 ipcRenderer.on("openpets:pet-sprite-override", (_event, override) => {
   const shell = document.querySelector(".pet-shell");
   if (!shell) return;
-  const base = shell.querySelector(".sprite, .installed-card");
+  const base = shell.querySelector(".sprite, .installed-card, .manifest-card");
   if (spriteOverrideElement) { spriteOverrideElement.remove(); spriteOverrideElement = null; }
   if (!override || typeof override.fileUrl !== "string" || !override.fileUrl.startsWith("file://")) {
     if (base) base.style.visibility = "";
@@ -236,7 +291,7 @@ ipcRenderer.on("openpets:pet-sprite-override", (_event, override) => {
 ipcRenderer.on("openpets:pet-scale-override", (_event, scale) => {
   const value = Number(scale);
   if (!Number.isFinite(value) || value < 0.25 || value > 3) return;
-  const sprite = document.querySelector(".sprite, .installed-sprite");
+  const sprite = document.querySelector(".sprite, .installed-sprite, .manifest-sprite");
   if (sprite) sprite.style.transform = `scale(${value})`;
 });
 

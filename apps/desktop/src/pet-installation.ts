@@ -1,6 +1,6 @@
 import { constants, createWriteStream } from "node:fs";
-import { lstat, mkdtemp, mkdir, open, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
-import { basename, join, resolve, sep } from "node:path";
+import { cp, lstat, mkdtemp, mkdir, open, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Transform } from "node:stream";
 
@@ -8,15 +8,18 @@ import yauzl from "yauzl";
 import type { Entry, ZipFile } from "yauzl";
 
 import { getAppStateSnapshot, installPetState, removePetState, setDefaultPet, upsertPetState, type OpenPetsStateV1 } from "./app-state.js";
+import { importPixelLabExportWithDefaults, inspectPixelLabExport } from "@open-pets/pixel-asset-pipeline";
+import { parsePocketBuddyAnimationManifest } from "@open-pets/pet-format";
+import { clearPetAnimationManifestCache } from "./pet-animation-manifest.js";
 import { getCatalogPet } from "./catalog.js";
-import { maxCodexPetJsonBytes, maxCodexSpritesheetBytes, validateCodexPetMetadata, type CodexPetMetadata } from "./codex-pets-core.js";
+import { maxCodexAnimationManifestBytes, maxCodexPetJsonBytes, maxCodexSpritesheetBytes, validateCodexPetMetadata, type CodexPetMetadata } from "./codex-pets-core.js";
 import { builtInPet } from "./built-in-pet.js";
 import { assertInsideRoot, assertSafePetId, getInstalledPetDir, getPetsRoot } from "./pet-paths.js";
 import { assertOutputPathInside, hasSupportedZipMagic, ZipEntryPathTracker } from "./zip-safety.js";
 
-const maxZipDownloadBytes = 50 * 1024 * 1024;
-const maxExtractedTotalBytes = 200 * 1024 * 1024;
-const maxFiles = 500;
+const maxZipDownloadBytes = 250 * 1024 * 1024;
+const maxExtractedTotalBytes = 750 * 1024 * 1024;
+const maxFiles = 20_000;
 const maxIndividualFileBytes = 100 * 1024 * 1024;
 const downloadTimeoutMs = 30_000;
 
@@ -82,14 +85,22 @@ export async function installPetFromZipFile(zipPath: string): Promise<OpenPetsSt
 
 export async function installPetFromZipFileWithResult(zipPath: string): Promise<LocalPetInstallResult> {
   return withPetOperation("local-import", async () => {
-    const zip = await readRegularFile(zipPath, maxZipDownloadBytes, "pet zip");
-    validateZipMagic(zip);
+    const resolvedZipPath = resolve(zipPath);
+    const zipStats = await lstat(resolvedZipPath);
+    if (zipStats.isSymbolicLink() || !zipStats.isFile() || zipStats.size <= 0 || zipStats.size > maxZipDownloadBytes) throw new Error("Pet zip size is invalid.");
     const petsRoot = getPetsRoot();
     await mkdir(petsRoot, { recursive: true, mode: 0o700 });
     const tempDir = await mkdtemp(join(petsRoot, ".local-import-"));
     try {
       assertInsideRoot(petsRoot, tempDir);
-      await extractPetZip(zip, tempDir);
+      const pixelLab = await isPixelLab31Archive(resolvedZipPath);
+      if (pixelLab) {
+        await importPixelLabExportWithDefaults(resolvedZipPath, tempDir, { repairMissingIndexedFrames: true });
+      } else {
+        const zip = await readRegularFile(resolvedZipPath, maxZipDownloadBytes, "pet zip");
+        validateZipMagic(zip);
+        await extractPetZip(zip, tempDir);
+      }
       const metadata = await validateExtractedPet(tempDir);
       await finalizeLocalPetInstall(metadata, tempDir);
       const state = await installLocalPetState(metadata);
@@ -116,14 +127,13 @@ export async function installPetFromFolderWithResult(folderPath: string): Promis
     const parsedId = isRecord(parsed) && typeof parsed.id === "string" ? parsed.id : basename(sourceDir);
     const metadata = validateCodexPetMetadata(parsed, parsedId);
     assertSafePetId(metadata.id);
-    const spritesheet = await readRegularFile(join(sourceDir, metadata.spritesheetPath), maxCodexSpritesheetBytes, "spritesheet.webp");
+    await validatePetPackageFolder(sourceDir, metadata);
     const petsRoot = getPetsRoot();
     await mkdir(petsRoot, { recursive: true, mode: 0o700 });
     const tempDir = await mkdtemp(join(petsRoot, `.local-import-${metadata.id}-`));
     try {
       assertInsideRoot(petsRoot, tempDir);
-      await writeFile(join(tempDir, "spritesheet.webp"), spritesheet, { mode: 0o600, flag: "wx" });
-      await writeFile(join(tempDir, "pet.json"), `${JSON.stringify(metadata, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+      await copyPetPackageFolder(sourceDir, tempDir);
       await finalizeLocalPetInstall(metadata, tempDir);
       const state = await installLocalPetState(metadata);
       return { state, petId: metadata.id, displayName: metadata.displayName };
@@ -142,6 +152,7 @@ export async function removePet(petId: string): Promise<OpenPetsStateV1> {
     assertSafePetId(petId);
     const dir = getInstalledPetDir(petId);
     const state = removePetState(petId);
+    clearPetAnimationManifestCache(petId);
     try {
       await rm(dir, { recursive: true, force: true });
     } catch (error) {
@@ -283,6 +294,7 @@ async function extractPetZip(zip: Buffer, tempDir: string): Promise<void> {
         const outputPath = resolve(tempDir, safePath.relativeOutputPath);
         assertOutputPathInside(tempDir, outputPath);
         seenRequired.add(safePath.relativeOutputPath);
+        await mkdir(dirname(outputPath), { recursive: true, mode: 0o700 });
         await writeEntry(entry, zipFile, outputPath, entry.uncompressedSize, safePath.relativeOutputPath === "pet.json" ? maxCodexPetJsonBytes : maxIndividualFileBytes);
       };
 
@@ -384,20 +396,57 @@ function writeEntry(entry: Entry, zipFile: ZipFile, outputPath: string, expected
 
 async function validateExtractedPet(tempDir: string): Promise<CodexPetMetadata> {
   const petJsonPath = join(tempDir, "pet.json");
-  const spritesheetPath = join(tempDir, "spritesheet.webp");
   assertOutputPathInside(tempDir, petJsonPath);
-  assertOutputPathInside(tempDir, spritesheetPath);
-
   const parsed = JSON.parse((await readRegularFile(petJsonPath, maxCodexPetJsonBytes, "pet.json")).toString("utf8")) as unknown;
   const parsedId = isRecord(parsed) && typeof parsed.id === "string" ? parsed.id : basename(tempDir);
   const metadata = validateCodexPetMetadata(parsed, parsedId);
   assertSafePetId(metadata.id);
-
-  const spritesheet = await stat(spritesheetPath);
-  if (!spritesheet.isFile()) throw new Error("spritesheet.webp must be a file.");
-  if (spritesheet.size <= 0) throw new Error("spritesheet.webp is empty.");
-  if (spritesheet.size > maxIndividualFileBytes) throw new Error("spritesheet.webp is too large.");
+  await validatePetPackageFolder(tempDir, metadata);
   return metadata;
+}
+
+async function validatePetPackageFolder(root: string, metadata: CodexPetMetadata): Promise<void> {
+  const spritesheetPath = join(root, metadata.spritesheetPath);
+  const spritesheet = await stat(spritesheetPath);
+  if (!spritesheet.isFile() || spritesheet.size <= 0 || spritesheet.size > maxIndividualFileBytes) throw new Error("spritesheet.webp is missing or too large.");
+  if (metadata.animationManifestPath) {
+    const manifestPath = join(root, metadata.animationManifestPath);
+    const manifest = parsePocketBuddyAnimationManifest(JSON.parse((await readRegularFile(manifestPath, maxCodexAnimationManifestBytes, "animation-manifest.json")).toString("utf8")) as unknown);
+    if (manifest.petId !== metadata.id) throw new Error("Animation manifest pet id does not match pet.json.");
+    let referenced = 0;
+    for (const animation of manifest.animations) {
+      for (const direction of manifest.directions) {
+        for (const frame of animation.frames[direction] ?? []) {
+          referenced += 1;
+          if (referenced > maxFiles) throw new Error("Animation manifest references too many files.");
+          const framePath = resolve(root, frame.path);
+          assertOutputPathInside(root, framePath);
+          const frameStats = await lstat(framePath);
+          if (frameStats.isSymbolicLink() || !frameStats.isFile() || frameStats.size <= 0 || frameStats.size > maxIndividualFileBytes) throw new Error(`Animation frame is invalid: ${frame.path}`);
+        }
+      }
+    }
+  }
+}
+
+async function copyPetPackageFolder(source: string, destination: string): Promise<void> {
+  let files = 0;
+  let bytes = 0;
+  const visit = async (dir: string): Promise<void> => {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) throw new Error("Pet package cannot contain hidden files.");
+      const path = join(dir, entry.name);
+      const relativePath = relative(source, path).replaceAll(sep, "/");
+      const info = await lstat(path);
+      if (info.isSymbolicLink()) throw new Error(`Pet package cannot contain symlinks: ${relativePath}`);
+      if (info.isDirectory()) { await visit(path); continue; }
+      if (!info.isFile()) throw new Error(`Pet package contains a special file: ${relativePath}`);
+      files += 1; bytes += info.size;
+      if (files > maxFiles || bytes > maxExtractedTotalBytes || info.size > maxIndividualFileBytes) throw new Error("Pet package exceeds import limits.");
+    }
+  };
+  await visit(source);
+  await cp(source, destination, { recursive: true, force: false, errorOnExist: true, dereference: false, preserveTimestamps: false });
 }
 
 async function finalizeLocalPetInstall(metadata: CodexPetMetadata, tempDir: string): Promise<void> {
@@ -406,11 +455,25 @@ async function finalizeLocalPetInstall(metadata: CodexPetMetadata, tempDir: stri
   assertInsideRoot(petsRoot, finalDir);
   await rm(finalDir, { recursive: true, force: true });
   await rename(tempDir, finalDir);
+  clearPetAnimationManifestCache(metadata.id);
   try {
     await validateInstalledRegularFile(join(finalDir, "spritesheet.webp"));
     await validateInstalledRegularFile(join(finalDir, "pet.json"));
+    if (metadata.animationManifestPath) await validateInstalledRegularFile(join(finalDir, metadata.animationManifestPath));
+    await validatePetPackageFolder(finalDir, metadata);
   } catch (error) {
     await rm(finalDir, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function isPixelLab31Archive(path: string): Promise<boolean> {
+  try {
+    await inspectPixelLabExport(path);
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("missing metadata.json") || message.includes("must contain exactly one root metadata.json") || message.includes("not a supported PixelLab export 3.1")) return false;
     throw error;
   }
 }

@@ -16,6 +16,8 @@ import { executeDefaultPetPluginCommand, executeDefaultPetPluginMenuSelect, getD
 import type { ActiveBubble } from "./plugin-bubble-arbiter.js";
 import type { PluginBubbleIndicator, PluginCommandForm, PluginBubbleHud, PluginBubbleHudItem } from "./plugin-sdk-bridge.js";
 import { defaultPetSprite, motionToSpriteState, resolveReactionSpriteState, type PetMotionState, type UniversalSpriteState } from "./reaction-animation-mapping.js";
+import { getPetAnimationFrameUrl, readInstalledPetAnimationManifest, resolvePetReactionAnimation } from "./pet-animation-manifest.js";
+import { canonicalPetDirections, resolvePetAnimationId, type PocketBuddyAnimationManifest } from "@open-pets/pet-format";
 import { isFocusActionAvailable } from "./capabilities.js";
 import { canForwardMouseEvents as platformCanForwardMouseEvents, shouldWatchForwardedMouseEvents } from "./mouse-forwarding.js";
 import { computeEffectiveWaylandBackend, shouldPetWindowBeFocusable } from "./wayland-backend.js";
@@ -88,7 +90,7 @@ export type PetStatusBadgeReaction = Exclude<OpenPetsReaction, "idle">;
 interface PetContentRender {
   readonly html: string;
   readonly bodyHtml: string;
-  readonly reactionState: UniversalSpriteState;
+  readonly reactionState: string;
   readonly cacheKey: string;
 }
 
@@ -830,7 +832,7 @@ export function clearTransientReaction(display: PetTransientDisplay): PetTransie
   return { ...display, reaction: undefined };
 }
 
-export function setPetReactionState(window: BrowserWindow, state: UniversalSpriteState): void {
+export function setPetReactionState(window: BrowserWindow, state: string): void {
   if (window.isDestroyed()) return;
   window.webContents.send("openpets:pet-reaction-state", state);
 }
@@ -954,7 +956,7 @@ function createBuiltInPetRender(paused: boolean, display: PetTransientDisplay | 
     <html lang="${getActiveLocaleLang()}" data-reaction-state="${reactionState}" data-motion-state="idle" data-native-pet-drag="${shouldUseWaylandNativePetDrag() ? "wayland" : "manual"}">
       <head>
         <meta charset="utf-8" />
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src file: data:; font-src file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src file: data: openpets-installed:; font-src file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>OpenPets Default Pet</title>
         <style>
@@ -1011,6 +1013,8 @@ async function tryCreateInstalledPetRender(paused: boolean, display: PetTransien
 }
 
 async function createInstalledPetRender(petId: string, displayName: string, paused: boolean, display: PetTransientDisplay | null, scale: PetScaleValue, badge: PetStatusBadgeReaction | null, cachePrefix: string, dismissToken?: string, pluginBubbles: PetPluginBubbles | null = null): Promise<PetContentRender> {
+  const manifest = await readInstalledPetAnimationManifest(petId);
+  if (manifest) return createManifestPetRender(petId, displayName, manifest, paused, display, scale, badge, cachePrefix, dismissToken, pluginBubbles);
   const spritesheetPath = join(getInstalledPetDir(petId), "spritesheet.webp");
   const spritesheet = await stat(spritesheetPath);
   if (!spritesheet.isFile() || spritesheet.size <= 0 || spritesheet.size > 100 * 1024 * 1024) {
@@ -1031,7 +1035,7 @@ async function createInstalledPetRender(petId: string, displayName: string, paus
       <html lang="${getActiveLocaleLang()}" data-reaction-state="${reactionState}" data-motion-state="idle" data-native-pet-drag="${shouldUseWaylandNativePetDrag() ? "wayland" : "manual"}">
         <head>
           <meta charset="utf-8" />
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src file: data:; font-src file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src file: data: openpets-installed:; font-src file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>OpenPets Default Pet</title>
           <style>
@@ -1070,6 +1074,76 @@ async function createInstalledPetRender(petId: string, displayName: string, paus
   };
 }
 
+async function createManifestPetRender(petId: string, displayName: string, manifest: PocketBuddyAnimationManifest, paused: boolean, display: PetTransientDisplay | null, scale: PetScaleValue, badge: PetStatusBadgeReaction | null, cachePrefix: string, dismissToken?: string, pluginBubbles: PetPluginBubbles | null = null): Promise<PetContentRender> {
+  const resolvedReaction = await resolvePetReactionAnimation(petId, display?.reaction);
+  const idleId = resolvePetAnimationId(manifest, "idle", undefined, "idle") ?? manifest.animations.find((animation) => animation.complete)?.id ?? manifest.animations[0]!.id;
+  const reactionState = resolvedReaction.id || idleId;
+  const aliases: Record<string, string> = {};
+  for (const semantic of ["idle", "review", "running", "waiting", "waving", "jumping", "failed"] as const) {
+    aliases[semantic] = resolvePetAnimationId(manifest, semantic, undefined, semantic) ?? idleId;
+  }
+  const animations: Record<string, unknown> = {};
+  for (const animation of manifest.animations) {
+    const frames: Record<string, string[]> = {};
+    for (const direction of canonicalPetDirections) {
+      const sourceFrames = animation.frames[direction];
+      if (!sourceFrames?.length) continue;
+      const selectedFrames = animation.complete ? sourceFrames : sourceFrames.slice(0, 1);
+      frames[direction] = selectedFrames.map((_frame, index) => getPetAnimationFrameUrl(petId, animation.id, direction, index));
+    }
+    if (!Object.keys(frames).length) continue;
+    animations[animation.id] = {
+      id: animation.id,
+      label: animation.label,
+      durationMs: animation.complete ? animation.durationMs : 60_000,
+      iterations: animation.complete ? animation.iterations : "infinite",
+      loopMode: animation.complete ? animation.loopMode : "loop",
+      directionIndependent: animation.source.directionIndependent === true || !animation.complete,
+      defaultDirection: animation.frames.south?.length ? "south" : animation.directions[0] ?? "south",
+      frames,
+    };
+  }
+  const motion = {
+    idle: manifest.motionMappings.idle && animations[manifest.motionMappings.idle] ? manifest.motionMappings.idle : idleId,
+    "run-left": manifest.motionMappings["running-left"] && animations[manifest.motionMappings["running-left"]] ? manifest.motionMappings["running-left"] : aliases.running,
+    "run-right": manifest.motionMappings["running-right"] && animations[manifest.motionMappings["running-right"]] ? manifest.motionMappings["running-right"] : aliases.running,
+  };
+  const catalog = { version: 1, petId, idle: idleId, defaultDirection: manifest.preview.defaultDirection ?? "south", aliases, motion, animations };
+  const initialAnimation = (animations[reactionState] ?? animations[idleId]) as { frames?: Record<string, string[]>; defaultDirection?: string } | undefined;
+  const initialDirection = initialAnimation?.defaultDirection ?? "south";
+  const initialSrc = initialAnimation?.frames?.[initialDirection]?.[0] ?? initialAnimation?.frames?.[Object.keys(initialAnimation.frames ?? {})[0] ?? ""]?.[0] ?? "";
+  const hasPinned = Boolean(pluginBubbles?.pinned);
+  const catalogMarkup = `<script type="application/json" id="openpets-animation-catalog">${escapeJsonForHtml(catalog)}</script>`;
+  const spriteMarkup = `<div class="manifest-card" role="img" aria-label="${escapeHtml(displayName)}"><img class="manifest-sprite" draggable="false" src="${escapeHtml(initialSrc)}" alt="${escapeHtml(displayName)}" /></div>${catalogMarkup}`;
+  const bodyHtml = createPetBodyMarkup(escapeHtml(displayName), createBubbleMarkup(display, paused, badge, dismissToken, pluginBubbles), spriteMarkup, createPinnedBubbleMarkup(pluginBubbles), hasPinned);
+  const manifestPath = join(getInstalledPetDir(petId), "animation-manifest.json");
+  const manifestStats = await stat(manifestPath);
+  return {
+    cacheKey: `${cachePrefix}:manifest:${paused}:${scale}:${manifestStats.mtimeMs}:${manifestStats.size}:${reactionState}:${getActiveLocale()}`,
+    bodyHtml,
+    reactionState,
+    html: `<!doctype html>
+      <html lang="${getActiveLocaleLang()}" data-animation-mode="manifest" data-reaction-state="${escapeHtml(reactionState)}" data-motion-state="idle" data-native-pet-drag="${shouldUseWaylandNativePetDrag() ? "wayland" : "manual"}">
+        <head>
+          <meta charset="utf-8" />
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src openpets-installed: data:; font-src file:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-src 'none'" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>${escapeHtml(displayName)}</title>
+          <style>
+            ${createPetWindowCss(paused, scale, manifest.frameWidth, manifest.frameHeight)}
+            .manifest-card { width: ${Math.ceil(manifest.frameWidth * scale)}px; height: ${Math.ceil(manifest.frameHeight * scale)}px; overflow: visible; position: relative; }
+            .manifest-sprite { display:block; width:${manifest.frameWidth}px; height:${manifest.frameHeight}px; object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; transform:scale(${scale}); transform-origin:top left; user-select:none; pointer-events:none; }
+          </style>
+        </head>
+        <body>${bodyHtml}</body>
+      </html>`,
+  };
+}
+
+function escapeJsonForHtml(value: unknown): string {
+  return JSON.stringify(value).replaceAll("<", "\\u003c").replaceAll(">", "\\u003e").replaceAll("&", "\\u0026");
+}
+
 function createPetBodyMarkup(stageLabel: string, bubble: string, spriteMarkup: string, pinnedBubble = "", hasPinned = false): string {
   return `<div class="stage${hasPinned ? " has-pinned" : ""}" aria-label="${stageLabel}">
     ${pinnedBubble}
@@ -1082,11 +1156,11 @@ function createPetBodyMarkup(stageLabel: string, bubble: string, spriteMarkup: s
   </div>`;
 }
 
-function createPetWindowCss(paused: boolean, scale: PetScaleValue): string {
+function createPetWindowCss(paused: boolean, scale: PetScaleValue, frameWidth = defaultPetSprite.frameWidth, frameHeight = defaultPetSprite.frameHeight): string {
   const opacity = paused ? "0.62" : "1";
   const playState = paused ? "paused" : "running";
-  const scaledWidth = Math.ceil(defaultPetSprite.frameWidth * scale);
-  const scaledHeight = Math.ceil(defaultPetSprite.frameHeight * scale);
+  const scaledWidth = Math.ceil(frameWidth * scale);
+  const scaledHeight = Math.ceil(frameHeight * scale);
   const petBottom = 22;
   const hitPadding = 18;
   const bubbleBottom = Math.ceil(petBottom + scaledHeight + 8);

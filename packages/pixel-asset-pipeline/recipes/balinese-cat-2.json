@@ -1,0 +1,76 @@
+{
+  "petId": "pixellab-balinese-cat",
+  "expectedArchiveName": "Balinese_Cat-2.zip",
+  "expectedArchiveSha256": "87a63f2f1a540ef06c0f6684cbf7026e869211857091d07b6219dac17ad0f657",
+  "displayName": "Balinese Cat",
+  "description": "A graceful Balinese cat imported from Cody Sumpter\u2019s PixelLab export.",
+  "includeStates": [
+    "Idle",
+    "laying_down_on_stoma",
+    "sitting_down",
+    "Napping"
+  ],
+  "semanticDefaults": {
+    "idle": "Idle",
+    "running": "Running",
+    "waiting": "[state] sitting_down",
+    "failed": "The_cat_lowers_its_head_toward_the_floor_tucking_i"
+  },
+  "motionMappings": {
+    "idle": "Idle",
+    "running-left": "Running",
+    "running-right": "Running"
+  },
+  "animationPolicies": {
+    "Idle": {
+      "description": "Neutral eight-direction idle.",
+      "semanticTags": [
+        "idle"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop"
+    },
+    "Running": {
+      "description": "Complete eight-direction running gait.",
+      "semanticTags": [
+        "running",
+        "locomotion"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop"
+    },
+    "[state] sitting_down": {
+      "description": "Patient seated pose used as the waiting default.",
+      "semanticTags": [
+        "waiting",
+        "sitting"
+      ],
+      "directionIndependent": false,
+      "iterations": "infinite",
+      "loopMode": "loop"
+    },
+    "The_cat_lowers_its_head_toward_the_floor_tucking_i": {
+      "description": "Head-lowering recovery pose used for failure.",
+      "semanticTags": [
+        "failed",
+        "recovery"
+      ],
+      "iterations": 1,
+      "loopMode": "recover",
+      "durationMs": 1050
+    }
+  },
+  "provenance": {
+    "creator": "Cody Sumpter / Prismtek",
+    "sourceName": "Balinese_Cat-2.zip",
+    "license": "User-owned PixelLab export; private runtime asset.",
+    "notes": [
+      "Existing source animations are reused without API generation. Missing review, waving, and jumping art requires PixelLab generation."
+    ]
+  },
+  "blockedGenerationSemantics": [
+    "review",
+    "waving",
+    "jumping"
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "petId": "pixellab-ani-isometric-human",
+  "expectedArchiveName": "Ani_Iso_Human.zip",
+  "expectedArchiveSha256": "411deb03312a4bbc2dd39ccad069fa143e38184e409819d8a0a23001baef5723",
+  "displayName": "Ani Isometric Human",
+  "description": "The Ani isometric human animation set imported from Cody Sumpter\u2019s PixelLab export.",
+  "includeStates": [
+    "Idle"
+  ],
+  "semanticDefaults": {
+    "idle": "The_boy_stands_in_a_relaxed_upright_position_and_g",
+    "running": "ani_run",
+    "waiting": "The_boy_stands_in_a_relaxed_upright_position_and_g",
+    "jumping": "ani_jump",
+    "failed": "ani_fall"
+  },
+  "motionMappings": {
+    "idle": "The_boy_stands_in_a_relaxed_upright_position_and_g",
+    "running-left": "ani_run",
+    "running-right": "ani_run"
+  },
+  "animationPolicies": {
+    "The_boy_stands_in_a_relaxed_upright_position_and_g": {
+      "description": "Relaxed upright idle and waiting pose.",
+      "semanticTags": [
+        "idle",
+        "waiting",
+        "relaxed"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop"
+    },
+    "ani_run": {
+      "description": "Complete eight-direction run.",
+      "semanticTags": [
+        "running",
+        "locomotion"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop"
+    },
+    "ani_jump": {
+      "description": "Complete eight-direction jump used for success and celebration.",
+      "semanticTags": [
+        "jumping",
+        "success",
+        "celebrating"
+      ],
+      "iterations": 2,
+      "loopMode": "recover",
+      "durationMs": 840
+    },
+    "ani_fall": {
+      "description": "Brief fall and recovery used for ordinary failure; death is intentionally not mapped.",
+      "semanticTags": [
+        "failed",
+        "recovery"
+      ],
+      "iterations": 1,
+      "loopMode": "recover",
+      "durationMs": 1050
+    },
+    "ani_death": {
+      "description": "Preserved source death animation; never used as the normal error default.",
+      "semanticTags": [
+        "death"
+      ],
+      "iterations": 1,
+      "loopMode": "once"
+    }
+  },
+  "provenance": {
+    "creator": "Cody Sumpter / Prismtek",
+    "sourceName": "Ani_Iso_Human.zip",
+    "license": "User-owned PixelLab export and Pixel Salvaje licensed template; private runtime asset.",
+    "notes": [
+      "ani_walk/south frame_004 is repaired deterministically from frame_003 and recorded. The incorrect wearing_jeans_and_bl_copy state is excluded. Shipping remains blocked until the exact torso-bounded ani with clthes v3 layers are materialized and hash-verified."
+    ]
+  },
+  "blockedGenerationSemantics": [
+    "review",
+    "waving"
+  ]
+}

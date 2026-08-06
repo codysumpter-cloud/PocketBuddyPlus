@@ -8,6 +8,7 @@ import { Transform } from "node:stream";
 import { fileURLToPath } from "node:url";
 
 import { createOpenPetsClient, OpenPetsClientError } from "@open-pets/client";
+import { parsePocketBuddyAnimationManifest } from "@open-pets/pet-format";
 import yauzl from "yauzl";
 import type { Entry, ZipFile } from "yauzl";
 
@@ -17,8 +18,8 @@ const catalogHost = "openpets.dev";
 const zipHost = "zip.openpets.dev";
 const maxCatalogBytes = 1_000_000;
 const maxZipDownloadBytes = 50 * 1024 * 1024;
-const maxExtractedTotalBytes = 200 * 1024 * 1024;
-const maxFiles = 500;
+const maxExtractedTotalBytes = 750 * 1024 * 1024;
+const maxFiles = 20_000;
 const maxIndividualFileBytes = 100 * 1024 * 1024;
 const fetchTimeoutMs = 30_000;
 const directInstallLockName = ".install-pet.lock";
@@ -91,7 +92,7 @@ interface SafeZipPath {
   readonly isDirectory: boolean;
   readonly normalizedName: string;
   readonly topLevelDirectory: string;
-  readonly relativeOutputPath?: "pet.json" | "spritesheet.webp";
+  readonly relativeOutputPath?: string;
 }
 
 export async function installPet(options: InstallPetOptions): Promise<InstallPetResult> {
@@ -501,11 +502,29 @@ async function validateExtractedPet(tempDir: string): Promise<void> {
   const spritesheetPath = join(tempDir, "spritesheet.webp");
   assertOutputPathInside(tempDir, petJsonPath);
   assertOutputPathInside(tempDir, spritesheetPath);
-  JSON.parse(await readFile(petJsonPath, "utf8")) as unknown;
+  const petJson = JSON.parse(await readFile(petJsonPath, "utf8")) as { readonly id?: unknown; readonly animationManifestPath?: unknown };
   const spritesheet = await stat(spritesheetPath);
   if (!spritesheet.isFile()) throw new Error("spritesheet.webp must be a file.");
   if (spritesheet.size <= 0) throw new Error("spritesheet.webp is empty.");
   if (spritesheet.size > maxIndividualFileBytes) throw new Error("spritesheet.webp is too large.");
+
+  if (petJson.animationManifestPath !== undefined && petJson.animationManifestPath !== "animation-manifest.json") {
+    throw new Error("pet.json animationManifestPath must be animation-manifest.json.");
+  }
+  const manifestPath = join(tempDir, "animation-manifest.json");
+  if (!existsSync(manifestPath)) return;
+  const manifest = parsePocketBuddyAnimationManifest(JSON.parse(await readFile(manifestPath, "utf8")) as unknown);
+  if (typeof petJson.id === "string" && manifest.petId !== petJson.id) throw new Error("Animation manifest petId does not match pet.json.");
+  for (const animation of manifest.animations) {
+    for (const frames of Object.values(animation.frames)) {
+      for (const frame of frames ?? []) {
+        const framePath = resolve(tempDir, frame.path);
+        assertOutputPathInside(tempDir, framePath);
+        const frameStat = await stat(framePath);
+        if (!frameStat.isFile() || frameStat.size <= 0) throw new Error(`Animation frame is missing or empty: ${frame.path}`);
+      }
+    }
+  }
 }
 
 async function readCurrentState(userData: string): Promise<OpenPetsState> {
@@ -620,33 +639,62 @@ class ZipEntryPathTracker {
 export function validateZipEntryName(fileName: string): SafeZipPath {
   if (fileName.includes("\0")) throw new Error("Zip entry contains NUL byte.");
   if (fileName.includes("\\")) throw new Error("Zip entry contains backslash separator.");
-  if (fileName.startsWith("/")) throw new Error("Zip entry is absolute.");
+  if (fileName.startsWith("/") || fileName.startsWith("//")) throw new Error("Zip entry is absolute.");
   if (/^[a-zA-Z]:\//.test(fileName)) throw new Error("Zip entry contains Windows drive path.");
   if (fileName.includes("//")) throw new Error("Zip entry contains empty path segment.");
 
   const parts = fileName.split("/").filter(Boolean);
+  if (!parts.length) throw new Error("Zip entry path is empty.");
   if (parts.some((part) => part === "..")) throw new Error("Zip entry contains parent traversal.");
-  if (parts.some((part) => part === ".")) throw new Error("Zip entry contains current-directory segment.");
+  if (parts.some((part) => part === "." || part.startsWith("."))) throw new Error("Zip entry contains hidden path segment.");
+  if (parts.some((part) => part.includes(":"))) throw new Error("Zip entry contains invalid path segment.");
+
+  const rootFiles = new Set([
+    "pet.json", "spritesheet.webp", "animation-manifest.json", "preview.png", "contact-sheet.png",
+    "generation-receipt.json", "validation-receipt.json",
+  ]);
+  const rootLayout = rootFiles.has(parts[0]!) || parts[0] === "animations";
+  const topLevelDirectory = rootLayout ? "" : parts[0]!;
+  const relativeParts = topLevelDirectory ? parts.slice(1) : parts;
+  if (!relativeParts.length) {
+    if (!fileName.endsWith("/")) throw new Error("Zip wrapper directory must be a directory entry.");
+    return { isDirectory: true, normalizedName: parts.join("/"), topLevelDirectory };
+  }
 
   const isDirectory = fileName.endsWith("/");
   if (isDirectory) {
-    if (parts.length !== 1) throw new Error("Zip directory layout is unsupported.");
-    return { isDirectory: true, normalizedName: parts.join("/"), topLevelDirectory: parts[0] ?? "" };
+    validatePackageDirectory(relativeParts);
+    return { isDirectory: true, normalizedName: parts.join("/"), topLevelDirectory };
   }
-
-  if (parts.length !== 1 && parts.length !== 2) throw new Error("Zip must contain pet files at the root or under exactly one top-level directory.");
-
-  const leaf = parts.at(-1);
-  if (leaf !== "pet.json" && leaf !== "spritesheet.webp") {
-    throw new Error(`Unexpected zip file: ${leaf}`);
-  }
-
+  validatePackageFile(relativeParts);
   return {
     isDirectory: false,
     normalizedName: parts.join("/"),
-    topLevelDirectory: parts.length === 1 ? "" : parts[0] ?? "",
-    relativeOutputPath: leaf,
+    topLevelDirectory,
+    relativeOutputPath: relativeParts.join("/"),
   };
+}
+
+function validatePackageDirectory(parts: readonly string[]): void {
+  const animationId = /^[a-z0-9][a-z0-9._-]{0,126}$/;
+  const direction = /^(south|south-east|east|north-east|north|north-west|west|south-west)$/;
+  if (parts.length === 1 && parts[0] === "animations") return;
+  if (parts.length === 2 && parts[0] === "animations" && animationId.test(parts[1]!)) return;
+  if (parts.length === 3 && parts[0] === "animations" && animationId.test(parts[1]!) && direction.test(parts[2]!)) return;
+  throw new Error(`Unexpected zip directory: ${parts.join("/")}`);
+}
+
+function validatePackageFile(parts: readonly string[]): void {
+  const rootFiles = new Set([
+    "pet.json", "spritesheet.webp", "animation-manifest.json", "preview.png", "contact-sheet.png",
+    "generation-receipt.json", "validation-receipt.json",
+  ]);
+  const animationId = /^[a-z0-9][a-z0-9._-]{0,126}$/;
+  const direction = /^(south|south-east|east|north-east|north|north-west|west|south-west)$/;
+  const frame = /^frame_[0-9]{3,6}\.png$/;
+  if (parts.length === 1 && rootFiles.has(parts[0]!)) return;
+  if (parts.length === 4 && parts[0] === "animations" && animationId.test(parts[1]!) && direction.test(parts[2]!) && frame.test(parts[3]!)) return;
+  throw new Error(`Unexpected zip file: ${parts.join("/")}`);
 }
 
 function getInstalledPetDir(petsRoot: string, petId: string): string {

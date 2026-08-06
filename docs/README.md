@@ -86,3 +86,6 @@ Docs here are the *narrative* layer on top of those maps.
   `AGENTS.md` — honor it.
 - Ongoing improvement ideas and known issues are tracked in the root
   `improvements.md`, not here.
+
+- **[pet-animation-manifests.md](pet-animation-manifests.md)** — Versioned per-pet animation catalogues, runtime resolution, and PixelLab import contract.
+- **[pixellab-animation-audit.md](pixellab-animation-audit.md)** — Exact archive reuse, repair, and blocked-generation audit for the four imported Buddies.
