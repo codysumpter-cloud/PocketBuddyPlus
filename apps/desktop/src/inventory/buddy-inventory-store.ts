@@ -53,15 +53,18 @@ function transactionMatches(
   definitions: ReadonlyMap<string, BuddyItemDefinition>,
 ): boolean {
   if (existing.source !== source || existing.operation !== mutation.operation || existing.reason !== mutation.reason) return false;
-  if (mutation.operation === "grant" || mutation.operation === "consume") {
-    return existing.itemId === mutation.itemId && existing.quantity === mutation.quantity;
+  switch (mutation.operation) {
+    case "grant":
+    case "consume":
+      return existing.itemId === mutation.itemId && existing.quantity === mutation.quantity;
+    case "equip": {
+      const definition = definitions.get(mutation.itemId);
+      const slot = mutation.slot ?? definition?.equipmentSlot;
+      return existing.itemId === mutation.itemId && existing.slot === slot;
+    }
+    case "unequip":
+      return existing.slot === mutation.slot;
   }
-  if (mutation.operation === "equip") {
-    const definition = definitions.get(mutation.itemId);
-    const slot = mutation.slot ?? definition?.equipmentSlot;
-    return existing.itemId === mutation.itemId && existing.slot === slot;
-  }
-  return existing.slot === mutation.slot;
 }
 
 export class BuddyInventoryStore {
@@ -114,34 +117,45 @@ export class BuddyInventoryStore {
 
     const quantities = { ...this.#document!.quantities };
     const equipped = { ...this.#document!.equipped };
-    const definition = "itemId" in mutation ? this.#requireDefinition(mutation.itemId) : undefined;
     let ledgerEntry: Omit<BuddyInventoryLedgerEntry, "atMs" | "revision">;
 
-    if (mutation.operation === "grant") {
-      const current = quantities[definition!.id] ?? 0;
-      if (current + mutation.quantity > definition!.maxStack) throw new Error(`Inventory stack limit exceeded for ${definition!.id}.`);
-      quantities[definition!.id] = current + mutation.quantity;
-      ledgerEntry = { transactionId: mutation.transactionId, source, operation: "grant", itemId: definition!.id, quantity: mutation.quantity, reason: mutation.reason };
-    } else if (mutation.operation === "consume") {
-      const current = quantities[definition!.id] ?? 0;
-      if (current < mutation.quantity) throw new Error(`Not enough ${definition!.displayName} in inventory.`);
-      const next = current - mutation.quantity;
-      if (next === 0) delete quantities[definition!.id];
-      else quantities[definition!.id] = next;
-      for (const [slot, itemId] of Object.entries(equipped)) if (itemId === definition!.id && next === 0) delete equipped[slot as BuddyEquipmentSlot];
-      ledgerEntry = { transactionId: mutation.transactionId, source, operation: "consume", itemId: definition!.id, quantity: mutation.quantity, reason: mutation.reason };
-    } else if (mutation.operation === "equip") {
-      if (!definition!.equipmentSlot) throw new Error(`${definition!.displayName} cannot be equipped.`);
-      const slot = mutation.slot ?? definition!.equipmentSlot;
-      if (slot !== definition!.equipmentSlot) throw new Error(`${definition!.displayName} cannot be equipped in ${slot}.`);
-      if ((quantities[definition!.id] ?? 0) < 1) throw new Error(`${definition!.displayName} is not owned.`);
-      equipped[slot] = definition!.id;
-      ledgerEntry = { transactionId: mutation.transactionId, source, operation: "equip", itemId: definition!.id, slot, reason: mutation.reason };
-    } else {
-      const slot = mutation.slot;
-      const itemId = equipped[slot];
-      delete equipped[slot];
-      ledgerEntry = { transactionId: mutation.transactionId, source, operation: "unequip", ...(itemId ? { itemId } : {}), slot, reason: mutation.reason };
+    switch (mutation.operation) {
+      case "grant": {
+        const definition = this.#requireDefinition(mutation.itemId);
+        const current = quantities[definition.id] ?? 0;
+        if (current + mutation.quantity > definition.maxStack) throw new Error(`Inventory stack limit exceeded for ${definition.id}.`);
+        quantities[definition.id] = current + mutation.quantity;
+        ledgerEntry = { transactionId: mutation.transactionId, source, operation: "grant", itemId: definition.id, quantity: mutation.quantity, reason: mutation.reason };
+        break;
+      }
+      case "consume": {
+        const definition = this.#requireDefinition(mutation.itemId);
+        const current = quantities[definition.id] ?? 0;
+        if (current < mutation.quantity) throw new Error(`Not enough ${definition.displayName} in inventory.`);
+        const next = current - mutation.quantity;
+        if (next === 0) delete quantities[definition.id];
+        else quantities[definition.id] = next;
+        for (const [slot, itemId] of Object.entries(equipped)) if (itemId === definition.id && next === 0) delete equipped[slot as BuddyEquipmentSlot];
+        ledgerEntry = { transactionId: mutation.transactionId, source, operation: "consume", itemId: definition.id, quantity: mutation.quantity, reason: mutation.reason };
+        break;
+      }
+      case "equip": {
+        const definition = this.#requireDefinition(mutation.itemId);
+        if (!definition.equipmentSlot) throw new Error(`${definition.displayName} cannot be equipped.`);
+        const slot = mutation.slot ?? definition.equipmentSlot;
+        if (slot !== definition.equipmentSlot) throw new Error(`${definition.displayName} cannot be equipped in ${slot}.`);
+        if ((quantities[definition.id] ?? 0) < 1) throw new Error(`${definition.displayName} is not owned.`);
+        equipped[slot] = definition.id;
+        ledgerEntry = { transactionId: mutation.transactionId, source, operation: "equip", itemId: definition.id, slot, reason: mutation.reason };
+        break;
+      }
+      case "unequip": {
+        const slot = mutation.slot;
+        const itemId = equipped[slot];
+        delete equipped[slot];
+        ledgerEntry = { transactionId: mutation.transactionId, source, operation: "unequip", ...(itemId ? { itemId } : {}), slot, reason: mutation.reason };
+        break;
+      }
     }
 
     const now = this.#clock();
