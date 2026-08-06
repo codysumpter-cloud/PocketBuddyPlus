@@ -37,6 +37,14 @@ toolsets:
 
 mac:
   icon: assets/app-icon.icns
+  # Required for the read-only system:nowPlaying capability. Without it macOS
+  # kills the Apple Event outright instead of prompting, so Apple Music never
+  # works. Lives here rather than in the child config because electron-builder's
+  # `extends` does not carry a child extendInfo through.
+  extendInfo:
+    NSAppleEventsUsageDescription: >-
+      Pocket Buddy+ asks the Music app what is playing so your Buddy can react
+      to it. It only reads the current track and never controls playback.
   category: public.app-category.utilities
   target:
     - dmg

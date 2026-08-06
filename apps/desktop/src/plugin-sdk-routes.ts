@@ -16,7 +16,7 @@ const pluginSdkCoreAsyncRoutes = [
   "voice.speak", "voice.listen",
   "auth.oauth", "auth.refresh", "auth.signOut",
   "files.pick", "files.read", "files.save",
-  "system.info", "system.metrics", "system.openExternal", "system.readClipboardText", "system.writeClipboardText",
+  "system.info", "system.metrics", "system.nowPlaying", "system.openExternal", "system.readClipboardText", "system.writeClipboardText",
   "commands.register", "commands.unregister", "status.set", "status.clear", "http.fetch",
   "log.debug", "log.info", "log.warn", "log.error",
 ] as const;

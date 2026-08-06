@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import type { NativeNowPlayingResult } from "./native-now-playing.js";
 import { lookup } from "node:dns/promises";
 import * as net from "node:net";
 import { join } from "node:path";
@@ -201,6 +202,8 @@ export interface PluginHostCapabilities {
   system: {
     info(): Promise<{ platform: "mac" | "win" | "linux"; locale: string; timezone: string; theme: "light" | "dark"; appVersion: string; online: boolean }>;
     metrics(): Promise<{ cpuPercent: number; memUsedPercent: number; battery?: { percent: number; charging: boolean } }>;
+    /** Read-only native now-playing. macOS Music only; other platforms report unsupported. */
+    nowPlaying(): Promise<NativeNowPlayingResult>;
     openExternal(url: string): Promise<void>;
     readClipboardText(): Promise<string>;
     writeClipboardText(text: string): Promise<void>;
@@ -279,6 +282,7 @@ export function createDefaultPluginHostCapabilities(petApi: PluginPetApi): Plugi
     system: {
       info: async () => ({ platform: process.platform === "darwin" ? "mac" : process.platform === "win32" ? "win" : "linux", locale: "en-US", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC", theme: "light", appVersion: "0.0.0", online: true }),
       metrics: async () => ({ cpuPercent: 0, memUsedPercent: 0 }),
+      nowPlaying: async () => ({ status: "unsupported" as const }),
       openExternal: unavailable("system.openExternal"),
       readClipboardText: unavailable("system.readClipboardText"),
       writeClipboardText: unavailable("system.writeClipboardText"),
@@ -727,6 +731,7 @@ export class PluginSdkBridge {
       system: {
         info: async () => caps.system.info(),
         metrics: async () => { requirePermission("system:metrics"); return caps.system.metrics(); },
+        nowPlaying: async () => { requirePermission("system:nowPlaying"); return caps.system.nowPlaying(); },
         openExternal: async (url: unknown) => {
           requirePermission("system:openExternal");
           const parsed = new URL(String(url));

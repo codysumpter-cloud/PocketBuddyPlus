@@ -1,4 +1,4 @@
-// Music Buddy — Spotify provider for Pocket Buddy+.
+// Music Buddy — Spotify and native Apple Music providers for Pocket Buddy+.
 // Native Apple Music support belongs behind a separate, narrow host capability.
 
 export const DEFAULT_CLIENT_ID = "1ac5489fdb9a46a8bf4c9179ca7a291f";
@@ -108,7 +108,52 @@ async function spotifyRequest(ctx, path, method = "GET") {
   return response;
 }
 
+/**
+ * Native Apple Music, through the read-only `system:nowPlaying` capability.
+ * Returns a track only when something is actually loaded; every other state
+ * (idle, player closed, permission refused, non-macOS) yields null so the
+ * caller can fall through to Spotify.
+ */
+async function loadNativeNowPlaying(ctx) {
+  if (typeof ctx.system?.nowPlaying !== "function") return null;
+  let result;
+  try {
+    result = await ctx.system.nowPlaying();
+  } catch (error) {
+    ctx.log?.debug?.("native now-playing unavailable", safeMessage(error));
+    return null;
+  }
+  if (!result || (result.status !== "playing" && result.status !== "paused")) {
+    // Surface a refused permission once — it is actionable, unlike "idle".
+    if (result?.status === "unavailable" && result.reason && !nativeWarningShown) {
+      nativeWarningShown = true;
+      ctx.log?.warn?.("Apple Music", result.reason);
+    }
+    return null;
+  }
+  const track = result.track;
+  return {
+    source: "apple-music",
+    id: track.id,
+    title: track.title,
+    artist: track.artist,
+    album: track.album,
+    durationMs: track.durationMs,
+    positionMs: track.positionMs,
+    isPlaying: track.isPlaying,
+    updatedAt: track.updatedAt,
+  };
+}
+
+let nativeWarningShown = false;
+
 async function loadNowPlaying(ctx) {
+  // Prefer whatever the user is actually listening to locally. Apple Music has
+  // no now-playing Web API, so this is the only way to see it, and a running
+  // local player is a stronger signal of intent than a stale Spotify session.
+  const native = await loadNativeNowPlaying(ctx);
+  if (native) return native;
+
   const response = await spotifyRequest(ctx, "/v1/me/player");
   if (response.status === 204) return null;
   if (!response.ok) {

@@ -259,6 +259,7 @@ export const sdkCallHandlers: Record<PluginSdkRoute, SdkCallHandler> = {
   // System.
   "system.info": (sdk) => sdk.system.info(),
   "system.metrics": (sdk) => sdk.system.metrics(),
+  "system.nowPlaying": (sdk) => sdk.system.nowPlaying(),
   "system.openExternal": (sdk, args) => sdk.system.openExternal(args[0]),
   "system.readClipboardText": (sdk) => sdk.system.readClipboardText(),
   "system.writeClipboardText": (sdk, args) => sdk.system.writeClipboardText(args[0]),

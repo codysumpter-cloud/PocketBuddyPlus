@@ -10,17 +10,24 @@ import {
   addTask,
   addXp,
   applyDecay,
+  cleanPet,
   cleanState,
   createBrainSnapshot,
   feed,
   getMood,
+  giveMedicine,
   importLegacyBuddyUi,
+  maybeNudge,
+  nap,
   openBrain,
   pet,
+  play,
   register,
+  startOver,
   resolveStage,
   toggleTask,
   trainTrait,
+  updatePinned,
   updateProfile,
 } from "./index.js";
 
@@ -236,6 +243,104 @@ function createContext(now = 100_000) {
   assert.ok(h.commands.has("medicine"));
   assert.ok(h.schedules.has(SCHEDULE_ID));
   await definition.stop(h.ctx);
+}
+
+
+// --- Behaviours carried over from the pre-unification suite -----------------
+// These four were covered on main before the Buddy Brain merge replaced this
+// file. They are re-expressed against the unified state rather than reverted,
+// because the old suite drove a createTestHarness API this plugin no longer has.
+
+// Activity wakes a sleeping pet.
+{
+  const h = createContext(103_000_000_000);
+  await h.ctx.storage.set("state", cleanState({ lastSeenAt: h.now, bornAt: h.now }));
+  const napped = await nap(h.ctx, h.now);
+  assert.ok(napped.sleptUntil > h.now, "nap should set a wake time");
+  const played = await play(h.ctx, h.now + 1_000);
+  assert.equal(played.sleptUntil, 0, "activity should wake a sleeping pet");
+}
+
+// Dirty and sick states expose health in the HUD, block strenuous actions,
+// and require two medicine doses.
+{
+  const now = 105_000_000_000;
+  const h = createContext(now);
+  // The shared harness hides stats, which suppresses the HUD entirely.
+  h.ctx.config.get = async () => ({ showStats: true, classicLifecycle: false });
+  await h.ctx.storage.set("state", cleanState({
+    hunger: 40, energy: 40, happiness: 40, health: 60, mess: 4,
+    isSick: true, sickSince: now - HOUR, lastSeenAt: now, bornAt: now - HOUR,
+  }));
+
+  await updatePinned(h.ctx, cleanState(await h.ctx.storage.get("state")));
+  const hud = h.bubbles.at(-1).spec.hud;
+  assert.equal(hud.items[3].label, "hud.health", "an unwell pet shows health, not bond");
+  assert.equal(hud.items[3].value, 60);
+
+  const blocked = await feed(h.ctx, now + 1);
+  assert.equal(blocked.careCounts.fed, 0, "feeding is blocked while sick");
+  assert.ok(h.speech.includes("speech.blocked.sick"));
+
+  const cleaned = await cleanPet(h.ctx, now + 2);
+  assert.equal(cleaned.mess, 0);
+  assert.equal(cleaned.careCounts.cleaned, 1);
+  assert.equal(cleaned.health, 70);
+
+  const firstDose = await giveMedicine(h.ctx, now + 3);
+  assert.equal(firstDose.isSick, true, "one dose is not a cure");
+  assert.equal(firstDose.medicineDoses, 1);
+  const secondDose = await giveMedicine(h.ctx, now + 4);
+  assert.equal(secondDose.isSick, false);
+  assert.equal(secondDose.medicineDoses, 0);
+  assert.equal(secondDose.careCounts.medicated, 2);
+  assert.ok(h.speech.includes("speech.medicine.cured"));
+}
+
+// Classic lifecycle death is reversible only through the explicit new-life command.
+{
+  const now = 106_000_000_000;
+  const h = createContext(now);
+  h.ctx.config.get = async () => ({ showStats: false, classicLifecycle: true });
+  await h.ctx.storage.set("state", cleanState({
+    deadAt: now - HOUR, deathReason: "neglect", lastSeenAt: now, bornAt: now - 2 * HOUR,
+  }));
+
+  const petted = await pet(h.ctx, now + 1);
+  assert.ok(petted.deadAt > 0, "care cannot revive a dead pet");
+  assert.equal(petted.careCounts.petted, 0);
+
+  const fresh = await startOver(h.ctx, now + 2);
+  assert.equal(fresh.deadAt, 0);
+  assert.equal(fresh.bornAt, now + 2);
+  assert.equal(fresh.careCounts.restarted, 1);
+  assert.equal(fresh.health, 100);
+
+  // "only through the new-life command" cuts both ways: on a LIVING pet the
+  // command must refuse, or it becomes an accidental progress wipe.
+  const survivor = await startOver(h.ctx, now + 3);
+  assert.equal(survivor.bornAt, now + 2, "start-over must not restart a living pet");
+  assert.equal(survivor.careCounts.restarted, 1, "restart count must not climb");
+  assert.ok(h.speech.includes("speech.restart.notNeeded"));
+}
+
+// Nudges are prioritized and cooldown-protected.
+{
+  const now = 107_000_000_000;
+  const h = createContext(now);
+  // Sick outranks hungry even though both thresholds are met.
+  await maybeNudge(h.ctx, cleanState({ isSick: true, hunger: 10, lastNudgeAt: 0 }), now);
+  assert.equal(h.speech.at(-1), "nudge.sick");
+
+  const nudged = cleanState(await h.ctx.storage.get("state"));
+  assert.equal(nudged.lastNudgeAt, now);
+
+  const before = h.speech.length;
+  await maybeNudge(h.ctx, nudged, now + 60_000);
+  assert.equal(h.speech.length, before, "nudges must not spam inside the cooldown");
+
+  await maybeNudge(h.ctx, nudged, now + 7 * HOUR);
+  assert.equal(h.speech.length, before + 1, "nudges resume once the cooldown lapses");
 }
 
 console.log("openpets.virtual-pet / Buddy Brain: all checks passed.");
