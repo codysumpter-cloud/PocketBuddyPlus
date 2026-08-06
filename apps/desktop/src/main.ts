@@ -16,6 +16,7 @@ import { defaultPluginPetApi } from "./plugin-pet-api.js";
 import { initializePluginPlatformSettings } from "./plugin-platform-settings.js";
 import { ElectronPluginJsHost } from "./plugin-js-host.js";
 import { bundledOfficialPluginIds, initializePluginService } from "./plugin-service.js";
+import { registerPocketBuddyPlusBundledPlugins } from "./product-bundled-plugins.js";
 import { APP_ID } from "./product.js";
 import { applyPlusUserDataPath, getRuntimeProductName, isPlusRuntime } from "./product-runtime.js";
 import { createAppTray, refreshTrayMenu } from "./tray.js";
@@ -105,7 +106,7 @@ if (!gotSingleInstanceLock) {
     const paths = parseDevPluginEnv(process.env.OPENPETS_DEV_PLUGIN_PATHS);
     const devPluginMode = roots.length > 0 || paths.length > 0;
     initializePluginPlatformSettings(app.getPath("userData"));
-    registerPocketBuddyPlusBundledPlugins();
+    registerPocketBuddyPlusBundledPlugins(bundledOfficialPluginIds);
     const pluginCapabilities = createElectronPluginHostCapabilities(app.getPath("userData"));
     let devPluginWatcher: ReturnType<typeof startDevPluginWatcher> | undefined;
     const pluginService = initializePluginService(app.getPath("userData"), defaultPluginPetApi, app.getVersion(), new ElectronPluginJsHost(), writePluginRuntimeLog, process.env.OPENPETS_DISABLE_PLUGIN_CATALOG === "1" || devPluginMode, resolveBundledOfficialPluginRoots(), !devPluginMode, pluginCapabilities, undefined, (sourcePath) => devPluginWatcher?.addPaths([sourcePath]), (sourcePath) => devPluginWatcher?.removePath(sourcePath));
@@ -149,21 +150,6 @@ if (!gotSingleInstanceLock) {
 function parseDevPluginEnv(value: string | undefined): string[] {
   if (!value) return [];
   return value.split(delimiter).map((item) => item.trim()).filter(Boolean).map((item) => resolve(item));
-}
-
-const pocketBuddyPlusBundledPluginIds = [
-  "openpets.prismpixel-rig-studio",
-  "openpets.prismcade-creator",
-] as const;
-
-function registerPocketBuddyPlusBundledPlugins(): void {
-  // The plugin service owns the seeding implementation. PocketBuddy+ extends its
-  // product-level bundled set before service startup without changing which
-  // plugins are enabled by default.
-  const ids = bundledOfficialPluginIds as unknown as string[];
-  for (const id of pocketBuddyPlusBundledPluginIds) {
-    if (!ids.includes(id)) ids.push(id);
-  }
 }
 
 function resolveBundledOfficialPluginRoots(): string[] {
