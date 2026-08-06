@@ -4,7 +4,7 @@
 
 Pocket Buddy+ keeps one Buddy identity across desktop companionship, agent integrations, creator tools, and plugin-powered experiences. The Buddy is the shared character; plugins add what the Buddy can do.
 
-> **Active development:** the desktop companion, model-backed Buddy Talk, host-owned Buddy profile, shared inventory/equipment ledger, Buddy Training reward loop, plugin runtime, animation system, creator plugins, Music Buddy, and agent integrations already exist. Battles, trading, and broader device sync are being built on top of those foundations rather than as separate apps.
+> **Active development:** the desktop companion, model-backed Buddy Talk, host-owned Buddy profile, shared inventory/equipment ledger, Buddy Training reward loop, deterministic local Buddy Battles, plugin runtime, animation system, creator plugins, Music Buddy, and agent integrations already exist. Trading, online battle infrastructure, and broader device sync are being built on top of those foundations rather than as separate apps.
 
 ## What works today
 
@@ -13,6 +13,7 @@ Pocket Buddy+ keeps one Buddy identity across desktop companionship, agent integ
 - A versioned host-owned Buddy profile that approved plugins can read without receiving Talk history, notes, tasks, files, or credentials.
 - A shared transactional inventory/equipment ledger with canonical item definitions, quantities, slots, idempotent mutation receipts, and sandboxed plugin access.
 - A bundled Buddy Training vertical slice that chooses drills from the public Buddy profile and issues crash-safe apple rewards through the shared ledger.
+- Buddy Battles with deterministic local sparring, profile-derived fighter stats, equipment bonuses, scaling opponents, persistent records, and retry-safe shared rewards.
 - Sandboxed JavaScript/TypeScript plugins with declared permissions, quotas, schedules, storage, commands, panels, events, audio, notifications, secrets, and network controls.
 - Host-managed AI access for Buddy Talk and approved plugins through Anthropic, OpenAI, **NVIDIA NIM**, or Ollama.
 - Secure user-supplied API keys kept in the host secret store instead of renderer state, plugin source, or plugin configuration.
@@ -40,6 +41,7 @@ Platform references:
 - [`docs/buddy-profile.md`](docs/buddy-profile.md) — public Buddy identity/state contract
 - [`docs/buddy-inventory.md`](docs/buddy-inventory.md) — shared item, equipment, and transaction contract
 - [`docs/buddy-training.md`](docs/buddy-training.md) — first profile-aware reward-loop plugin
+- [`docs/buddy-battles.md`](docs/buddy-battles.md) — deterministic local sparring and online-battle boundary
 - [`docs/plugins/music-buddy.md`](docs/plugins/music-buddy.md) — Spotify provider and native music boundary
 
 ## NVIDIA AI setup
@@ -144,6 +146,7 @@ docs                       Architecture, plugin, provider, and release documenta
 - Plugin permissions are declared and approved before host capabilities are exposed.
 - `pets:read` permits profile/inventory snapshots; inventory mutations require the stronger `pets:manage` permission.
 - Inventory mutations accept only trusted host item definitions and produce source-attributed, idempotent receipts.
+- Buddy Battles is local-only; it does not expose remote matchmaking, wagering, or unverified player-to-player results.
 - OAuth endpoints, scopes, PKCE, and registered loopback ports remain controlled by the trusted host.
 - JavaScript plugins run in sandboxed hosts; the application renders trusted UI descriptors.
 - Private-network and SSRF protections apply to plugin network access.
