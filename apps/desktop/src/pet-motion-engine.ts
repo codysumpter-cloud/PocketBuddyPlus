@@ -4,6 +4,7 @@ import type { BrowserWindow } from "electron";
 
 import { clampToTerminalBounds, getEffectiveConfinementBounds } from "./confinement-manager.js";
 import { clampToNearestDisplayIfOffscreen, clampToVisibleWorkArea, defaultPetWindowSize, isCrossDisplayRoamingEnabled, type Point } from "./display.js";
+import { resolvePetMotionState, type PetMotionState } from "./reaction-animation-mapping.js";
 // isPetWindowDragging is lazily loaded via _setIsPetWindowDraggingForTesting seam
 
 // ---------------------------------------------------------------------------
@@ -41,10 +42,10 @@ function getIsPetWindowDragging(): IsPetWindowDraggingFn {
 // Lazily loaded for the same reason as isPetWindowDragging above: a static
 // import of pet-window.js pulls in electron at module load and breaks the
 // Electron-free unit tests for this engine.
-function getSignalPetMotionIntent(): (win: BrowserWindow, state: "idle" | "run-left" | "run-right") => void {
+function getSignalPetMotionIntent(): (win: BrowserWindow, state: PetMotionState) => void {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("./pet-window.js") as { signalPetMotionIntent?: (win: BrowserWindow, state: "idle" | "run-left" | "run-right") => void };
+    const mod = require("./pet-window.js") as { signalPetMotionIntent?: (win: BrowserWindow, state: PetMotionState) => void };
     return mod.signalPetMotionIntent ?? (() => {});
   } catch {
     return () => {};
@@ -184,9 +185,10 @@ export async function motionMoveTo(petHandleId: string, accessor: WindowAccessor
   // Announce the heading before moving. The window's own `move` event only
   // fires after the position has changed, so relying on it alone made the pet
   // slide in its idle pose before the run animation caught up.
-  const [intentX] = window.getPosition();
-  const intentDx = clampPosition(petHandleId, target).x - intentX;
-  if (Math.abs(intentDx) >= 1) getSignalPetMotionIntent()(window, intentDx > 0 ? "run-right" : "run-left");
+  const [intentX, intentY] = window.getPosition();
+  const intentTarget = clampPosition(petHandleId, target);
+  const intentState = resolvePetMotionState(intentTarget.x - intentX, intentTarget.y - intentY);
+  if (intentState !== "idle") getSignalPetMotionIntent()(window, intentState);
 
   // If a continuous loop is running (follow or physics), store the target
   // in MotionState and let syncLoop handle interpolation. This avoids the

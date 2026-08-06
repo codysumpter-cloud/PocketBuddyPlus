@@ -6,6 +6,7 @@ import {
   getAnimationById,
   parsePocketBuddyAnimationManifest,
   resolvePetAnimationFrames,
+  resolvePetAnimationId,
   type PetAnimationDefinition,
   type PetDirection,
   type PocketBuddyAnimationManifest,
@@ -17,8 +18,10 @@ import type { OpenPetsReaction } from "./local-ipc-protocol.js";
 import { getInstalledPetDir } from "./pet-paths.js";
 import {
   defaultPetSprite,
+  motionToSpriteState,
   reactionAnimationMetadata,
   resolveManifestReactionAnimation,
+  resolvePetMotionDirection,
   resolveReactionSpriteState,
   selectableAnimationMetadata,
   type PetMotionState,
@@ -188,14 +191,22 @@ export async function resolvePetReactionAnimation(petId: string, reaction: OpenP
 }
 
 export async function resolvePetMotionAnimation(petId: string, motion: PetMotionState): Promise<{ readonly id: string; readonly animation?: PetAnimationDefinition; readonly direction: PetDirection }> {
-  const direction: PetDirection = motion === "run-left" ? "west" : motion === "run-right" ? "east" : "south";
-  if (petId === builtInPet.id) return { id: motion === "run-left" ? "running-left" : motion === "run-right" ? "running-right" : "idle", direction };
+  const direction = resolvePetMotionDirection(motion) ?? "south";
+  if (petId === builtInPet.id) return { id: motionToSpriteState[motion], direction };
   const manifest = await readInstalledPetAnimationManifest(petId);
-  if (!manifest) return { id: "idle", direction };
-  const mappingKey = motion === "run-left" ? "running-left" : motion === "run-right" ? "running-right" : "idle";
-  const requested = getAnimationById(manifest, manifest.motionMappings[mappingKey]);
+  if (!manifest) return { id: motionToSpriteState[motion], direction };
+  const leftward = direction === "west" || direction === "north-west" || direction === "south-west";
+  const rightward = direction === "east" || direction === "north-east" || direction === "south-east";
+  const mappingKey = motion === "idle" ? "idle" : leftward ? "running-left" : rightward ? "running-right" : undefined;
+  const requested = mappingKey ? getAnimationById(manifest, manifest.motionMappings[mappingKey]) : undefined;
+  const runningId = resolvePetAnimationId(manifest, "running", undefined, "running");
+  const running = runningId ? getAnimationById(manifest, runningId) : undefined;
   const idle = getAnimationById(manifest, manifest.semanticDefaults.idle);
-  const animation = (requested?.complete ? requested : undefined) ?? (idle?.complete ? idle : undefined) ?? manifest.animations.find((candidate) => candidate.complete) ?? manifest.animations[0];
+  const animation = (requested?.complete ? requested : undefined)
+    ?? (running?.complete ? running : undefined)
+    ?? (idle?.complete ? idle : undefined)
+    ?? manifest.animations.find((candidate) => candidate.complete)
+    ?? manifest.animations[0];
   return { id: animation?.id ?? "idle", animation, direction };
 }
 
