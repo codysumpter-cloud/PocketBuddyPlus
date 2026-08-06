@@ -140,6 +140,7 @@ Pocket Buddy+ adoption:
 
 - `room-templates-core.js` records metadata-only recipes using exact local manifest IDs;
 - Bathroom, Kitchen, Office, and Japanese recipes create real floor cells, walls, movable furnishings, tabletop relationships, and wall anchors;
+- every recipe asset ID is contract-checked against the shipped manifest and every non-wall root furnishing is checked against its floor footprint;
 - **Play Room Animations** triggers the editable objects through the normal animation runtime;
 - template application stores a one-step complete-house backup before replacement;
 - optional GIF/PNG previews use revocable local object URLs;
