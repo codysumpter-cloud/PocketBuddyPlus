@@ -6,6 +6,13 @@ on:
       - main
       - feat/pocket-buddy-plus-foundation
       - feat/pocket-buddy-plus-product-ui
+  # Also verify main itself. Pull-request runs only prove each branch is green
+  # against the base it forked from, so two PRs can pass separately and still
+  # break main together - and a PR that lands with no checks reported is never
+  # verified at all. Both happened here.
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
