@@ -58,6 +58,10 @@ assert.match(loader, /URL\.createObjectURL/);
 assert.match(loader, /frameDataUrls/);
 assert.match(loader, /renderRecipe/);
 assert.match(loader, /webkitdirectory/);
+assert.match(loader, /\.map\(\(segment\) => segment\.trim\(\)\)/,
+  "loader must tolerate accidental leading or trailing whitespace in a manifest path segment");
+assert.doesNotMatch(loader, /rejectReady\(error\)/,
+  "a wrong folder selection must remain retryable in the same page");
 assert.doesNotMatch(manifestSource, /data:image\//, "public manifest must not embed purchased image bytes");
 assert.doesNotMatch(html + app + loader + recipesSource + styles, /data:image\//, "public runtime must not embed purchased image bytes");
 

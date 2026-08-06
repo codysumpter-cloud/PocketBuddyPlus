@@ -8,10 +8,8 @@
   }
 
   let resolveReady;
-  let rejectReady;
-  window.TINYHOUSE_ASSETS_READY = new Promise((resolve, reject) => {
+  window.TINYHOUSE_ASSETS_READY = new Promise((resolve) => {
     resolveReady = resolve;
-    rejectReady = reject;
   });
 
   const manifestPaths = [...new Set(manifest.assets.flatMap((asset) => [
@@ -21,10 +19,10 @@
   const originalPaths = new Set(manifestPaths.filter((path) => !path.startsWith(".generated/")));
   for (const recipe of Object.values(recipes)) {
     if (recipe.type === "compose") {
-      originalPaths.add(recipe.base);
-      for (const overlay of recipe.overlays || []) originalPaths.add(overlay);
+      originalPaths.add(normalizePath(recipe.base));
+      for (const overlay of recipe.overlays || []) originalPaths.add(normalizePath(overlay));
     } else if (recipe.type === "slice") {
-      originalPaths.add(recipe.source);
+      originalPaths.add(normalizePath(recipe.source));
     }
   }
 
@@ -70,7 +68,6 @@
       console.error("[tinyhouse/local-assets]", error);
       input.disabled = false;
       status.textContent = error instanceof Error ? error.message : String(error);
-      rejectReady(error);
     }
   });
 
@@ -81,9 +78,10 @@
     const missing = [];
 
     for (const required of originalPaths) {
-      const file = suffixes.get(normalizePath(required).toLowerCase());
-      if (file) fileForPath.set(required, file);
-      else missing.push(required);
+      const normalizedRequired = normalizePath(required);
+      const file = suffixes.get(normalizedRequired.toLowerCase());
+      if (file) fileForPath.set(normalizedRequired, file);
+      else missing.push(normalizedRequired);
     }
 
     if (missing.length) {
@@ -94,7 +92,7 @@
     const urlByPath = new Map();
     for (const [path, file] of fileForPath) urlByPath.set(path, URL.createObjectURL(file));
     for (const [generatedPath, recipe] of Object.entries(recipes)) {
-      urlByPath.set(generatedPath, await renderRecipe(recipe, urlByPath));
+      urlByPath.set(normalizePath(generatedPath), await renderRecipe(recipe, urlByPath));
     }
 
     for (const asset of manifest.assets) {
@@ -112,7 +110,7 @@
 
   async function renderRecipe(recipe, urls) {
     if (recipe.type === "compose") {
-      const base = await loadImage(urls.get(recipe.base));
+      const base = await loadImage(urls.get(normalizePath(recipe.base)));
       const canvas = document.createElement("canvas");
       canvas.width = base.naturalWidth;
       canvas.height = base.naturalHeight;
@@ -120,13 +118,13 @@
       context.imageSmoothingEnabled = false;
       context.drawImage(base, 0, 0);
       for (const overlayPath of recipe.overlays || []) {
-        const layer = await loadImage(urls.get(overlayPath));
+        const layer = await loadImage(urls.get(normalizePath(overlayPath)));
         context.drawImage(layer, 0, 0);
       }
       return canvasUrl(canvas);
     }
     if (recipe.type === "slice") {
-      const sheet = await loadImage(urls.get(recipe.source));
+      const sheet = await loadImage(urls.get(normalizePath(recipe.source)));
       const canvas = document.createElement("canvas");
       canvas.width = recipe.width;
       canvas.height = recipe.height;
@@ -171,6 +169,12 @@
   }
 
   function normalizePath(path) {
-    return String(path || "").replace(/\\/g, "/").replace(/^\.\//, "");
+    return String(path || "")
+      .replace(/\\/g, "/")
+      .replace(/^\.\/+/, "")
+      .split("/")
+      .map((segment) => segment.trim())
+      .filter(Boolean)
+      .join("/");
   }
 })();
