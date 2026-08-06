@@ -65,22 +65,22 @@
           </div>
           <div class="tool-grid">
             <button data-action="activate" data-label="INTERACT" title="Play animation / interact (Enter)">▶</button>
-            <button data-action="flip" data-label="FLIP" title="Flip / rotate (R)">↔</button>
+            <button data-action="rotate" data-label="ROTATE" title="Rotate through available authored directions (R)">⟳</button>
             <button data-action="layer-down" data-label="BEHIND" title="Move behind">↓</button>
             <button data-action="layer-up" data-label="FRONT" title="Move in front">↑</button>
             <button data-action="duplicate" data-label="COPY" title="Duplicate">⧉</button>
             <button data-action="delete" data-label="DELETE" class="danger" title="Delete">⌫</button>
           </div>
-          <div class="inspector-tip">Drag to move · double-click to interact</div>
+          <div class="inspector-tip">Drag to move · R rotates · double-click interacts</div>
         </section>
 
         <div id="camera-tools" class="camera-dock pixel-frame">
           <div class="camera-buttons">
             <button id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
-            <button id="center-view" title="Center room" aria-label="Center room">✥</button>
+            <button id="center-view" title="Fit house" aria-label="Fit house">✥</button>
             <button id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
           </div>
-          <div class="space-hint"><kbd>SPACE</kbd><span>DRAG TO PAN</span></div>
+          <div class="space-hint"><kbd>SPACE</kbd><span>DRAG EMPTY SPACE · WHEEL/PINCH TO ZOOM</span></div>
         </div>
 
         <div id="mode-hint" class="mode-hint pixel-frame">
@@ -104,11 +104,14 @@
   <script src="house-grid-core.js"></script>
   <script src="house-grid-blueprint-core.js"></script>
   <script src="room-templates-core.js"></script>
+  <script src="rotation-core.js"></script>
   <script src="house-grid.js"></script>
   <script src="house-grid-render.js"></script>
   <script src="house-grid-editor.js"></script>
   <script src="house-grid-blueprint.js"></script>
   <script src="room-templates.js"></script>
+  <script src="four-way-rotation.js"></script>
+  <script src="diorama-camera.js"></script>
   <script src="cozy-core.js"></script>
   <script src="cozy.js"></script>
 </body>
