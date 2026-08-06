@@ -65,9 +65,11 @@ assert.match(runtimeSource, /stopImmediatePropagation/);
 assert.match(runtimeSource, /exportHouse = async/);
 assert.match(runtimeSource, /tinyhouse-structure\.png/);
 assert.match(runtimeSource, /Rendering the full house structure/);
+assert.match(runtimeSource, /context\.initialized/);
 assert.match(css, /structure-floor-hit/);
 assert.match(css, /structure-edge-hit/);
 assert.match(css, /structure-door/);
+assert.match(css, /structure-door\{[^}]*pointer-events:auto/);
 assert.match(html, /house-grid\.css/);
 assert.match(html, /house-grid-core\.js/);
 assert.match(html, /house-grid\.js/);
@@ -78,4 +80,4 @@ assert.ok(html.indexOf('<script src="house-grid.js"></script>') < html.indexOf('
 assert.ok(html.indexOf('<script src="house-grid-render.js"></script>') < html.indexOf('<script src="house-grid-editor.js"></script>'));
 assert.match(packageJson.scripts["test:tinyhouse-local"], /test-house-grid-contract\.mjs/);
 
-console.log("TinyHouse editable house-grid contract passed: cells, edges, connected rooms, working doors, persistence, and full-house export.");
+console.log("TinyHouse editable house-grid contract passed: cells, edges, connected rooms, clickable working doors, persistence, and full-house export.");
