@@ -9,7 +9,7 @@ export const pocketBuddyPlusBundledPluginIds = [
  * by the plugin service and therefore stays false for these creator tools.
  */
 export function registerPocketBuddyPlusBundledPlugins(ids: readonly string[]): void {
-  const mutableIds = ids as string[];
+  const mutableIds = ids as unknown as string[];
   for (const id of pocketBuddyPlusBundledPluginIds) {
     if (!mutableIds.includes(id)) mutableIds.push(id);
   }
