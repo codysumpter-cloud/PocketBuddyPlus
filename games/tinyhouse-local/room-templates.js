@@ -226,30 +226,47 @@
     function updateTemplateCards() {
       drawer?.querySelectorAll("[data-template-id]").forEach((card) => {
         card.classList.toggle("active", card.dataset.templateId === activeTemplateId);
-        const preview = card.querySelector(".room-template-preview img");
         const url = previewUrls.get(card.dataset.templateId);
-        if (preview && url) preview.src = url;
+        if (!url) return;
+        const previewContainer = card.querySelector(".room-template-preview");
+        let preview = previewContainer?.querySelector("img");
+        if (!preview && previewContainer) {
+          preview = document.createElement("img");
+          preview.alt = "";
+          previewContainer.replaceChildren(preview);
+        }
+        if (preview) preview.src = url;
       });
     }
 
+    function setPreviewFile(templateId, file, notify = true) {
+      const template = templatesCore.templateById(templateId);
+      if (!template || !file) return false;
+      const oldUrl = previewUrls.get(templateId);
+      if (oldUrl) URL.revokeObjectURL(oldUrl);
+      previewUrls.set(templateId, URL.createObjectURL(file));
+      updateTemplateCards();
+      if (notify) ctx.showToast(`${template.name} showcase preview attached locally`);
+      return true;
+    }
+
     function attachPreviewFiles(files) {
-      for (const oldUrl of previewUrls.values()) URL.revokeObjectURL(oldUrl);
-      previewUrls.clear();
-      const unmatched = [];
+      let matched = 0;
+      let unmatched = 0;
       for (const file of files) {
         const matchedId = templatesCore.matchPreviewFile(file.name);
-        if (matchedId && !previewUrls.has(matchedId)) {
-          previewUrls.set(matchedId, URL.createObjectURL(file));
+        if (matchedId) {
+          setPreviewFile(matchedId, file, false);
+          matched += 1;
         } else {
-          unmatched.push(file);
+          unmatched += 1;
         }
       }
-      const available = templatesCore.templates.filter((template) => !previewUrls.has(template.id));
-      unmatched.slice(0, available.length).forEach((file, index) => {
-        previewUrls.set(available[index].id, URL.createObjectURL(file));
-      });
-      updateTemplateCards();
-      ctx.showToast(`${previewUrls.size} local room showcase${previewUrls.size === 1 ? "" : "s"} attached`);
+      const unmatchedMessage = unmatched
+        ? ` · ${unmatched} file${unmatched === 1 ? "" : "s"} need a room card's Choose Preview button`
+        : "";
+      ctx.showToast(`${matched} named showcase preview${matched === 1 ? "" : "s"} matched${unmatchedMessage}`);
+      return { matched, unmatched };
     }
 
     function buildDrawer() {
@@ -262,10 +279,10 @@
           <div><span class="panel-kicker">LICENSED LOCAL PRESETS</span><h2>Room Templates</h2></div>
           <button type="button" data-template-action="close" aria-label="Close room templates">×</button>
         </div>
-        <p class="room-template-intro">These recipes rebuild the showcase rooms from individual TinyHouse assets. The GIFs are optional local previews; they are never uploaded or committed.</p>
+        <p class="room-template-intro">These recipes rebuild the showcase rooms from individual TinyHouse assets. The GIFs are optional local previews; they are never uploaded or committed. UUID-named files can be assigned with Choose Preview on the matching room card.</p>
         <div class="room-template-grid"></div>
         <div class="room-template-actions">
-          <label class="room-template-file">LOAD SHOWCASE GIFS / PNGS<input type="file" multiple accept="image/gif,image/png,image/webp" /></label>
+          <label class="room-template-file">AUTO-MATCH NAMED SHOWCASES<input data-template-preview-bulk type="file" multiple accept="image/gif,image/png,image/webp" /></label>
           <button type="button" data-template-action="play">PLAY ROOM ANIMATIONS</button>
           <button type="button" data-template-action="restore">RESTORE PREVIOUS HOUSE</button>
         </div>`;
@@ -280,7 +297,10 @@
         card.innerHTML = `
           <div class="room-template-preview">${representative?.dataUrl ? `<img src="${representative.dataUrl}" alt="" />` : `<span>${template.name.slice(0, 1)}</span>`}</div>
           <div class="room-template-copy"><h3>${template.name}</h3><p>${template.description}</p><small>${template.structure.columns}×${template.structure.rows} · ${template.placements.length} objects</small></div>
-          <button type="button" data-template-action="apply" data-template-id="${template.id}">BUILD ROOM</button>`;
+          <div class="room-template-card-actions">
+            <button type="button" data-template-action="apply" data-template-id="${template.id}">BUILD ROOM</button>
+            <label>CHOOSE PREVIEW<input data-template-preview="${template.id}" type="file" accept="image/gif,image/png,image/webp" /></label>
+          </div>`;
         grid.append(card);
       }
 
@@ -297,8 +317,14 @@
         else if (action === "play") playAllAnimations();
         else if (action === "restore") restoreBackup();
       });
-      drawer.querySelector('input[type="file"]').addEventListener("change", (event) => {
-        attachPreviewFiles([...event.target.files]);
+      drawer.addEventListener("change", (event) => {
+        const input = event.target.closest("input[type='file']");
+        if (!input) return;
+        if (input.dataset.templatePreview) {
+          setPreviewFile(input.dataset.templatePreview, input.files?.[0]);
+        } else if (input.hasAttribute("data-template-preview-bulk")) {
+          attachPreviewFiles([...input.files]);
+        }
       });
 
       const openButton = document.createElement("button");
@@ -321,6 +347,7 @@
       applyTemplate,
       restoreBackup,
       playAllAnimations,
+      setPreviewFile,
       attachPreviewFiles,
       get activeTemplateId() { return activeTemplateId; },
       templates: templatesCore.templates,
