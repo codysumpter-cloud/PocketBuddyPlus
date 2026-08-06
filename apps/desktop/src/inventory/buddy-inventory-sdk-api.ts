@@ -14,6 +14,13 @@ export type InventoryQuantityMutationSpec = InventoryTransactionSpec & {
   readonly quantity: number;
 };
 
+export type InventoryExchangeSpec = InventoryTransactionSpec & {
+  readonly itemId: string;
+  readonly quantity: number;
+  readonly receivedItemId: string;
+  readonly receivedQuantity: number;
+};
+
 export type InventoryEquipSpec = InventoryTransactionSpec & {
   readonly itemId: string;
   readonly slot?: BuddyEquipmentSlot;
@@ -27,6 +34,7 @@ export type InventorySdkNamespace = {
   snapshot(): BuddyInventorySnapshot;
   grant(spec: InventoryQuantityMutationSpec): BuddyInventorySnapshot;
   consume(spec: InventoryQuantityMutationSpec): BuddyInventorySnapshot;
+  exchange(spec: InventoryExchangeSpec): BuddyInventorySnapshot;
   equip(spec: InventoryEquipSpec): BuddyInventorySnapshot;
   unequip(spec: InventoryUnequipSpec): BuddyInventorySnapshot;
   onChange(handler: (snapshot: BuddyInventorySnapshot) => unknown): { subscriptionId: string };
@@ -70,6 +78,7 @@ export function decorateInventorySdk(options: InventorySdkDecorationOptions): In
     },
     grant: (spec) => mutate("grant", spec),
     consume: (spec) => mutate("consume", spec),
+    exchange: (spec) => mutate("exchange", spec),
     equip: (spec) => mutate("equip", spec),
     unequip: (spec) => mutate("unequip", spec),
     onChange: (handler) => {

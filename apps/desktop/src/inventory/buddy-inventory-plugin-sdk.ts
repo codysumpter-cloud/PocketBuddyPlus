@@ -19,6 +19,7 @@ export function installBuddyInventorySdkCallHandlers(): void {
   handlers["inventory.snapshot"] = (sdk) => sdk.inventory.snapshot();
   handlers["inventory.grant"] = (sdk, args) => sdk.inventory.grant(args[0] as never);
   handlers["inventory.consume"] = (sdk, args) => sdk.inventory.consume(args[0] as never);
+  handlers["inventory.exchange"] = (sdk, args) => sdk.inventory.exchange(args[0] as never);
   handlers["inventory.equip"] = (sdk, args) => sdk.inventory.equip(args[0] as never);
   handlers["inventory.unequip"] = (sdk, args) => sdk.inventory.unequip(args[0] as never);
   handlers["inventory.onChange"] = (sdk, args, runCallback) => {

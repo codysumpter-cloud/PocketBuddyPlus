@@ -45,9 +45,11 @@ export interface OpenPetsBuddyItemDefinition {
 export interface OpenPetsInventoryLedgerEntry {
   readonly transactionId: string;
   readonly source: string;
-  readonly operation: "grant" | "consume" | "equip" | "unequip";
+  readonly operation: "grant" | "consume" | "equip" | "unequip" | "exchange";
   readonly itemId?: string;
   readonly quantity?: number;
+  readonly receivedItemId?: string;
+  readonly receivedQuantity?: number;
   readonly slot?: OpenPetsEquipmentSlot;
   readonly reason: string;
   readonly atMs: number;
@@ -77,6 +79,16 @@ export interface OpenPetsInventoryApi {
   grant(spec: OpenPetsInventoryTransactionBase & { readonly itemId: string; readonly quantity: number }): Promise<OpenPetsInventorySnapshot>;
   /** Requires `pets:manage`; fails atomically when quantity is insufficient. */
   consume(spec: OpenPetsInventoryTransactionBase & { readonly itemId: string; readonly quantity: number }): Promise<OpenPetsInventorySnapshot>;
+  /**
+   * Requires `pets:manage`; removes and receives known tradable items in one
+   * atomic, idempotent host transaction. Neither side commits on failure.
+   */
+  exchange(spec: OpenPetsInventoryTransactionBase & {
+    readonly itemId: string;
+    readonly quantity: number;
+    readonly receivedItemId: string;
+    readonly receivedQuantity: number;
+  }): Promise<OpenPetsInventorySnapshot>;
   /** Requires `pets:manage`; the item must be owned and match the slot. */
   equip(spec: OpenPetsInventoryTransactionBase & { readonly itemId: string; readonly slot?: OpenPetsEquipmentSlot }): Promise<OpenPetsInventorySnapshot>;
   /** Requires `pets:manage`. */

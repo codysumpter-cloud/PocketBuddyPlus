@@ -55,8 +55,6 @@ function registerCallback(fn) {
   return id;
 }
 
-// Subscription helper: fire-and-forget subscribe that resolves to a
-// subscription id; returns a disposer that unsubscribes once resolved.
 function subscription(onPath, offPath, args, fn) {
   const id = registerCallback(fn);
   const pending = call(onPath, [...args, id]).catch(() => undefined);
@@ -161,6 +159,7 @@ const sdk = {
     snapshot: () => call("inventory.snapshot", []),
     grant: (spec) => call("inventory.grant", [spec]),
     consume: (spec) => call("inventory.consume", [spec]),
+    exchange: (spec) => call("inventory.exchange", [spec]),
     equip: (spec) => call("inventory.equip", [spec]),
     unequip: (spec) => call("inventory.unequip", [spec]),
     onChange: (fn) => subscription("inventory.onChange", "inventory.offChange", [], fn),

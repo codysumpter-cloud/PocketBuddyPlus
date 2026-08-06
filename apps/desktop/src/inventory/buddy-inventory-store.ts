@@ -57,6 +57,11 @@ function transactionMatches(
     case "grant":
     case "consume":
       return existing.itemId === mutation.itemId && existing.quantity === mutation.quantity;
+    case "exchange":
+      return existing.itemId === mutation.itemId
+        && existing.quantity === mutation.quantity
+        && existing.receivedItemId === mutation.receivedItemId
+        && existing.receivedQuantity === mutation.receivedQuantity;
     case "equip": {
       const definition = definitions.get(mutation.itemId);
       const slot = mutation.slot ?? definition?.equipmentSlot;
@@ -119,6 +124,17 @@ export class BuddyInventoryStore {
     const equipped = { ...this.#document!.equipped };
     let ledgerEntry: Omit<BuddyInventoryLedgerEntry, "atMs" | "revision">;
 
+    const removeQuantity = (definition: BuddyItemDefinition, quantity: number): void => {
+      const current = quantities[definition.id] ?? 0;
+      if (current < quantity) throw new Error(`Not enough ${definition.displayName} in inventory.`);
+      const next = current - quantity;
+      if (next === 0) delete quantities[definition.id];
+      else quantities[definition.id] = next;
+      for (const [slot, itemId] of Object.entries(equipped)) {
+        if (itemId === definition.id && next === 0) delete equipped[slot as BuddyEquipmentSlot];
+      }
+    };
+
     switch (mutation.operation) {
       case "grant": {
         const definition = this.#requireDefinition(mutation.itemId);
@@ -130,13 +146,29 @@ export class BuddyInventoryStore {
       }
       case "consume": {
         const definition = this.#requireDefinition(mutation.itemId);
-        const current = quantities[definition.id] ?? 0;
-        if (current < mutation.quantity) throw new Error(`Not enough ${definition.displayName} in inventory.`);
-        const next = current - mutation.quantity;
-        if (next === 0) delete quantities[definition.id];
-        else quantities[definition.id] = next;
-        for (const [slot, itemId] of Object.entries(equipped)) if (itemId === definition.id && next === 0) delete equipped[slot as BuddyEquipmentSlot];
+        removeQuantity(definition, mutation.quantity);
         ledgerEntry = { transactionId: mutation.transactionId, source, operation: "consume", itemId: definition.id, quantity: mutation.quantity, reason: mutation.reason };
+        break;
+      }
+      case "exchange": {
+        const offered = this.#requireDefinition(mutation.itemId);
+        const received = this.#requireDefinition(mutation.receivedItemId);
+        if (offered.id === received.id) throw new Error("Inventory exchange items must be different.");
+        if (!offered.tradable || !received.tradable) throw new Error("Inventory exchange requires tradable items.");
+        const receivedCurrent = quantities[received.id] ?? 0;
+        if (receivedCurrent + mutation.receivedQuantity > received.maxStack) throw new Error(`Inventory stack limit exceeded for ${received.id}.`);
+        removeQuantity(offered, mutation.quantity);
+        quantities[received.id] = receivedCurrent + mutation.receivedQuantity;
+        ledgerEntry = {
+          transactionId: mutation.transactionId,
+          source,
+          operation: "exchange",
+          itemId: offered.id,
+          quantity: mutation.quantity,
+          receivedItemId: received.id,
+          receivedQuantity: mutation.receivedQuantity,
+          reason: mutation.reason,
+        };
         break;
       }
       case "equip": {
@@ -186,6 +218,17 @@ export class BuddyInventoryStore {
     const reason = validateInventoryReason(value.reason);
     if (operation === "grant" || operation === "consume") {
       return { operation, transactionId, itemId: String(value.itemId ?? ""), quantity: validateInventoryQuantity(value.quantity), reason };
+    }
+    if (operation === "exchange") {
+      return {
+        operation,
+        transactionId,
+        itemId: String(value.itemId ?? ""),
+        quantity: validateInventoryQuantity(value.quantity),
+        receivedItemId: String(value.receivedItemId ?? ""),
+        receivedQuantity: validateInventoryQuantity(value.receivedQuantity),
+        reason,
+      };
     }
     if (operation === "equip") {
       return { operation, transactionId, itemId: String(value.itemId ?? ""), ...(value.slot === undefined ? {} : { slot: validateEquipmentSlot(value.slot) }), reason };
