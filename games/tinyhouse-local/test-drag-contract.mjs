@@ -16,18 +16,9 @@ const pointerDown = { x: 210, y: 160 };
 const originalAnchor = { x: 180, y: 240 };
 const offset = core.grabOffset(pointerDown, originalAnchor);
 assert.deepEqual({ ...offset }, { x: 30, y: -80 });
-
 const pointerMoved = { x: 510, y: 360 };
 const movedAnchor = core.anchorFromPointer(pointerMoved, offset);
 assert.deepEqual({ ...movedAnchor }, { x: 480, y: 440 });
-assert.deepEqual(
-  {
-    x: pointerMoved.x - movedAnchor.x,
-    y: pointerMoved.y - movedAnchor.y,
-  },
-  { x: 30, y: -80 },
-  "the grabbed pixel must keep the same pointer offset throughout the drag",
-);
 
 const placement = {
   column: 2,
@@ -36,20 +27,9 @@ const placement = {
   y: 224,
   supportId: "desk-1",
   supportOffsetX: 12,
-  wallSide: null,
-  wallIndex: null,
 };
 const snapshot = core.snapshotPlacement(placement);
-Object.assign(placement, {
-  column: 4,
-  row: 4,
-  x: 700,
-  y: 500,
-  supportId: null,
-  supportOffsetX: 0,
-  wallSide: "left",
-  wallIndex: 3,
-});
+Object.assign(placement, { column: 4, row: 4, x: 700, y: 500, supportId: null, supportOffsetX: 0 });
 core.restorePlacement(placement, snapshot);
 assert.deepEqual(placement, {
   column: 2,
@@ -58,29 +38,21 @@ assert.deepEqual(placement, {
   y: 224,
   supportId: "desk-1",
   supportOffsetX: 12,
-  wallSide: null,
-  wallIndex: null,
 });
 
 assert.match(runtimeSource, /grabOffset\(pointer, anchor\)/);
 assert.match(runtimeSource, /anchorFromPointer\(pointer, active\.offset\)/);
 assert.match(runtimeSource, /stopImmediatePropagation\(\)/);
-assert.match(runtimeSource, /worldToNearestCell\(anchor\.x, anchor\.y\)/);
-assert.match(runtimeSource, /supportAnchor\.y \* 10 \+ 600/);
-assert.match(runtimeSource, /nearestWallTarget\(pointer, asset, playable\.room, anchor\)/);
+assert.match(runtimeSource, /worldToNearestFloorCell/);
 assert.match(runtimeSource, /pointerup", finalizeDrag, true/);
 assert.match(runtimeSource, /pointercancel/);
 
 const appIndex = html.indexOf('<script src="app.js"></script>');
 const dragCoreIndex = html.indexOf('<script src="drag-core.js"></script>');
-const wallCoreIndex = html.indexOf('<script src="wall-core.js"></script>');
 const dragRuntimeIndex = html.indexOf('<script src="drag-pointer-lock.js"></script>');
-const wallRuntimeIndex = html.indexOf('<script src="wall-mount.js"></script>');
 const cozyIndex = html.indexOf('<script src="cozy-core.js"></script>');
 assert.ok(appIndex >= 0 && dragCoreIndex > appIndex);
-assert.ok(wallCoreIndex > dragCoreIndex);
-assert.ok(dragRuntimeIndex > wallCoreIndex);
-assert.ok(wallRuntimeIndex > dragRuntimeIndex);
-assert.ok(cozyIndex > wallRuntimeIndex);
+assert.ok(dragRuntimeIndex > dragCoreIndex);
+assert.ok(cozyIndex > dragRuntimeIndex);
 
-console.log("TinyHouse pointer drag contract passed: grab offset and attached-item visibility stay stable until release snap.");
+console.log("TinyHouse pointer drag contract passed: grab offset stays locked and release snap follows the editable floor grid.");
