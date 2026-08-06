@@ -18,7 +18,7 @@ The floor and wall presentation uses the approved TinyHouse geometry, but the st
 - every wall or door is an addressable edge between adjacent cells;
 - floor cells can be added or removed individually, including beyond the original room bounds;
 - wall edges can be added or removed independently, including interior partitions;
-- connected 3×3 rooms can be appended from the Structure panel;
+- connected rectangular rooms can be appended from the Structure panel;
 - doors replace wall edges, animate, and change whether adjacent floor regions are connected;
 - furniture placement and dragging accept only floor cells that currently exist;
 - wall-mounted TVs, windows, pictures, and posters target only wall edges that currently exist;
@@ -35,10 +35,17 @@ Open the **Structure** panel on the right side of the house:
 - **+ Floor / − Floor** — grow or shrink the house one tile at a time.
 - **+ Wall / − Edge** — add partitions or remove wall/door edges.
 - **+ Door** — replace an edge with a working passage.
-- **Add East Room / Add South Room** — append a connected 3×3 room with a door.
+- **Room Planner** — choose east/south expansion plus a width and depth from 2–8 tiles, then add a connected room with a working door.
+- **Undo / Redo** — reverse structure edits through a bounded 64-step history.
 - **Fit House** — reframe the camera around the current structure.
 
-Press **B** to collapse or reopen the Structure panel.
+The editor blocks removing a bridge tile when that would accidentally split the physical floor footprint. Hold **Alt** while clicking only when a disconnected structure is intentional.
+
+Keyboard shortcuts:
+
+- **B** — collapse or reopen the Structure panel.
+- **Ctrl/Cmd+Z** — undo a structure edit.
+- **Ctrl/Cmd+Shift+Z** or **Ctrl/Cmd+Y** — redo a structure edit.
 
 ## Included furnishing behavior
 
@@ -78,7 +85,7 @@ node test-house-grid-contract.mjs
 node test-cozy-contract.mjs
 ```
 
-`test-house-grid-contract.mjs` protects the real cell/edge model, exact projection, room expansion, floor removal, door connectivity, persistence, and full-house export wiring.
+`test-house-grid-contract.mjs` protects the real cell/edge model, exact projection, rectangular room planning, bridge-tile split detection, room expansion, door connectivity, persistence, and full-house export wiring.
 
 ## Asset boundary
 
