@@ -4,6 +4,7 @@ export const pocketBuddyPlusBundledPluginIds = [
   "openpets.music-buddy",
   "openpets.buddy-training",
   "openpets.buddy-battles",
+  "openpets.buddy-trading-post",
 ] as const;
 
 /**
