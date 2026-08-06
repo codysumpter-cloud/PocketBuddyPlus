@@ -10,7 +10,7 @@
 .structure-edge-hit.has-wall{background:rgba(255,179,92,.28)}
 .structure-edge-hit.has-door{background:rgba(155,244,188,.32)}
 .structure-edge-hit:hover{background:rgba(255,230,119,.46);box-shadow:0 0 10px rgba(255,230,119,.72)}
-.structure-door{position:absolute;border:0;background:transparent;padding:0;cursor:pointer;image-rendering:pixelated;overflow:visible}
+.structure-door{position:absolute;pointer-events:auto;border:0;background:transparent;padding:0;cursor:pointer;image-rendering:pixelated;overflow:visible}
 .structure-door img{display:block;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;pointer-events:none}
 .structure-door.open{filter:drop-shadow(0 0 6px rgba(110,255,181,.75))}
 .structure-door.closed{filter:drop-shadow(0 3px 0 rgba(21,20,24,.4))}
