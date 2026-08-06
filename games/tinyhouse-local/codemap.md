@@ -40,7 +40,7 @@ Buddy+ host bridge.
 - `test-drag-contract.mjs` — pointer-lock and editable-grid release snapping.
 - `test-wall-contract.mjs` — tabletop depth and canonical structural wall mounting.
 - `test-house-grid-contract.mjs` — cell/edge topology, expansion, door connectivity, exact projection, Blueprint planning, safe footprint deletion, persistence, clickable doors, and full-house export contract.
-- `test-room-templates-contract.mjs` — four editable room recipes, local preview controls, UUID-safe assignment, backup/restore, animation controls, manifest references, and script ordering.
+- `test-room-templates-contract.mjs` — four editable room recipes, complete manifest resolution, valid floor anchors, local preview controls, UUID-safe assignment, backup/restore, animation controls, and script ordering.
 - `test-cozy-contract.mjs` — Cozy state, timer, integration, bridge, and no-upload checks.
 
 ## Structural invariants
@@ -54,6 +54,7 @@ Buddy+ host bridge.
 - Structure undo/redo stores at most 64 serialized topology snapshots and never includes licensed asset bytes.
 - Wall-mounted decor retains the canonical edge key, coordinates, and orientation across drag, duplicate, save, and load.
 - Room templates store only manifest IDs, coordinates, scale, wall anchors, support relationships, and animation metadata; they contain no purchased image bytes.
+- Every room-template asset ID must resolve in the shipped manifest, and every non-wall root placement must round to a floor cell inside its template footprint.
 - Applying a template creates an editable structure and movable placements, then preserves the previous complete house as a one-step local backup.
 - UUID-named preview files require explicit per-room assignment; unnamed files are never guessed into arbitrary templates.
 - Showcase GIF/PNG previews use revocable object URLs and never enter house saves, host snapshots, or repository source.
