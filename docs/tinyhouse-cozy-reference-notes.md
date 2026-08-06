@@ -6,6 +6,11 @@ Use external open-source projects as design references, then rebuild the useful
 patterns as original Pocket Buddy+ code. Do not copy source, art, audio, models,
 or branding into TinyHouse Local without a file-level provenance review.
 
+Use the player's licensed TinyHouse pack as the runtime art source. The pack's
+animated full-room GIFs and PNG compositions may be viewed locally as layout and
+behavior references, but they are not committed, uploaded, embedded in saves, or
+used as a substitute for editable room objects.
+
 ## Evaluated Cozy references
 
 ### Pixel Agents
@@ -117,11 +122,41 @@ Pocket Buddy+ adoption:
 - Blueprint planning changes only topology and does not mingle licensed asset bytes with structure data
 - open and closed doors continue to control traversable zones independently from the physical footprint guard
 
+## Evaluated TinyHouse showcase compositions
+
+The licensed TinyHouse pack includes full-room compositions for spaces including
+Bathroom, Kitchen, Office, and Japanese Room. Several supplied showcase files are
+animated and demonstrate coordinated object states, including bath and sink
+activity, appliance and cabinet changes, office equipment, and sliding doors.
+
+Useful patterns:
+
+- a good preset communicates a room purpose immediately;
+- animated objects should remain independent interactive entities rather than one flattened room movie;
+- a full-room composition is useful as a reference and preview even when the final room remains editable;
+- preset application must be reversible because it replaces a large amount of player work.
+
+Pocket Buddy+ adoption:
+
+- `room-templates-core.js` records metadata-only recipes using exact local manifest IDs;
+- Bathroom, Kitchen, Office, and Japanese recipes create real floor cells, walls, movable furnishings, tabletop relationships, and wall anchors;
+- **Play Room Animations** triggers the editable objects through the normal animation runtime;
+- template application stores a one-step complete-house backup before replacement;
+- optional GIF/PNG previews use revocable local object URLs;
+- named previews can auto-match, while UUID-named files require explicit **Choose Preview** assignment so the app does not guess incorrectly;
+- the showcase image bytes never enter source control, room saves, public host snapshots, or the Prismtek Apps integration record.
+
 ## Licensing and provenance boundary
 
-The TinyHouse files are original Prismtek source. They contain no purchased Pixel
-Salvaje image bytes, no source copied from the projects above, no remote media
-URLs, and no third-party JavaScript packages. The references inform behavior and
-editor ergonomics only. Future vendoring requires the normal source URL, author,
-exact license, attribution, modification, commercial-use, redistribution, and
-destination record.
+The TinyHouse runtime and editor files are original Prismtek source. They contain
+no purchased Pixel Salvaje image bytes, no source copied from the projects above,
+no remote media URLs, and no third-party JavaScript packages. Open-source
+references inform behavior and editor ergonomics only. The licensed TinyHouse
+showcases inform local room arrangement and animation intent only; the checked-in
+recipes contain IDs and placement metadata, not art bytes.
+
+Future vendoring requires the normal source URL, author, exact license,
+attribution, modification, commercial-use, redistribution, and destination
+record. Future TinyHouse template additions must also prove that all referenced
+asset IDs exist in the selected local pack and that no preview or source image was
+added to the repository.
