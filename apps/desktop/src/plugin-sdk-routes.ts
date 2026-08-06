@@ -22,7 +22,7 @@ const pluginSdkCoreAsyncRoutes = [
 ] as const;
 
 export const pluginSdkInventoryRoutes = [
-  "inventory.snapshot", "inventory.grant", "inventory.consume", "inventory.equip", "inventory.unequip", "inventory.onChange", "inventory.offChange",
+  "inventory.snapshot", "inventory.grant", "inventory.consume", "inventory.exchange", "inventory.equip", "inventory.unequip", "inventory.onChange", "inventory.offChange",
 ] as const;
 
 export const pluginSdkAsyncRoutes = [...pluginSdkCoreAsyncRoutes, ...pluginSdkInventoryRoutes] as const;
