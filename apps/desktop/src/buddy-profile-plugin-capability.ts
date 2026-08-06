@@ -24,9 +24,9 @@ export function installBuddyProfilePluginCapability(
 
   capabilities.pets.list = () => decorate(originalList());
   capabilities.pets.onChange = (handler) => {
-    const emit = () => handler(decorate(originalList()));
-    const disposePets = originalOnChange(() => emit());
-    const disposeProfile = store.onChange(() => emit());
+    const emitCurrent = () => handler(decorate(originalList()));
+    const disposePets = originalOnChange((pets) => handler(decorate(pets)));
+    const disposeProfile = store.onChange(() => emitCurrent());
     return () => {
       disposePets();
       disposeProfile();
