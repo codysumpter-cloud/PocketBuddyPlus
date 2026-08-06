@@ -1,0 +1,8 @@
+{
+  "plugin.name": "Music Buddy",
+  "plugin.description": "A music companion that shows Spotify now-playing details and offers basic playback controls.",
+  "config.announceTrackChanges.label": "Announce track changes",
+  "config.announceTrackChanges.description": "Let your Buddy announce a song when Spotify changes tracks.",
+  "config.quietWhenPaused.label": "Quiet when paused",
+  "config.quietWhenPaused.description": "Slow polling and avoid announcements while playback is paused."
+}

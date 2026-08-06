@@ -115,27 +115,23 @@ function run(command, args = [], options = {}) {
 }
 
 async function main() {
-  // 1. Preload syntax checks
   console.log("\n[1/5] Checking preload syntax...");
   for (const preload of preloadChecks) await run("node", ["--check", preload]);
 
-  // 2. Build tests
   console.log("\n[2/5] Building tests...");
   await run("pnpm", ["test:build"]);
 
-  // 3. Run behavior tests
   console.log("\n[3/5] Running behavior tests...");
   for (const test of behaviorTests) await run("node", [test]);
 
-  // 4. Run contract tests
   console.log("\n[4/5] Running contract tests...");
   for (const test of contractTests) await run("node", [test]);
 
-  // 5. Run remaining dist checks
-  console.log("\n[5/5] Running dist checks...");
-  for (const check of distChecks) {
-    await run("node", [check]);
-  }
+  // Keep `pnpm test` self-contained on a clean checkout instead of relying on
+  // a preceding build for dist-only checks.
+  console.log("\n[5/5] Building main output and running dist checks...");
+  await run("pnpm", ["build:main"]);
+  for (const check of distChecks) await run("node", [check]);
 
   console.log("\n✓ All tests passed!");
 }
