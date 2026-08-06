@@ -28,7 +28,11 @@ export const pluginSdkInventoryRoutes = [
 export const pluginSdkAsyncRoutes = [...pluginSdkCoreAsyncRoutes, ...pluginSdkInventoryRoutes] as const;
 export const pluginSdkSyncRoutes = ["i18n.t", "i18n.locale"] as const;
 export const pluginSdkRoutes = [...pluginSdkAsyncRoutes, ...pluginSdkSyncRoutes] as const;
-export type PluginSdkRoute = typeof pluginSdkRoutes[number];
+
+/** Statically implemented by plugin-js-host.ts. */
+export type PluginSdkRoute = typeof pluginSdkCoreAsyncRoutes[number] | typeof pluginSdkSyncRoutes[number];
+/** Complete route set accepted by the preload/runtime, including installed adapters. */
+export type PluginSdkPublicRoute = typeof pluginSdkRoutes[number];
 
 export function isPluginSdkRoute(path: string): path is PluginSdkRoute {
   return (pluginSdkRoutes as readonly string[]).includes(path);
