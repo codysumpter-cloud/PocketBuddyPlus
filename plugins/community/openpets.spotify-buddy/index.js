@@ -2,6 +2,10 @@
 
 const DEFAULT_POLL_INTERVAL_SECONDS = 2;
 const MIN_POLL_INTERVAL_SECONDS = 2;
+// While no account is connected there is nothing to poll for, so the poll backs
+// off to this instead of retrying the token refresh every MIN_POLL_INTERVAL.
+const DISCONNECTED_POLL_INTERVAL_SECONDS = 300;
+let needsLogin = false;
 const MAX_ANNOUNCEMENT_LENGTH = 140;
 const EMPTY_TRACK_ID = "__no_track__";
 
@@ -179,7 +183,10 @@ async function loginSpotify(ctx) {
     });
     spotifyAccessToken = tokens.accessToken;
     spotifyExpiresAt = tokens.expiresAt || 0;
-    
+    // Connected again: resume the normal poll cadence.
+    needsLogin = false;
+    await scheduleNext(ctx);
+
     await ctx.pet.speak("Successfully connected to Spotify!");
     await ctx.pet.react("celebrating");
     return true;
@@ -205,7 +212,15 @@ async function refreshAccessToken(ctx) {
       spotifyAccessToken = null;
       spotifyExpiresAt = 0;
     }
-    ctx.log?.warn?.("Token refresh failed", e?.message);
+    // No stored session means the user has never connected (or signed out).
+    // Retrying every couple of seconds cannot fix that, it just floods the log,
+    // so stand down until a login actually happens.
+    if (!needsLogin && /no stored oauth session/i.test(String(e?.message ?? ""))) {
+      needsLogin = true;
+      ctx.log?.warn?.("Spotify not connected; polling backs off until login.");
+      return null;
+    }
+    if (!needsLogin) ctx.log?.warn?.("Token refresh failed", e?.message);
   }
   return null;
 }
@@ -352,7 +367,9 @@ if (typeof globalThis.OpenPetsPlugin !== "undefined") register(globalThis.OpenPe
 
 async function scheduleNext(ctx) {
   const config = await ctx.config.get();
-  const interval = Math.max(MIN_POLL_INTERVAL_SECONDS, Number(config.pollIntervalSeconds || DEFAULT_POLL_INTERVAL_SECONDS));
+  const interval = needsLogin
+    ? DISCONNECTED_POLL_INTERVAL_SECONDS
+    : Math.max(MIN_POLL_INTERVAL_SECONDS, Number(config.pollIntervalSeconds || DEFAULT_POLL_INTERVAL_SECONDS));
   const delayMs = interval * 1000;
   await ctx.schedule.cancel("spotify-poll");
   await ctx.schedule.once("spotify-poll", delayMs, async () => {
