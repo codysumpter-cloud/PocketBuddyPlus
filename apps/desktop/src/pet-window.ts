@@ -15,7 +15,7 @@ import { debug, error as logError, info, warn } from "./logger.js";
 import { executeDefaultPetPluginCommand, executeDefaultPetPluginMenuSelect, getDefaultPetPluginCommands, getDefaultPetPluginMenuItems } from "./plugin-service.js";
 import type { ActiveBubble } from "./plugin-bubble-arbiter.js";
 import type { PluginBubbleIndicator, PluginCommandForm, PluginBubbleHud, PluginBubbleHudItem } from "./plugin-sdk-bridge.js";
-import { defaultPetSprite, motionToSpriteState, resolveReactionSpriteState, type PetMotionState, type UniversalSpriteState } from "./reaction-animation-mapping.js";
+import { defaultPetSprite, motionToSpriteState, resolvePetMotionState, resolveReactionSpriteState, type PetMotionState, type UniversalSpriteState } from "./reaction-animation-mapping.js";
 import { getPetAnimationFrameUrl, readInstalledPetAnimationManifest, resolvePetReactionAnimation } from "./pet-animation-manifest.js";
 import { canonicalPetDirections, resolvePetAnimationId, type PocketBuddyAnimationManifest } from "@open-pets/pet-format";
 import { isFocusActionAvailable } from "./capabilities.js";
@@ -1103,11 +1103,22 @@ async function createManifestPetRender(petId: string, displayName: string, manif
       frames,
     };
   }
+  const idleMotion = manifest.motionMappings.idle && animations[manifest.motionMappings.idle] ? manifest.motionMappings.idle : idleId;
+  const runningLeft = manifest.motionMappings["running-left"] && animations[manifest.motionMappings["running-left"]] ? manifest.motionMappings["running-left"] : aliases.running;
+  const runningRight = manifest.motionMappings["running-right"] && animations[manifest.motionMappings["running-right"]] ? manifest.motionMappings["running-right"] : aliases.running;
   const motion = {
-    idle: manifest.motionMappings.idle && animations[manifest.motionMappings.idle] ? manifest.motionMappings.idle : idleId,
-    "run-left": manifest.motionMappings["running-left"] && animations[manifest.motionMappings["running-left"]] ? manifest.motionMappings["running-left"] : aliases.running,
-    "run-right": manifest.motionMappings["running-right"] && animations[manifest.motionMappings["running-right"]] ? manifest.motionMappings["running-right"] : aliases.running,
-  };
+    idle: idleMotion,
+    "run-left": runningLeft,
+    "run-right": runningRight,
+    "run-north": aliases.running,
+    "run-north-east": runningRight,
+    "run-east": runningRight,
+    "run-south-east": runningRight,
+    "run-south": aliases.running,
+    "run-south-west": runningLeft,
+    "run-west": runningLeft,
+    "run-north-west": runningLeft,
+  } satisfies Record<PetMotionState, string>;
   const catalog = { version: 1, petId, idle: idleId, defaultDirection: manifest.preview.defaultDirection ?? "south", aliases, motion, animations };
   const initialAnimation = (animations[reactionState] ?? animations[idleId]) as { frames?: Record<string, string[]>; defaultDirection?: string } | undefined;
   const initialDirection = initialAnimation?.defaultDirection ?? "south";
@@ -1557,8 +1568,25 @@ function escapeCssUrl(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "");
 }
 
+/**
+ * Lets a mover declare which way a pet is about to travel.
+ *
+ * The publisher below is reactive: it reads the delta from the window's own
+ * `move` event, which only fires once the window has ALREADY moved. The pet
+ * therefore slid a few pixels in its idle pose before the run animation
+ * appeared, and small nudges under the 3px threshold never animated at all.
+ * A mover that knows its target can call this first so the animation leads the
+ * movement instead of trailing it.
+ */
+const motionIntentByWindow = new WeakMap<BrowserWindow, (state: PetMotionState) => void>();
+
+export function signalPetMotionIntent(window: BrowserWindow, state: PetMotionState): void {
+  if (window.isDestroyed()) return;
+  motionIntentByWindow.get(window)?.(state);
+}
+
 function installMotionStatePublisher(window: BrowserWindow): void {
-  let lastX = window.getPosition()[0];
+  let [lastX, lastY] = window.getPosition();
   let lastSent: PetMotionState = "idle";
   let idleTimer: NodeJS.Timeout | null = null;
 
@@ -1578,15 +1606,25 @@ function installMotionStatePublisher(window: BrowserWindow): void {
 
   const handleMove = (): void => {
     if (window.isDestroyed()) return;
-    const [x] = window.getPosition();
+    const [x, y] = window.getPosition();
     const deltaX = x - lastX;
+    const deltaY = y - lastY;
     lastX = x;
+    lastY = y;
 
-    if (Math.abs(deltaX) >= 3) {
-      sendMotionState(deltaX > 0 ? "run-right" : "run-left");
+    if (Math.hypot(deltaX, deltaY) >= 3) {
+      sendMotionState(resolvePetMotionState(deltaX, deltaY));
     }
     scheduleIdle();
   };
+
+  // A mover that knows where it is heading wins over the reactive delta, so the
+  // animation starts with the movement rather than a frame or two behind it.
+  motionIntentByWindow.set(window, (state) => {
+    lastX = window.getPosition()[0];
+    sendMotionState(state);
+    scheduleIdle();
+  });
 
   window.on("move", handleMove);
   window.on("moved", handleMove);

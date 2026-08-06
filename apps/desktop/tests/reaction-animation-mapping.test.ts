@@ -9,7 +9,10 @@ import {
   migrateLegacyReactionAnimationOverrides,
   normalizePerPetReactionAnimationOverrides,
   normalizeReactionAnimationOverrides,
+  motionToSpriteState,
   reactionAnimationMetadata,
+  resolvePetMotionDirection,
+  resolvePetMotionState,
   resolveReactionSpriteState,
   selectableAnimationMetadata,
   validatePerPetReactionAnimationOverrides,
@@ -154,5 +157,30 @@ assert.deepEqual(
   { "custom-pet": { thinking: "head-tilt" }, builtin: { thinking: "running" } },
   "existing per-pet mappings and legacy built-in mappings must coexist",
 );
+
+// Commanded and observed movement resolve to all eight screen-space octants.
+const directionCases = [
+  { dx: 0, dy: -1, state: "run-north", direction: "north" },
+  { dx: 1, dy: -1, state: "run-north-east", direction: "north-east" },
+  { dx: 1, dy: 0, state: "run-east", direction: "east" },
+  { dx: 1, dy: 1, state: "run-south-east", direction: "south-east" },
+  { dx: 0, dy: 1, state: "run-south", direction: "south" },
+  { dx: -1, dy: 1, state: "run-south-west", direction: "south-west" },
+  { dx: -1, dy: 0, state: "run-west", direction: "west" },
+  { dx: -1, dy: -1, state: "run-north-west", direction: "north-west" },
+] as const;
+for (const item of directionCases) {
+  assert.equal(resolvePetMotionState(item.dx, item.dy), item.state);
+  assert.equal(resolvePetMotionDirection(item.state), item.direction);
+  assert.ok(motionToSpriteState[item.state], `${item.state} must have a built-in spritesheet fallback`);
+}
+assert.equal(resolvePetMotionState(0, 0), "idle", "zero-length commands stay idle");
+assert.equal(resolvePetMotionState(0.1, 0), "run-east", "tiny commanded moves publish intent without the reactive 3px delay");
+assert.equal(resolvePetMotionDirection("run-left"), "west", "legacy run-left remains compatible");
+assert.equal(resolvePetMotionDirection("run-right"), "east", "legacy run-right remains compatible");
+const boundaryLow = 22.4 * Math.PI / 180;
+const boundaryHigh = 22.6 * Math.PI / 180;
+assert.equal(resolvePetMotionState(Math.cos(boundaryLow), Math.sin(boundaryLow)), "run-east");
+assert.equal(resolvePetMotionState(Math.cos(boundaryHigh), Math.sin(boundaryHigh)), "run-south-east");
 
 console.log("Reaction animation mapping tests passed.");
