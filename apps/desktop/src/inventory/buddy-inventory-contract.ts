@@ -16,9 +16,13 @@ export interface BuddyItemDefinition {
 export interface BuddyInventoryLedgerEntry {
   readonly transactionId: string;
   readonly source: string;
-  readonly operation: "grant" | "consume" | "equip" | "unequip";
+  readonly operation: "grant" | "consume" | "equip" | "unequip" | "exchange";
+  /** Primary item. For exchange entries, this is the item given away. */
   readonly itemId?: string;
   readonly quantity?: number;
+  /** Item received by an atomic exchange. */
+  readonly receivedItemId?: string;
+  readonly receivedQuantity?: number;
   readonly slot?: BuddyEquipmentSlot;
   readonly reason: string;
   readonly atMs: number;
@@ -37,6 +41,7 @@ export interface BuddyInventorySnapshot {
 
 export type BuddyInventoryMutation =
   | { readonly operation: "grant" | "consume"; readonly transactionId: string; readonly itemId: string; readonly quantity: number; readonly reason: string }
+  | { readonly operation: "exchange"; readonly transactionId: string; readonly itemId: string; readonly quantity: number; readonly receivedItemId: string; readonly receivedQuantity: number; readonly reason: string }
   | { readonly operation: "equip"; readonly transactionId: string; readonly itemId: string; readonly slot?: BuddyEquipmentSlot; readonly reason: string }
   | { readonly operation: "unequip"; readonly transactionId: string; readonly slot: BuddyEquipmentSlot; readonly reason: string };
 

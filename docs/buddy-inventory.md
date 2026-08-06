@@ -12,6 +12,7 @@ Pocket Buddy+ owns one durable inventory and equipment ledger so plugins can exc
 - append-only recent mutation receipts
 - idempotent transaction ids for safe retries
 - atomic rejection when a mutation is invalid or stock is insufficient
+- atomic exchanges that remove and receive items in one revision
 
 The initial catalog reuses canonical Buddy Home identifiers where they already exist, including `home.bed.basic`, `home.food-bowl.basic`, and `home.toy.ball`. It also includes the current Pocket Buddy+ wardrobe accessories and a first tradeable consumable, `consumable.apple`.
 
@@ -20,7 +21,7 @@ The initial catalog reuses canonical Buddy Home identifiers where they already e
 Inventory uses the existing Buddy permissions:
 
 - `pets:read` permits `ctx.inventory.snapshot()` and `ctx.inventory.onChange(...)`.
-- `pets:manage` permits grants, consumption, equipping, and unequipping.
+- `pets:manage` permits grants, consumption, atomic exchanges, equipping, and unequipping.
 
 Example reward:
 
@@ -33,6 +34,21 @@ await ctx.inventory.grant({
 });
 ```
 
+Example atomic barter:
+
+```ts
+await ctx.inventory.exchange({
+  transactionId: `trade.exchange:${tradeId}`,
+  itemId: "consumable.apple",
+  quantity: 2,
+  receivedItemId: "wardrobe.blue-scarf",
+  receivedQuantity: 1,
+  reason: "Trading Post barter",
+});
+```
+
+The exchange validates both host item definitions, tradable flags, offered stock, and the received stack limit before committing. If any validation fails, neither side of the exchange is applied. If the last owned copy of an equipped offered item is exchanged away, it is unequipped in the same transaction.
+
 Example equipment change:
 
 ```ts
@@ -43,7 +59,7 @@ await ctx.inventory.equip({
 });
 ```
 
-Transaction ids must be stable across retries. Repeating the same source, operation, and transaction id returns the current snapshot without applying the mutation twice. Reusing an id for a conflicting mutation is rejected.
+Transaction ids must be stable across retries. Repeating the same source, operation, transaction id, and complete mutation returns the current snapshot without applying it twice. Reusing an id for a conflicting mutation is rejected.
 
 ## Snapshot
 
@@ -55,8 +71,10 @@ The public snapshot includes:
 - equipped item ids by slot
 - the latest ledger receipts
 
-The ledger records the source plugin, operation, item, quantity or slot, reason, timestamp, and resulting revision. It does not contain provider keys, Talk history, notes, files, or plugin-private storage.
+The ledger records the source plugin, operation, offered item and quantity, received item and quantity for exchanges, equipment slot where relevant, reason, timestamp, and resulting revision. It does not contain provider keys, Talk history, notes, files, or plugin-private storage.
 
 ## Trading boundary
 
-This is the local foundation for battles, rewards, crafting, gifting, and trading. Network trading is intentionally not implemented here. A future trade system must add signed offers, explicit confirmations, atomic two-party settlement, expiry, replay protection, and abuse controls on top of this ledger rather than transferring raw plugin storage.
+The atomic `exchange` operation supports local shops, barter, crafting transforms, and other one-inventory experiences without unsafe compensating writes. Buddy Trading Post is the first consumer.
+
+Player-to-player or network trading is intentionally not implemented by this ledger alone. A future remote trade system must add authenticated player identity, signed offers, explicit confirmations, atomic two-party server settlement, expiry, replay protection, reconnect recovery, and abuse controls. Plugins must not simulate remote settlement by passing raw storage records or by performing unrelated consume and grant calls.
