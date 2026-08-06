@@ -78,7 +78,8 @@ try {
   const cared = applyBuddyCare(renamedBuddy, "feed", now + 2);
   store.sync({ buddy: cared, wardrobe: "gold-star" });
   assert.equal(changes.at(-1)?.[0]?.buddyProfile?.lastCareAction, "feed", "profile changes must reach pets.onChange subscribers");
-  registryListener?.([{ id: "default", name: "Balinese Cat", kind: "default", visible: false }]);
+  const emitRegistryChange = registryListener as unknown as (pets: PluginPetInfo[]) => void;
+  emitRegistryChange([{ id: "default", name: "Balinese Cat", kind: "default", visible: false }]);
   assert.equal(changes.at(-1)?.[0]?.visible, false, "pet registry changes must retain the public profile decoration");
   dispose();
 
