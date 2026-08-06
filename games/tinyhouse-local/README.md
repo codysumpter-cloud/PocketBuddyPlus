@@ -47,6 +47,25 @@ Keyboard shortcuts:
 - **Ctrl/Cmd+Z** — undo a structure edit.
 - **Ctrl/Cmd+Shift+Z** or **Ctrl/Cmd+Y** — redo a structure edit.
 
+## Editable room templates
+
+The **Rooms** button opens four licensed local room recipes assembled from the pack's individual assets:
+
+- **Bathroom** — animated bath, sink, toilet, shelves, mirror, window, toiletries, and plants.
+- **Kitchen** — cabinets, animated sink and appliances, refrigerator, washing machine, oven, table, seating, and countertop props.
+- **Office** — a larger 6×6 workspace with animated computers, printers, office machines, desks, chairs, partitions, storage, and wall decor.
+- **Japanese Room** — tatami-style flooring, closet, low table, cushions, tea, shelving, bonsai, lantern, artwork, and an animated sliding door.
+
+Building a template replaces the current house only after confirmation and stores a one-step complete-house backup. **Restore Previous House** restores its topology, furnishings, wall items, and animation state. Every template object remains selectable, movable, interactive, saveable, and exportable.
+
+The pack's animated full-room GIFs and PNG compositions can be used as optional local previews:
+
+- use **Choose Preview** on a room card for UUID-named files;
+- use **Auto-Match Named Showcases** when filenames contain words such as `bathroom`, `kitchen`, `office`, or `japanese`;
+- use **Play Room Animations** to trigger the real editable objects in the current room.
+
+Showcase previews are read through temporary browser object URLs. They are never uploaded, copied into saves, or committed to the repository. The editable room recipes reference manifest IDs rather than embedding licensed image bytes.
+
 ## Included furnishing behavior
 
 - Half-cell, forgiving furniture snapping on existing floor cells
@@ -82,10 +101,13 @@ node test-contract.mjs
 node test-drag-contract.mjs
 node test-wall-contract.mjs
 node test-house-grid-contract.mjs
+node test-room-templates-contract.mjs
 node test-cozy-contract.mjs
 ```
 
 `test-house-grid-contract.mjs` protects the real cell/edge model, exact projection, rectangular room planning, bridge-tile split detection, room expansion, door connectivity, persistence, and full-house export wiring.
+
+`test-room-templates-contract.mjs` protects the four editable recipes, required licensed manifest IDs, explicit UUID preview assignment, local-only showcase handling, one-step restore, whole-room animation controls, and script ordering.
 
 ## Asset boundary
 
