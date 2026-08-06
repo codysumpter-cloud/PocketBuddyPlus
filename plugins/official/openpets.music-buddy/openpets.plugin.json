@@ -1,8 +1,8 @@
 {
   "manifestVersion": 3,
   "id": "openpets.music-buddy",
-  "name": "Music Buddy",
-  "description": "A music companion that shows Spotify now-playing details and offers basic playback controls.",
+  "name": "$t:plugin.name",
+  "description": "$t:plugin.description",
   "version": "1.0.0",
   "runtime": "javascript",
   "icon": "sparkles",
@@ -24,14 +24,14 @@
     "announceTrackChanges": {
       "type": "boolean",
       "default": true,
-      "label": "Announce track changes",
-      "description": "Let your Buddy announce a song when Spotify changes tracks."
+      "label": "$t:config.announceTrackChanges.label",
+      "description": "$t:config.announceTrackChanges.description"
     },
     "quietWhenPaused": {
       "type": "boolean",
       "default": true,
-      "label": "Quiet when paused",
-      "description": "Slow polling and avoid announcements while playback is paused."
+      "label": "$t:config.quietWhenPaused.label",
+      "description": "$t:config.quietWhenPaused.description"
     }
   }
 }
