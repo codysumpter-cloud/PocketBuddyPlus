@@ -21,6 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # One-shot source repair; delete this workflow after the bot commit lands.
           python3 <<'PY'
           from pathlib import Path
 
