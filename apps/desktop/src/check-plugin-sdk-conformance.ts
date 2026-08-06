@@ -15,19 +15,20 @@ import { fileURLToPath } from "node:url";
 import type { PluginJavascriptPermission } from "./plugin-manifest.js";
 import type { PluginSdkApi } from "./plugin-sdk-bridge.js";
 import type { sdkCallHandlers } from "./plugin-js-host.js";
-import { pluginSdkAsyncRoutes, pluginSdkInventoryRoutes, pluginSdkSyncRoutes, type PluginSdkRoute } from "./plugin-sdk-routes.js";
+import { pluginSdkAsyncRoutes, pluginSdkInventoryRoutes, pluginSdkSyncRoutes, type PluginSdkPublicRoute } from "./plugin-sdk-routes.js";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Expect<T extends true> = T;
 
 // Every namespace the published SDK exposes (ctx.pet, ctx.schedule, …) must
-// exist on the runtime API, and the runtime must expose nothing extra.
+// exist on the runtime API, and the runtime must expose nothing extra. The
+// Pocket Buddy+ inventory namespace is installed by a host adapter.
 type _NamespacesMatch = Expect<Equal<keyof PluginSdkApi, Exclude<keyof OpenPetsContext, "inventory">>>;
 
 // The JavaScript plugin permission union must match the published contract.
 type _PermissionsMatch = Expect<Equal<PluginJavascriptPermission, OpenPetsPermission>>;
 type DynamicallyInstalledRoute = typeof pluginSdkInventoryRoutes[number];
-type _HostRoutesMatch = Expect<Equal<keyof typeof sdkCallHandlers | DynamicallyInstalledRoute, PluginSdkRoute>>;
+type _HostRoutesMatch = Expect<Equal<keyof typeof sdkCallHandlers | DynamicallyInstalledRoute, PluginSdkPublicRoute>>;
 
 // Reference the aliases so unused-type tooling never strips the guard.
 export type PluginSdkConformance = [_NamespacesMatch, _PermissionsMatch, _HostRoutesMatch];
