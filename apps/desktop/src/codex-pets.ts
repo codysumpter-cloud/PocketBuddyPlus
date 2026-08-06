@@ -1,12 +1,14 @@
 import { constants } from "node:fs";
-import { lstat, mkdir, mkdtemp, open, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { cp, lstat, mkdir, mkdtemp, open, readdir, realpath, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
 
 import sharp from "sharp";
 
 import { getAppStateSnapshot, installPetState, type OpenPetsStateV1 } from "./app-state.js";
-import { maxCodexPetJsonBytes, maxCodexPets, maxCodexSpritesheetBytes, maxCodexThumbnailSourceBytes, validateCodexPetMetadata, type CodexPetMetadata } from "./codex-pets-core.js";
+import { maxCodexAnimationManifestBytes, maxCodexPetJsonBytes, maxCodexPets, maxCodexSpritesheetBytes, maxCodexThumbnailSourceBytes, validateCodexPetMetadata, type CodexPetMetadata } from "./codex-pets-core.js";
+import { parsePocketBuddyAnimationManifest } from "@open-pets/pet-format";
+import { clearPetAnimationManifestCache } from "./pet-animation-manifest.js";
 import { withPetOperation } from "./pet-installation.js";
 import { assertInsideRoot, assertSafePetId, getInstalledPetDir, getPetsRoot } from "./pet-paths.js";
 
@@ -64,7 +66,8 @@ export async function importCodexPet(petId: string): Promise<OpenPetsStateV1> {
     await assertCodexPetDirectory(root, sourceDir);
     const metadata = await readCodexPetMetadata(root, sourceDir, petId);
     const spritesheetPath = join(sourceDir, metadata.spritesheetPath);
-    const spritesheet = await readRegularFile(spritesheetPath, maxCodexSpritesheetBytes, "spritesheet.webp");
+    await readRegularFile(spritesheetPath, maxCodexSpritesheetBytes, "spritesheet.webp");
+    await validateCodexAnimationManifest(sourceDir, metadata);
 
     const petsRoot = getPetsRoot();
     await mkdir(petsRoot, { recursive: true, mode: 0o700 });
@@ -73,10 +76,10 @@ export async function importCodexPet(petId: string): Promise<OpenPetsStateV1> {
 
     try {
       assertInsideRoot(petsRoot, tempDir);
-      await writeFile(join(tempDir, "spritesheet.webp"), spritesheet, { mode: 0o600, flag: "wx" });
-      await writeFile(join(tempDir, "pet.json"), `${JSON.stringify(metadata, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+      await copyCodexPackage(sourceDir, tempDir);
       await rm(finalDir, { recursive: true, force: true });
       await rename(tempDir, finalDir);
+      clearPetAnimationManifestCache(metadata.id);
 
       try {
         await validateInstalledRegularFile(join(finalDir, "spritesheet.webp"));
@@ -133,6 +136,37 @@ async function readCodexPetMetadata(root: string, dir: string, folderName: strin
   const metadata = validateCodexPetMetadata(parsed, folderName);
   assertSafePetId(metadata.id);
   return metadata;
+}
+
+async function validateCodexAnimationManifest(sourceDir: string, metadata: CodexPetMetadata): Promise<void> {
+  if (!metadata.animationManifestPath) return;
+  const parsed = JSON.parse((await readRegularFile(join(sourceDir, metadata.animationManifestPath), maxCodexAnimationManifestBytes, "animation-manifest.json")).toString("utf8")) as unknown;
+  const manifest = parsePocketBuddyAnimationManifest(parsed);
+  if (manifest.petId !== metadata.id) throw new Error("Codex animation manifest pet id does not match pet.json.");
+  for (const animation of manifest.animations) for (const direction of manifest.directions) for (const frame of animation.frames[direction] ?? []) {
+    const path = resolve(sourceDir, frame.path);
+    if (path !== sourceDir && !path.startsWith(`${sourceDir}${sep}`)) throw new Error("Codex animation frame escapes the pet directory.");
+    const info = await lstat(path);
+    if (info.isSymbolicLink() || !info.isFile() || info.size <= 0 || info.size > maxCodexSpritesheetBytes) throw new Error(`Codex animation frame is invalid: ${frame.path}`);
+  }
+}
+
+async function copyCodexPackage(sourceDir: string, tempDir: string): Promise<void> {
+  let count = 0;
+  const inspect = async (dir: string): Promise<void> => {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) throw new Error("Codex pet package cannot contain hidden files.");
+      const path = join(dir, entry.name);
+      const info = await lstat(path);
+      if (info.isSymbolicLink()) throw new Error("Codex pet package cannot contain symlinks.");
+      if (info.isDirectory()) { await inspect(path); continue; }
+      if (!info.isFile()) throw new Error("Codex pet package contains a special file.");
+      count += 1;
+      if (count > 20_000 || info.size > maxCodexSpritesheetBytes) throw new Error("Codex pet package exceeds import limits.");
+    }
+  };
+  await inspect(sourceDir);
+  await cp(sourceDir, tempDir, { recursive: true, force: true, dereference: false, preserveTimestamps: false });
 }
 
 async function validateSpritesheet(path: string): Promise<void> {

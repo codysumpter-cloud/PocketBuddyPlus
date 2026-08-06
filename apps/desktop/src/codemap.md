@@ -69,7 +69,8 @@ pet-window.ts
 ├── createDefaultPetWindow() / createAgentPetWindow()
 ├── loadDefaultPetContent() / loadExplicitPetContent()
 │   ├── HTML generation with CSS sprite animation
-│   ├── reaction-animation-mapping.ts (resolveReactionSpriteState)
+│   ├── reaction-animation-mapping.ts (built-in and per-pet semantic resolution)
+│   ├── pet-animation-manifest.ts (installed manifest cache, Settings catalogue, frame protocol)
 │   ├── reaction-messages.ts (pickReactionMessage for bubbles)
 │   ├── i18n/reactions (localized reaction speech pools)
 │   └── Speech bubbles, alert indicators, pinned HUDs, and status reactions
@@ -164,7 +165,7 @@ main.ts/settings → i18n.setLocaleFromPreference(system/user locale)
   - `windows.ts` ↔ `plugin-service.ts` for Control Center plugin UI IPC, plugin commands, and Dashboard plugin health
   - `pet-window.ts` ↔ `default-pet-controller.ts`, `agent-pet-controller.ts`
   - `pet-window.ts` ↔ `plugin-bubble-arbiter.ts`, `plugin-pet-registry.ts`, `pet-motion-engine.ts` for plugin-driven bubbles, spawned pets, and movement updates
-  - `pet-installation.ts` ↔ `app-state.ts`, `catalog.ts`, `zip-safety.ts`
+  - `pet-installation.ts` ↔ `app-state.ts`, `catalog.ts`, `zip-safety.ts`, `pet-animation-manifest.ts`, `@open-pets/pixel-asset-pipeline`
   - `plugin-service.ts` ↔ `plugin-state.ts`, `plugin-runtime.ts`, `plugin-catalog.ts`, `plugin-package.ts`, `plugin-local-loader.ts`, `plugin-js-host.ts`, `plugin-sdk-bridge.ts`, plugin SDK namespace modules, diagnostics, assets, settings, panels, voice, OAuth, secrets, and user sounds
   - `i18n/` ↔ `tray.ts`, `windows.ts`, `pet-window.ts`, `reaction-messages.ts`, `plugin-i18n.ts`
 
@@ -206,7 +207,8 @@ main.ts/settings → i18n.setLocaleFromPreference(system/user locale)
 - `pet-motion-engine.ts`: Interpolated movement vector/tick engine for plugin-driven pet motion and target-following behavior
 - `built-in-pet.ts`: Built-in pet constant
 - `reaction-messages.ts`: Message pools for each reaction type
-- `reaction-animation-mapping.ts`: Reaction-to-animation state mapping, user-configurable overrides, sprite state definitions
+- `reaction-animation-mapping.ts`: Canonical reaction semantics, built-in defaults, per-pet override migration, and manifest fallback resolution
+- `pet-animation-manifest.ts`: Installed manifest loading, cached asset validation, dynamic Settings snapshots, frame reads, and reaction/motion resolution
 - `i18n/`: Host message catalogs and localized reaction pools; see [i18n/codemap.md](i18n/codemap.md)
 
 **IPC**:
@@ -216,7 +218,7 @@ main.ts/settings → i18n.setLocaleFromPreference(system/user locale)
 - `lease-manager.ts`: Lease lifecycle (acquire, heartbeat, release, cleanup), target resolution
 
 **Installation**:
-- `pet-installation.ts`: ZIP download, yauzl extraction with safety limits, pet validation
+- `pet-installation.ts`: Catalog/local/Codex package installation plus reusable PixelLab 3.1 import and recursive manifest asset validation
 - `pet-paths.ts`: Safe path resolution for pet directories
 - `codex-pets.ts`: Import from `~/.codex/pets/` with validation
 - `codex-pets-core.ts`: Codex metadata validation constants

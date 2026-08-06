@@ -1,0 +1,87 @@
+{
+  "petId": "pixellab-green-trex",
+  "expectedArchiveName": "A_stout_vibrant_green_T-Rex_with_a_rounded_chunky-2.zip",
+  "expectedArchiveSha256": "a50f9f0a4beab34f035c332de7b8bd1055eef543d20d676c8c6b0da06d7458c8",
+  "displayName": "Chunky Green T-Rex",
+  "description": "A stout green T-Rex with Adult, Baby, and Adolescent source states.",
+  "includeStates": [
+    "Adult",
+    "Baby",
+    "Adolescent"
+  ],
+  "semanticDefaults": {
+    "idle": "Idle",
+    "running": "Walking",
+    "failed": "The_dinosaur_winces_and_closes_its_eyes_its_head_s"
+  },
+  "motionMappings": {
+    "idle": "Idle",
+    "running-left": "Walking",
+    "running-right": "Walking"
+  },
+  "animationPolicies": {
+    "Idle": {
+      "description": "Adult neutral eight-direction idle.",
+      "semanticTags": [
+        "idle",
+        "adult"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop"
+    },
+    "Walking": {
+      "description": "Adult complete eight-direction locomotion; used for desktop running until a faster gait is generated.",
+      "semanticTags": [
+        "running",
+        "walking",
+        "adult"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop",
+      "durationMs": 720
+    },
+    "The_dinosaur_winces_and_closes_its_eyes_its_head_s": {
+      "description": "Adult wince and recovery used for failure.",
+      "semanticTags": [
+        "failed",
+        "wince",
+        "adult"
+      ],
+      "iterations": 1,
+      "loopMode": "recover",
+      "durationMs": 1050
+    },
+    "[state] Baby": {
+      "description": "Preserved Baby life-stage rotations.",
+      "semanticTags": [
+        "baby",
+        "variant"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop"
+    },
+    "[state] Adolescent": {
+      "description": "Preserved Adolescent life-stage rotations.",
+      "semanticTags": [
+        "adolescent",
+        "variant"
+      ],
+      "iterations": "infinite",
+      "loopMode": "loop"
+    }
+  },
+  "provenance": {
+    "creator": "Cody Sumpter / Prismtek",
+    "sourceName": "A_stout_vibrant_green_T-Rex_with_a_rounded_chunky-2.zip",
+    "license": "User-owned PixelLab export; private runtime asset.",
+    "notes": [
+      "Life stages stay in one pet package because Pocket Buddy+ currently has no variant selector. Baby Walking remains incomplete and disabled. The exact archive contains eight Adult Walking/south frames, not sixteen."
+    ]
+  },
+  "blockedGenerationSemantics": [
+    "review",
+    "waiting",
+    "waving",
+    "jumping"
+  ]
+}

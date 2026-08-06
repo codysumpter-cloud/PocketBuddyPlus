@@ -51,8 +51,9 @@ OpenPets is a pnpm/TypeScript monorepo for an Electron desktop companion app plu
 | `packages/opencode/src/` | OpenCode plugin, config mutation, previews, status, and project/global setup modules. | [View Map](packages/opencode/src/codemap.md) |
 | `packages/pi/` | Pi coding-agent integration package with extension runtime and slash command support. | [View Map](packages/pi/codemap.md) |
 | `packages/pi/src/` | Pi extension entry point, event classification, OpenPets command parsing, and validation checks. | [View Map](packages/pi/src/codemap.md) |
-| `packages/pet-format/` | Minimal package marker/type interface for OpenPets pet package identity. | [View Map](packages/pet-format/codemap.md) |
-| `packages/pet-format/src/` | Marker source export for pet-format package consumers. | [View Map](packages/pet-format/src/codemap.md) |
+| `packages/pet-format/` | Versioned pet-package and per-pet animation manifest schema, validation, and fallback resolution. | [View Map](packages/pet-format/codemap.md) |
+| `packages/pet-format/src/` | Pet animation manifest types, validation, safe paths, and semantic resolution. | [View Map](packages/pet-format/src/codemap.md) |
+| `packages/pixel-asset-pipeline/` | Reusable PixelLab export 3.1 importer, validation recipes, previews, and receipts. | [View Map](packages/pixel-asset-pipeline/codemap.md) |
 | `packages/sdk/` | Public plugin SDK v3 type package and deterministic test harness. | [View Map](packages/sdk/codemap.md) |
 | `packages/sdk/src/` | SDK type contract, mock runtime, fake clock, and plugin test harness implementation. | [View Map](packages/sdk/src/codemap.md) |
 | `plugins/` | Root product source for first-party SDK v3 OpenPets plugins before catalog packaging and R2 upload. | [View Map](plugins/codemap.md) |

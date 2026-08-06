@@ -21,17 +21,25 @@ type StateSnapshot = { preferences: { defaultPetId: string }; pets: { installed:
 type CatalogState = { pets: PetEntry[]; source: string; error?: string; page?: number; pageCount?: number; total?: number; categories?: { id: "western" | "asian"; label: string; count: number }[]; originalsCount?: number; featuredCount?: number };
 type CodexState = { pets: PetEntry[]; error?: string };
 type PetScaleOption = { label: string; value: number };
-type UserSelectableAnimationState = "idle" | "review" | "running" | "waiting" | "waving" | "jumping" | "failed";
-type ReactionAnimationOverrides = Record<string, UserSelectableAnimationState>;
+type UserSelectableAnimationState = string;
+type ReactionAnimationOverrides = Record<string, string>;
 type PetPoolCandidate = { id: string; displayName: string };
-type SettingsState = { preferences: { openDefaultPetOnLaunch: boolean; locale?: "system" | string; petScale: number; reactionAnimationOverrides?: ReactionAnimationOverrides; petPoolEnabled: boolean; petPoolOrder?: readonly string[]; petConfinementEnabled: boolean; petCrossDisplayEnabled: boolean; petGravityEnabled: boolean }; petScaleOptions: PetScaleOption[]; petPoolCandidates: ReadonlyArray<PetPoolCandidate> };
+type SettingsState = { preferences: { openDefaultPetOnLaunch: boolean; locale?: "system" | string; petScale: number; reactionAnimationOverrides?: ReactionAnimationOverrides; reactionAnimationOverridesByPetId?: Record<string, ReactionAnimationOverrides>; petPoolEnabled: boolean; petPoolOrder?: readonly string[]; petConfinementEnabled: boolean; petCrossDisplayEnabled: boolean; petGravityEnabled: boolean }; petScaleOptions: PetScaleOption[]; petPoolCandidates: ReadonlyArray<PetPoolCandidate> };
 type LaunchAtLoginState = { supported: boolean; enabled: boolean };
 type LanTopologyIssue = { code: "self_reference" | "missing_reverse"; host: string; edge: "left" | "right" | "up" | "down"; neighbor: string };
 type LanStatusSnapshot = { mode: "off" | "server" | "client"; localHost: string; serverUrl: string; port: number; auth: "token" | "none"; authSource: "env" | "stored" | "generated" | "none"; authInsecure: boolean; tokenHint: string | null; topologyHosts: number; topologyLinks: number; topologyIssues: LanTopologyIssue[]; currentHost: string | null; clients: Array<{ host: string; lastSeen: number; position?: { x: number; y: number } }>; updatedAt: number; persistedCurrentHost: string | null; persistedUpdatedAt: number | null };
 type UpdateStatus = { state: "idle" | "checking" | "available" | "current" | "error"; currentVersion: string; latestVersion?: string; releaseUrl?: string; checkedAt?: number; error?: string };
 type DashboardActivity = { messagesSent: number; reactionsSent: number; reactionCounts: Record<string, number>; perPetActivityCounts: Record<string, number>; lastActivityAt?: number };
 type DashboardSnapshot = { defaultPet: { id: string; displayName: string; previewSpriteUrl: string }; installedPetCount: number; catalog: { source: string; total?: number; page?: number; pageCount?: number; error?: string }; plugins: { installed: number; enabled: number; broken: number }; updateStatus: UpdateStatus; activity: DashboardActivity };
-type ReactionAnimationSettings = { reactions: { id: string; label: string; description: string; defaultAnimation: UserSelectableAnimationState }[]; animations: { id: UserSelectableAnimationState; label: string; description: string }[]; sprite: { frameWidth: number; frameHeight: number; columns: number; rows: number; states: Record<UserSelectableAnimationState, { row: number; frames: number; durationMs: number; iterations?: number | "infinite" }> }; overrides: ReactionAnimationOverrides; previewSpriteUrl: string };
+type ReactionAnimationSettings = {
+  selectedPetId: string;
+  selectedPetDisplayName: string;
+  pets: { id: string; displayName: string; builtIn: boolean }[];
+  reactions: { id: string; label: string; description: string; canonicalDefault: string; defaultAnimation: string }[];
+  animations: { id: string; originalName: string; label: string; description: string; complete: boolean; sourceState: string; sourceFolder: string; directions: string[]; frameCount: number; frameCountsByDirection: Record<string, number>; durationMs: number; iterations: number | "infinite"; loopMode: string; semanticTags: string[]; issues: string[]; row?: number }[];
+  overrides: ReactionAnimationOverrides;
+  preview: { kind: "builtin-sheet" | "manifest-frames"; frameWidth: number; frameHeight: number; direction: string; sprite?: { columns: number; rows: number; states: Record<string, { row: number; frames: number; durationMs: number; iterations?: number | "infinite" }> }; spriteUrl?: string };
+};
 type PluginFilter = "all" | "installed" | "catalog" | "local" | "broken";
 type PluginPermission =
   | "pet:speak" | "pet:reaction" | "pet:move" | "timer" | "schedule" | "storage" | "status" | "commands" | "network"
@@ -71,7 +79,8 @@ type ControlCenterApi = {
   getLanStatus(): Promise<LanStatusSnapshot>;
   getI18n(): Promise<I18nSnapshot>;
   updatePreferences(patch: Partial<SettingsState["preferences"]>): Promise<SettingsState>;
-  getReactionAnimationSettings(): Promise<ReactionAnimationSettings>;
+  getReactionAnimationSettings(petId?: string): Promise<ReactionAnimationSettings>;
+  setReactionAnimationOverrides(petId: string, overrides: ReactionAnimationOverrides): Promise<ReactionAnimationSettings>;
   getLaunchAtLogin(): Promise<LaunchAtLoginState>;
   setLaunchAtLogin(enabled: boolean): Promise<LaunchAtLoginState>;
   getUpdateStatus(): Promise<UpdateStatus>;
@@ -1016,22 +1025,33 @@ function formatUpdateStatus(status: UpdateStatus | null, t: (key: string, vars?:
   return t("settings.update.version", { version: status.currentVersion });
 }
 
-function ReactionPreviewSprite({ settings, state }: { settings: ReactionAnimationSettings; state: UserSelectableAnimationState }) {
+function ReactionPreviewSprite({ settings, state }: { settings: ReactionAnimationSettings; state: string }) {
   const { t } = useI18n();
-  const frame = { width: settings.sprite.frameWidth, height: settings.sprite.frameHeight };
-  const sprite = settings.sprite.states[state] ?? settings.sprite.states.idle;
-  const xValues = Array.from({ length: sprite.frames }, (_, index) => String(-index * frame.width)).join(";");
-  const y = -sprite.row * frame.height;
-
-  return (
-    <div className="reaction-preview-sprite-shell">
-      <svg className="reaction-preview-sprite" width={frame.width} height={frame.height} viewBox={`0 0 ${frame.width} ${frame.height}`} role="img" aria-label={t("settings.reactions.previewAria", { state })}>
-        <image href={settings.previewSpriteUrl} x="0" y={y} width={frame.width * settings.sprite.columns} height={frame.height * settings.sprite.rows} preserveAspectRatio="none">
-          <animate attributeName="x" values={xValues} dur={`${sprite.durationMs}ms`} repeatCount="indefinite" calcMode="discrete" />
-        </image>
-      </svg>
-    </div>
-  );
+  const animation = settings.animations.find((candidate) => candidate.id === state) ?? settings.animations.find((candidate) => candidate.complete);
+  const [frameIndex, setFrameIndex] = useState(0);
+  useEffect(() => {
+    setFrameIndex(0);
+    if (!animation) return;
+    const direction = animation.directions.includes(settings.preview.direction) ? settings.preview.direction : animation.directions[0] ?? "south";
+    const directionFrameCount = Math.max(1, animation.frameCountsByDirection?.[direction] ?? animation.frameCount);
+    if (directionFrameCount <= 1) return;
+    const frameMs = Math.max(50, Math.floor(animation.durationMs / directionFrameCount));
+    const timer = window.setInterval(() => setFrameIndex((index) => (index + 1) % directionFrameCount), frameMs);
+    return () => window.clearInterval(timer);
+  }, [settings.preview.direction, animation?.id, animation?.durationMs, animation?.frameCount, animation?.frameCountsByDirection]);
+  if (!animation) return null;
+  const frame = { width: settings.preview.frameWidth, height: settings.preview.frameHeight };
+  if (settings.preview.kind === "manifest-frames") {
+    const direction = animation.directions.includes(settings.preview.direction) ? settings.preview.direction : animation.directions[0] ?? "south";
+    const src = `openpets-installed://frame/${encodeURIComponent(settings.selectedPetId)}?animation=${encodeURIComponent(animation.id)}&direction=${encodeURIComponent(direction)}&index=${frameIndex}`;
+    return <div className="reaction-preview-sprite-shell"><img className="reaction-preview-manifest-frame" width={frame.width} height={frame.height} src={src} alt={t("settings.reactions.previewAria", { state: animation.label })} /></div>;
+  }
+  const sprite = settings.preview.sprite;
+  const spriteState = sprite?.states[state] ?? sprite?.states.idle;
+  if (!sprite || !spriteState || !settings.preview.spriteUrl) return null;
+  const xValues = Array.from({ length: spriteState.frames }, (_, index) => String(-index * frame.width)).join(";");
+  const y = -spriteState.row * frame.height;
+  return <div className="reaction-preview-sprite-shell"><svg className="reaction-preview-sprite" width={frame.width} height={frame.height} viewBox={`0 0 ${frame.width} ${frame.height}`} role="img" aria-label={t("settings.reactions.previewAria", { state })}><image href={settings.preview.spriteUrl} x="0" y={y} width={frame.width * sprite.columns} height={frame.height * sprite.rows} preserveAspectRatio="none"><animate attributeName="x" values={xValues} dur={`${spriteState.durationMs}ms`} repeatCount="indefinite" calcMode="discrete" /></image></svg></div>;
 }
 
 function SettingsView() {
@@ -1098,9 +1118,6 @@ function SettingsView() {
     void run(t("settings.busy.saving"), async () => {
       const next = await api.updatePreferences(patch);
       setSettings(next);
-      if ("reactionAnimationOverrides" in patch) {
-        setReactionSettings((current) => current ? { ...current, overrides: next.preferences.reactionAnimationOverrides ?? {} } : current);
-      }
       setMessage(success);
     });
   }
@@ -1113,22 +1130,35 @@ function SettingsView() {
     });
   }
 
-  function updateReactionOverride(reaction: ReactionAnimationSettings["reactions"][number], value: UserSelectableAnimationState) {
+  function updateReactionOverride(reaction: ReactionAnimationSettings["reactions"][number], value: string) {
+    if (!reactionSettings) return;
+    const selectedPetId = reactionSettings.selectedPetId;
     const queuedSave = reactionSaveQueue.current.catch(() => undefined).then(() => run(t("settings.busy.saving"), async () => {
-      const latestReactions = await api.getReactionAnimationSettings();
+      const latestReactions = await api.getReactionAnimationSettings(selectedPetId);
       const nextOverrides = { ...(latestReactions.overrides ?? {}) };
       if (value === reaction.defaultAnimation) delete nextOverrides[reaction.id];
       else nextOverrides[reaction.id] = value;
-      const nextSettings = await api.updatePreferences({ reactionAnimationOverrides: nextOverrides });
-      setSettings(nextSettings);
-      setReactionSettings({ ...latestReactions, overrides: nextSettings.preferences.reactionAnimationOverrides ?? {} });
+      const nextReactions = await api.setReactionAnimationOverrides(selectedPetId, nextOverrides);
+      setReactionSettings(nextReactions);
       setMessage(t("settings.toast.reactionSaved"));
     }));
     reactionSaveQueue.current = queuedSave;
     void queuedSave;
   }
 
-  const overrides = settings?.preferences.reactionAnimationOverrides ?? {};
+  function selectReactionPet(petId: string) {
+    void run(t("settings.busy.checking"), async () => setReactionSettings(await api.getReactionAnimationSettings(petId)));
+  }
+
+  function resetSelectedReactionMappings() {
+    if (!reactionSettings) return;
+    void run(t("settings.busy.saving"), async () => {
+      setReactionSettings(await api.setReactionAnimationOverrides(reactionSettings.selectedPetId, {}));
+      setMessage(t("settings.toast.reactionsReset"));
+    });
+  }
+
+  const overrides = reactionSettings?.overrides ?? {};
 
   function patchPlatformSettings(patch: Partial<PluginPlatformSettings>, success: string) {
     void run(t("settings.busy.saving"), async () => {
@@ -1296,9 +1326,11 @@ function SettingsView() {
                 <p className="eyebrow">{t("settings.reactions.eyebrow")}</p>
                 <h2 className="settings-section-title">{t("settings.reactions.title")}</h2>
               </div>
-              <Button variant="secondary" size="compact" disabled={!settings || !!busy || !Object.keys(overrides).length} onClick={() => patchPreferences({ reactionAnimationOverrides: {} }, t("settings.toast.reactionsReset"))}>{t("settings.reactions.resetDefaults")}</Button>
+              <Button variant="secondary" size="compact" disabled={!reactionSettings || !!busy || !Object.keys(overrides).length} onClick={resetSelectedReactionMappings}>{t("settings.reactions.resetDefaults")}</Button>
             </div>
             <p className="text-sm text-slatecopy -mt-2 mb-2">{t("settings.reactions.description")}</p>
+            {reactionSettings && reactionSettings.pets.length > 1 && <div className="settings-row reaction-pet-selector"><div className="settings-row-info"><strong>{t("settings.reactions.petSelector")}</strong><small>{t("settings.reactions.petSelectorDescription")}</small></div><select className="settings-select" value={reactionSettings.selectedPetId} disabled={!!busy} onChange={(event) => selectReactionPet(event.target.value)}>{reactionSettings.pets.map((pet) => <option key={pet.id} value={pet.id}>{pet.displayName}{pet.builtIn ? ` (${t("common.builtInPet")})` : ""}</option>)}</select></div>}
+            {reactionSettings && <p className="text-sm text-slatecopy mb-2">{t("settings.reactions.editingPet", { name: reactionSettings.selectedPetDisplayName, count: reactionSettings.animations.filter((animation) => animation.complete).length })}</p>}
 
             <div className="settings-group">
               <div className="reaction-grid">
@@ -1307,9 +1339,7 @@ function SettingsView() {
                   return (
                     <div className="reaction-row" key={reaction.id}>
                       <div className="reaction-preview-box">
-                        {reactionSettings?.previewSpriteUrl && (
-                          <ReactionPreviewSprite settings={reactionSettings} state={currentAnimation} />
-                        )}
+                        {reactionSettings && <ReactionPreviewSprite settings={reactionSettings} state={currentAnimation} />}
                       </div>
                       <div className="reaction-info">
                         <strong>{reaction.label}</strong>
@@ -1320,12 +1350,12 @@ function SettingsView() {
                         value={currentAnimation}
                         disabled={!reactionSettings || !settings || !!busy}
                         onChange={(event) => {
-                          const value = event.target.value as UserSelectableAnimationState;
+                          const value = event.target.value;
                           updateReactionOverride(reaction, value);
                         }}
                       >
                         {(reactionSettings?.animations ?? []).map((animation) => (
-                          <option key={animation.id} value={animation.id}>{animation.label}</option>
+                          <option key={animation.id} value={animation.id} disabled={!animation.complete}>{animation.label}{animation.complete ? "" : " — incomplete"}</option>
                         ))}
                       </select>
                     </div>

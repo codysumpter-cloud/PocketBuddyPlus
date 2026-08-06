@@ -247,3 +247,9 @@ images silently fall back to the default pet. This is the single most common
 | Display containment / cross-screen | `display.ts`, `confinement-manager.ts` |
 | Topology-change reclamp | `default-pet-controller.ts` → `reclampAllLivePetWindows` |
 </content>
+
+## Multi-animation package extension
+
+A pet package may add `animationManifestPath: "animation-manifest.json"` to `pet.json`. The manifest and its recursively referenced `animations/<id>/<direction>/frame_NNN.png` files travel through the same catalog, local folder, ZIP, Codex, and installed-pet paths as the compatibility `spritesheet.webp`. See [pet-animation-manifests.md](pet-animation-manifests.md).
+
+Incomplete source animations are retained for provenance and review but disabled in reaction mapping. Raw PixelLab export 3.1 ZIPs can be imported locally through the reusable pixel-asset pipeline; no per-pet archive logic lives in the desktop application.

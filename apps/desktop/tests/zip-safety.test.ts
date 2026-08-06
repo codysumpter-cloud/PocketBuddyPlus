@@ -6,15 +6,22 @@ validateZipEntryName("pet-package/pet.json");
 validateZipEntryName("pet-package/spritesheet.webp");
 validateZipEntryName("pet.json");
 validateZipEntryName("spritesheet.webp");
+validateZipEntryName("animation-manifest.json");
+validateZipEntryName("preview.png");
+validateZipEntryName("animations/idle/south/frame_000.png");
+validateZipEntryName("pet-package/animations/run/east/frame_001.png");
 
 const validTracker = new ZipEntryPathTracker();
 validTracker.accept("pet-package/");
 validTracker.accept("pet-package/pet.json");
 validTracker.accept("pet-package/spritesheet.webp");
+validTracker.accept("pet-package/animation-manifest.json");
+validTracker.accept("pet-package/animations/idle/south/frame_000.png");
 
 const validFlatTracker = new ZipEntryPathTracker();
 validFlatTracker.accept("pet.json");
 validFlatTracker.accept("spritesheet.webp");
+validFlatTracker.accept("animations/idle/south/frame_000.png");
 
 for (const unsafe of [
   "../pet.json",
@@ -26,6 +33,10 @@ for (const unsafe of [
   "//server/share/pet.json",
   "pet-package/pet.json\0.png",
   "pet-package/extra.js",
+  "pet-package/animations/../idle/south/frame_000.png",
+  "pet-package/animations/Idle/south/frame_000.png",
+  "pet-package/animations/idle/SOUTH/frame_000.png",
+  "pet-package/animations/idle/south/frame.png",
   "pet-package/nested/pet.json",
   "pet-package//pet.json",
 ]) {

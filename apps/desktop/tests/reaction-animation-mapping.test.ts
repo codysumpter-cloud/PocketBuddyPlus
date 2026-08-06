@@ -6,10 +6,13 @@ import {
 import {
   defaultPetSprite,
   defaultReactionToSpriteState,
+  migrateLegacyReactionAnimationOverrides,
+  normalizePerPetReactionAnimationOverrides,
   normalizeReactionAnimationOverrides,
   reactionAnimationMetadata,
   resolveReactionSpriteState,
   selectableAnimationMetadata,
+  validatePerPetReactionAnimationOverrides,
   validateReactionAnimationOverrides,
   type SpriteStateDefinition,
   type UniversalSpriteState,
@@ -133,6 +136,23 @@ assert.equal(
   resolveReactionSpriteState(undefined, { idle: "waving" }),
   "idle",
   "no-reaction baseline must stay canonical idle even if explicit idle is overridden"
+);
+
+// Per-pet mappings accept arbitrary validated manifest ids and remain isolated by pet.
+assert.deepEqual(
+  normalizePerPetReactionAnimationOverrides({ thinking: "attentive-head-tilt", success: "happy-hop", nope: "ignored" }),
+  { thinking: "attentive-head-tilt", success: "happy-hop" },
+);
+assert.throws(() => validatePerPetReactionAnimationOverrides({ thinking: "../escape" }), /Invalid per-pet animation id/);
+assert.deepEqual(
+  migrateLegacyReactionAnimationOverrides(undefined, { thinking: "running" }),
+  { builtin: { thinking: "running" } },
+  "legacy global overrides must migrate into the built-in pet entry",
+);
+assert.deepEqual(
+  migrateLegacyReactionAnimationOverrides({ "custom-pet": { thinking: "head-tilt" } }, { thinking: "running" }),
+  { "custom-pet": { thinking: "head-tilt" }, builtin: { thinking: "running" } },
+  "existing per-pet mappings and legacy built-in mappings must coexist",
 );
 
 console.log("Reaction animation mapping tests passed.");

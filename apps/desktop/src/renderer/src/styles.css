@@ -378,3 +378,12 @@
   }
 
 }
+
+.reaction-preview-manifest-frame {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  object-fit: contain;
+  max-width: 100%;
+  max-height: 100%;
+}
+.reaction-pet-selector { margin-bottom: 12px; }

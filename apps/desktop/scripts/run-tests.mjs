@@ -30,6 +30,7 @@ const behaviorTests = [
   ".test-dist/tests/pet-source-contract.test.js",
   ".test-dist/tests/update-version.test.js",
   ".test-dist/tests/reaction-animation-mapping.test.js",
+  ".test-dist/tests/pet-animation-manifest.test.js",
   ".test-dist/tests/zip-safety.test.js",
   ".test-dist/tests/codex-pets.test.js",
   ".test-dist/tests/claude-memory.test.js",

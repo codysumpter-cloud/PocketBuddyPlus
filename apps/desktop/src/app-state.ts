@@ -11,7 +11,7 @@ import { allowedReactions, type OpenPetsReaction } from "./local-ipc-protocol.js
 import { assertSafePetId, getInstalledPetDir } from "./pet-paths.js";
 import { normalizePetPoolOrder } from "./pet-pool.js";
 import { publishPluginAgentActivity } from "./plugin-events-source.js";
-import { normalizeReactionAnimationOverrides, type ReactionAnimationOverrides } from "./reaction-animation-mapping.js";
+import { migrateLegacyReactionAnimationOverrides, normalizeReactionAnimationOverrides, validatePerPetReactionAnimationOverrides, type ReactionAnimationOverrides, type ReactionAnimationOverridesByPetId } from "./reaction-animation-mapping.js";
 
 export { normalizePetPoolOrder } from "./pet-pool.js";
 
@@ -43,7 +43,10 @@ export interface OpenPetsStateV1 {
     readonly locale: LocalePreference;
     readonly speechBubblesEnabled: boolean;
     readonly petScale: number;
+    /** Legacy built-in-pet overrides retained for backward compatibility. */
     readonly reactionAnimationOverrides?: ReactionAnimationOverrides;
+    /** Per-pet reaction mappings. Built-in legacy mappings are migrated into the built-in entry. */
+    readonly reactionAnimationOverridesByPetId?: ReactionAnimationOverridesByPetId;
     readonly onboardingCompleted: boolean;
     readonly claudeCommandPath?: string;
     readonly nodeCommandPath?: string;
@@ -138,6 +141,26 @@ export function updatePreferences(patch: Partial<OpenPetsStateV1["preferences"]>
     preferences,
   });
 
+  commitState(nextState);
+  return getAppStateSnapshot();
+}
+
+export function setReactionAnimationOverridesForPet(petId: string, value: unknown): OpenPetsStateV1 {
+  const state = getInitializedState();
+  const pet = state.pets.installed.find((candidate) => candidate.id === petId && !candidate.broken);
+  if (!pet) throw new Error(`Cannot map reactions for unknown or broken pet: ${petId}`);
+  const overrides = validatePerPetReactionAnimationOverrides(value);
+  const byPet = { ...(state.preferences.reactionAnimationOverridesByPetId ?? {}) };
+  if (overrides) byPet[petId] = overrides;
+  else delete byPet[petId];
+  const nextState = normalizeState({
+    ...state,
+    preferences: {
+      ...state.preferences,
+      reactionAnimationOverrides: petId === builtInPet.id ? normalizeReactionAnimationOverrides(overrides) : state.preferences.reactionAnimationOverrides,
+      reactionAnimationOverridesByPetId: Object.keys(byPet).length ? byPet : undefined,
+    },
+  });
   commitState(nextState);
   return getAppStateSnapshot();
 }
@@ -368,6 +391,9 @@ export function removePetState(petId: string): OpenPetsStateV1 {
     preferences: {
       ...state.preferences,
       defaultPetId: nextDefaultPetId,
+      reactionAnimationOverridesByPetId: state.preferences.reactionAnimationOverridesByPetId
+        ? Object.fromEntries(Object.entries(state.preferences.reactionAnimationOverridesByPetId).filter(([id]) => id !== petId))
+        : undefined,
     },
     pets: {
       installed: state.pets.installed.filter((pet) => pet.id !== petId),
@@ -520,6 +546,11 @@ function normalizePreferences(value: Partial<OpenPetsStateV1["preferences"]>): O
     speechBubblesEnabled: true,
     petScale: normalizePetScale(value.petScale),
     reactionAnimationOverrides: normalizeReactionAnimationOverrides(value.reactionAnimationOverrides),
+    reactionAnimationOverridesByPetId: migrateLegacyReactionAnimationOverrides(
+      value.reactionAnimationOverridesByPetId,
+      value.reactionAnimationOverrides,
+      builtInPet.id,
+    ),
     onboardingCompleted: normalizeOnboardingCompleted(value),
     claudeCommandPath: normalizeCommandPath(value.claudeCommandPath),
     nodeCommandPath: normalizeCommandPath(value.nodeCommandPath),
@@ -600,6 +631,7 @@ function createDefaultState(): OpenPetsStateV1 {
       speechBubblesEnabled: true,
       petScale: defaultPetScale,
       reactionAnimationOverrides: undefined,
+      reactionAnimationOverridesByPetId: undefined,
       onboardingCompleted: false,
       claudeCommandPath: undefined,
       nodeCommandPath: undefined,

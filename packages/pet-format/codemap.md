@@ -1,25 +1,14 @@
 # packages/pet-format/
 
-Minimal package providing a type marker for OpenPets package identification.
+Versioned pet-package and animation-manifest contracts shared by the desktop host, installers, and asset pipelines.
 
 ## Responsibility
 
-Exports a simple interface and constant to identify the pet-format package in the OpenPets ecosystem. Used for type-level package identification and workspace boundary marking.
+- Validates `pocket-buddy-animation-manifest-v1` without touching the filesystem.
+- Defines canonical eight-direction names, semantic animation defaults, motion mappings, frame offsets, loop/recovery behavior, and provenance.
+- Keeps arbitrary per-pet animation IDs while preserving the original source animation name.
+- Provides safe fallback resolution for removed, incomplete, or invalid animation IDs.
 
-## Design
+## Boundary
 
-**Marker Pattern**: Provides a nominal type (`PetFormatPackageMarker`) and runtime constant (`petFormatPackageName`) for package identification without functional logic.
-
-**Zero Dependencies**: No runtime dependencies, minimal devDependencies (TypeScript only).
-
-## Flow
-
-No data flow - this is a static marker package.
-
-## Integration Points
-
-**Consumers**: Other packages may import the marker interface for type-level package detection.
-
-**Exports**:
-- `PetFormatPackageMarker` interface with readonly `packageName`
-- `petFormatPackageName` constant (`"@open-pets/pet-format"`)
+This package owns data contracts only. ZIP parsing, image validation, frame copying, contact-sheet generation, and installation belong to the asset pipeline and host packages.

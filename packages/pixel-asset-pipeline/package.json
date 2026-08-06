@@ -1,40 +1,35 @@
 {
-  "name": "install-pet",
+  "name": "@open-pets/pixel-asset-pipeline",
   "version": "3.3.0",
+  "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alvinunreal/openpets.git",
-    "directory": "packages/install-pet"
+    "url": "git+https://github.com/codysumpter-cloud/PocketBuddyPlus.git",
+    "directory": "packages/pixel-asset-pipeline"
   },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "install-pet": "dist/index.js"
-  },
-  "files": [
-    "dist"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
+  "bin": {
+    "openpets-import-pixellab": "dist/cli.js"
+  },
   "scripts": {
-    "test": "node dist/check-install-pet.js",
+    "test": "node dist/check-pixellab-importer.js",
     "check": "pnpm typecheck && pnpm build && pnpm test",
     "typecheck": "tsc --noEmit",
     "build": "tsc"
   },
   "dependencies": {
-    "@open-pets/client": "workspace:*",
-    "yauzl": "3.3.0",
-    "@open-pets/pet-format": "workspace:*"
+    "@open-pets/pet-format": "workspace:*",
+    "sharp": "^0.34.5",
+    "yauzl": "3.3.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.2",
