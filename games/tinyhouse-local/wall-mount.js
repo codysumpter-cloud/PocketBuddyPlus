@@ -51,8 +51,8 @@
     const placement = {
       id: `item-${state.idCounter++}`,
       assetId: asset.id,
-      column: target.side === "right" ? target.index : 0,
-      row: target.side === "left" ? target.index : 0,
+      column: Number.isFinite(target.column) ? target.column : (target.side === "right" ? target.index : 0),
+      row: Number.isFinite(target.row) ? target.row : (target.side === "left" ? target.index : 0),
       x: target.x,
       y: target.y,
       scale: asset.defaultScale || 1,
@@ -62,6 +62,9 @@
       supportOffsetX: 0,
       wallSide: target.side,
       wallIndex: target.index,
+      structureEdgeKey: target.structureEdgeKey || null,
+      wallColumn: Number.isFinite(target.column) ? target.column : null,
+      wallRow: Number.isFinite(target.row) ? target.row : null,
       frameIndex: 0,
       playing: asset.animationMode === "loop",
       animationDirection: 1,
@@ -122,7 +125,8 @@
     const asset = placement && findAsset(placement.assetId);
     if (!placement?.wallSide || !asset || !selectionMeta) return;
     const behavior = asset.animated ? " · INTERACTIVE" : "";
-    selectionMeta.textContent = `${asset.category} · ${placement.wallSide.toUpperCase()} WALL ${placement.wallIndex + 1}${behavior}`;
+    const edge = placement.structureEdgeKey ? ` · EDGE ${placement.structureEdgeKey}` : "";
+    selectionMeta.textContent = `${asset.category} · ${placement.wallSide.toUpperCase()} WALL${edge}${behavior}`;
   }
 
   function restoreWallPlacementsAfterLoad() {
@@ -142,6 +146,9 @@
         if (!source?.wallSide) continue;
         placement.wallSide = source.wallSide;
         placement.wallIndex = Number(source.wallIndex) || 0;
+        placement.structureEdgeKey = source.structureEdgeKey || null;
+        placement.wallColumn = Number.isFinite(Number(source.wallColumn)) ? Number(source.wallColumn) : null;
+        placement.wallRow = Number.isFinite(Number(source.wallRow)) ? Number(source.wallRow) : null;
         placement.x = Number(source.x);
         placement.y = Number(source.y);
         placement.column = Number(source.column) || 0;
@@ -171,6 +178,9 @@
     ) || {
       side: placement.wallSide,
       index: placement.wallIndex,
+      column: placement.wallColumn,
+      row: placement.wallRow,
+      structureEdgeKey: placement.structureEdgeKey,
       x: placement.x,
       y: placement.y,
     };
@@ -236,7 +246,7 @@
 
   if (modeHint) {
     const placeText = modeHint.querySelector("b + span");
-    if (placeText) placeText.textContent = "Click an asset, then click the floor, a highlighted tabletop, or a wall for WALL-tagged items.";
+    if (placeText) placeText.textContent = "Use Structure to alter the house, or choose an asset and click an existing floor, tabletop, or wall edge.";
   }
 
   window.TinyHouseWallMount = Object.freeze({
