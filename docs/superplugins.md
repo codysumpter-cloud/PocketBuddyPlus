@@ -7,8 +7,9 @@ like, which ones ship, what's bundled by default, and how users invoke them.
 
 This is required reading (with [plugins.md](plugins.md)) before plugin platform,
 official-plugin, catalog, or plugin-UI work, per `AGENTS.md`. Keep the lineup and
-bundling defaults here in sync with `apps/desktop/src/plugin-service.ts` and the
-catalog generator when they change.
+bundling defaults here in sync with `apps/desktop/src/plugin-service.ts`, the
+PocketBuddy+ product bootstrap in `apps/desktop/src/main.ts`, and the catalog
+generator when they change.
 
 ## The thesis
 
@@ -46,7 +47,7 @@ in-the-moment interactions (snooze, done, feed).
 ## Official plugin lineup
 
 Official plugins live in `plugins/official/` and are the reviewed catalog set.
-Current lineup (verified 2026-08-05 against the folder + manifests):
+Current lineup (verified 2026-08-06 against the folder + manifests):
 
 | Plugin id | What it is |
 |-----------|------------|
@@ -94,19 +95,20 @@ Current community lineup:
 
 ## Bundling & default-enabled
 
-Defaults are defined in `apps/desktop/src/plugin-service.ts` and the bundled
-plugins are shipped as packaging extra-resources (`plugins/official` → packaged
-`plugins/official`, enforced by `check-packaging-contract.ts`):
+The shared default bundle is defined in `apps/desktop/src/plugin-service.ts`.
+PocketBuddy+ extends that set during bootstrap in `apps/desktop/src/main.ts`.
+Bundled plugin sources ship as packaging extra-resources
+(`plugins/official` → packaged `plugins/official`, enforced by
+`check-packaging-contract.ts`):
 
 - **Bundled with the app**: `openpets.reminders`, `openpets.focus-buddy`,
-  `openpets.launch-buddy`, `openpets.virtual-pet` (`bundledOfficialPluginIds`).
-- **Enabled by default**: `openpets.reminders`, `openpets.focus-buddy`,
+  `openpets.launch-buddy`, `openpets.virtual-pet`,
+  `openpets.prismpixel-rig-studio`, and `openpets.prismcade-creator`.
+- **Enabled by default**: `openpets.reminders`, `openpets.focus-buddy`, and
   `openpets.launch-buddy` (`bundledEnabledByDefault`).
-- **Bundled but disabled by default**: `openpets.virtual-pet`; users can enable it
-  from the Plugins page.
-- **Official catalog-only creator tools**: `openpets.prismpixel-rig-studio` and
-  `openpets.prismcade-creator`. They require explicit installation and remain
-  disabled until the user enables them.
+- **Bundled but disabled by default**: `openpets.virtual-pet`,
+  `openpets.prismpixel-rig-studio`, and `openpets.prismcade-creator`; users can
+  enable them from the Plugins page.
 - **`staleBundledPluginIds`**: an explicit cleanup list of plugin ids that were
   bundled in past builds and must be removed on upgrade (e.g. `ambient-companion`,
   `break-buddy`, `focus-buddy`-as-bundled, `github-notifications`, `pomodoro`,
@@ -116,9 +118,9 @@ plugins are shipped as packaging extra-resources (`plugins/official` → package
 Everything else in the lineup is **available via the catalog** but not bundled —
 the user installs and enables it from the Plugins page.
 
-> If you change what's bundled or enabled by default, update both the constants
-> in `plugin-service.ts` and this doc, and verify the packaging contract still
-> passes ([testing-and-validation.md](testing-and-validation.md)).
+> If you change what's bundled or enabled by default, update the runtime bundle
+> registration and this doc, then verify the packaging contract still passes
+> ([testing-and-validation.md](testing-and-validation.md)).
 
 ## Relationship to the catalog
 
