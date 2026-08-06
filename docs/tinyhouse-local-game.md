@@ -32,7 +32,7 @@ backed by a real structural model rather than a fixed rectangular render:
 - a structural door replaces an edge, animates, and changes graph connectivity when opened or closed;
 - connected room actions append new cells to the same coordinate system rather than drawing an unrelated room mockup;
 - furnishing placement and drag release snap only to floor cells that currently exist;
-- wall-mounted objects target only wall edges that currently exist;
+- wall-mounted objects target only wall edges that currently exist and persist against canonical edge keys;
 - one house save contains structure, furnishings, wall placements, and door states;
 - PNG export renders the complete edited footprint and its current doors.
 
@@ -59,8 +59,8 @@ Pomotroid, and Magenta Lo-Fi Player. See
 ## Verification
 
 The root `pnpm test:tinyhouse-local` command runs behavior contracts for the
-original asset boundary, pointer dragging, wall mounting, editable house topology,
-and Cozy Mode. The house-grid contract specifically protects:
+original asset boundary, pointer dragging, structural wall mounting, editable
+house topology, and Cozy Mode. The house-grid contract specifically protects:
 
 - the initial 25-cell/10-edge structure;
 - exact expanded-cell projection;
