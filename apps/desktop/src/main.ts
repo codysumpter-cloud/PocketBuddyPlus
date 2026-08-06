@@ -5,6 +5,9 @@ import { delimiter, join, resolve } from "node:path";
 import { getAppStateSnapshot, initializeAppState, releaseStartupInstallLock } from "./app-state.js";
 import { createAppIcon } from "./assets.js";
 import { installBuddyChatIpcHandler } from "./buddy-chat-ipc.js";
+import { installBuddyProfileIpcHandlers } from "./buddy-profile-ipc.js";
+import { installBuddyProfilePluginCapability } from "./buddy-profile-plugin-capability.js";
+import { BuddyProfileStore } from "./buddy/buddy-profile-store.js";
 import { setLocaleFromPreference } from "./i18n/index.js";
 import { installDefaultPetDisplayHandlers, shouldOpenDefaultPetOnLaunch, showDefaultPet } from "./default-pet-controller.js";
 import { installAppLifecycle } from "./lifecycle.js";
@@ -95,6 +98,8 @@ if (!gotSingleInstanceLock) {
     }
 
     initializeAppState();
+    const buddyProfileStore = new BuddyProfileStore(app.getPath("userData"));
+    installBuddyProfileIpcHandlers(buddyProfileStore);
     // Resolve the UI language before any window or the tray is built.
     setLocaleFromPreference(getAppStateSnapshot().preferences.locale);
     installInternalUiProtocol();
@@ -110,6 +115,7 @@ if (!gotSingleInstanceLock) {
     registerPocketBuddyPlusBundledPlugins(bundledOfficialPluginIds);
     const pluginCapabilities = createElectronPluginHostCapabilities(app.getPath("userData"));
     installBuddyChatIpcHandler(pluginCapabilities.aiGateway);
+    installBuddyProfilePluginCapability(pluginCapabilities, buddyProfileStore);
     let devPluginWatcher: ReturnType<typeof startDevPluginWatcher> | undefined;
     const pluginService = initializePluginService(app.getPath("userData"), defaultPluginPetApi, app.getVersion(), new ElectronPluginJsHost(), writePluginRuntimeLog, process.env.OPENPETS_DISABLE_PLUGIN_CATALOG === "1" || devPluginMode, resolveBundledOfficialPluginRoots(), !devPluginMode, pluginCapabilities, undefined, (sourcePath) => devPluginWatcher?.addPaths([sourcePath]), (sourcePath) => devPluginWatcher?.removePath(sourcePath));
     // Wall-clock schedules (daily/cron/at) re-arm deterministically after sleep.
