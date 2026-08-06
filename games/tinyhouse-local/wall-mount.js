@@ -16,6 +16,7 @@
   const SAVE_KEY = "pocket-buddy-plus-tinyhouse-local-v1";
   const LEGACY_SAVE_KEY = "prismtek-tinyhouse-playable-v3";
   const state = playable.state;
+
   const findAsset = (id) => state.manifest.find((asset) => asset.id === id) || null;
   const findPlacement = (id) => state.placements.find((placement) => placement.id === id) || null;
 
@@ -66,7 +67,8 @@
       animationDirection: 1,
       lastFrameAt: performance.now(),
     };
-    return wallCore.applyWallPlacement(placement, target);
+    wallCore.applyWallPlacement(placement, target);
+    return placement;
   }
 
   function placeSelectedOnWall(target) {
@@ -217,13 +219,11 @@
     setTimeout(restoreWallPlacementsAfterLoad, 0);
   });
 
-  const observer = new MutationObserver(() => {
+  itemLayer.addEventListener("click", () => requestAnimationFrame(() => {
     decorateRenderedItems();
-    decorateCatalog();
     updateSelectionMetadata();
-  });
-  observer.observe(itemLayer, { childList: true, subtree: false });
-  if (assetGrid) observer.observe(assetGrid, { childList: true, subtree: true });
+  }), true);
+  assetGrid?.addEventListener("pointerenter", decorateCatalog);
 
   const style = document.createElement("style");
   style.textContent = `
