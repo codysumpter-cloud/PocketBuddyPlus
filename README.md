@@ -4,15 +4,15 @@
 
 Pocket Buddy+ keeps one Buddy identity across desktop companionship, agent integrations, creator tools, and plugin-powered experiences. The Buddy is the shared character; plugins add what the Buddy can do.
 
-> **Active development:** the desktop companion, Buddy Center, plugin runtime, animation system, creator plugins, and agent integrations already exist. AI-powered Buddy chat, shared inventory/economy, battles, trading, and broader device sync are being built on top of those foundations rather than as separate apps.
+> **Active development:** the desktop companion, model-backed Buddy Talk, plugin runtime, animation system, creator plugins, and agent integrations already exist. Shared inventory/economy, battles, trading, and broader device sync are being built on top of those foundations rather than as separate apps.
 
 ## What works today
 
 - Animated desktop Buddies with installable sprite packs, multi-animation manifests, reactions, movement, and per-Buddy reaction mapping.
-- A Pocket Buddy+ Control Center with Buddy status, care, notes, tasks, collection, wardrobe, pet management, plugins, and integrations.
+- A Pocket Buddy+ Control Center with Buddy status, care, AI conversation with local fallback, notes, tasks, collection, wardrobe, pet management, plugins, and integrations.
 - Sandboxed JavaScript/TypeScript plugins with declared permissions, quotas, schedules, storage, commands, panels, events, audio, notifications, secrets, and network controls.
-- Host-managed AI access for plugins through Anthropic, OpenAI, **NVIDIA NIM**, or Ollama.
-- Secure user-supplied API keys kept in the host secret store instead of plugin source or plugin configuration.
+- Host-managed AI access for Buddy Talk and approved plugins through Anthropic, OpenAI, **NVIDIA NIM**, or Ollama.
+- Secure user-supplied API keys kept in the host secret store instead of renderer state, plugin source, or plugin configuration.
 - Claude Code, OpenCode, Cursor, Pi, MCP, and local agent-reaction integrations.
 - Bundled Prismtek creator tooling, including Prism Pixel + Rig Studio and Prismcade Creator.
 - Official companion plugins for reminders, focus, routines, hydration, mood check-ins, virtual-pet needs, and small interactive experiences.
@@ -40,10 +40,11 @@ Pocket Buddy+ uses NVIDIA's OpenAI-compatible NIM endpoint through the existing 
 2. Choose **NVIDIA NIM** as the AI provider.
 3. Save your NVIDIA API key.
 4. Optionally enter a model ID. When left blank, Pocket Buddy+ uses `meta/llama-3.3-70b-instruct`.
+5. Open **Buddy+ → Talk** to chat with your mood-aware Buddy, or enable an approved AI plugin.
 
-The API key is retrieved only by the host gateway. Plugins using the `ai` permission receive generated output, not the credential.
+The API key is retrieved only by the host gateway. Buddy Talk and plugins using the `ai` permission receive generated output, not the credential. When the provider is unavailable, Buddy Talk falls back to deterministic local replies.
 
-See [`docs/ai-providers.md`](docs/ai-providers.md) for provider behavior and security boundaries.
+See [`docs/ai-providers.md`](docs/ai-providers.md) for provider behavior, Talk context, fallback behavior, and security boundaries.
 
 ## Current product boundary
 
@@ -127,11 +128,13 @@ docs                      Architecture, plugin, provider, and release documentat
 ## Safety and privacy
 
 - Local IPC uses a local socket or named pipe with a per-run token.
+- Buddy Talk sends only the current message, up to 12 recent Talk messages, and the Buddy's public mood/need snapshot to the configured provider.
+- Notes, tasks, files, plugin state, screen contents, and credentials stay out of Buddy Talk requests.
 - Plugin permissions are declared and approved before host capabilities are exposed.
 - JavaScript plugins run in sandboxed hosts; the application renders trusted UI descriptors.
 - Private-network and SSRF protections apply to plugin network access.
 - Dynamic speech is filtered and requires explicit host settings.
-- API keys are host-managed secrets and are never returned to plugin code.
+- API keys are host-managed secrets and are never returned to renderer or plugin code.
 
 ## Project history and attribution
 
