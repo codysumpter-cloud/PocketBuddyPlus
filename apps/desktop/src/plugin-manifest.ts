@@ -38,6 +38,7 @@ export type PluginPermission =
   | "files"
   | "system:openExternal"
   | "system:metrics"
+  | "system:nowPlaying"
   | "clipboard"
   | "network:write"
   | "network:local";
@@ -153,6 +154,7 @@ export const pluginV3Permissions = [
   "files",
   "system:openExternal",
   "system:metrics",
+  "system:nowPlaying",
   "clipboard",
   "network:write",
   "network:local",

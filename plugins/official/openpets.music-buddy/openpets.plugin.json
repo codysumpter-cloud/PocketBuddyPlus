@@ -15,10 +15,13 @@
     "network",
     "network:write",
     "pet:speak",
-    "pet:reaction"
+    "pet:reaction",
+    "system:nowPlaying"
   ],
   "network": {
-    "hosts": ["api.spotify.com"]
+    "hosts": [
+      "api.spotify.com"
+    ]
   },
   "configSchema": {
     "announceTrackChanges": {

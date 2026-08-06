@@ -435,7 +435,7 @@ function createTestCapabilities(): TestCapabilities {
     voice: { speak: async () => undefined, listen: async () => ({ text: "" }) },
     auth: { oauth: async () => ({ accessToken: "" }), refresh: async () => ({ accessToken: "" }), signOut: async () => undefined },
     files: { pick: async () => [], read: async () => "", save: async () => undefined },
-    system: { info: async () => ({ platform: "mac", locale: "en-US", timezone: "UTC", theme: "light", appVersion: "0.0.0", online: true }), metrics: async () => ({ cpuPercent: 0, memUsedPercent: 0 }), openExternal: async () => undefined, readClipboardText: async () => "", writeClipboardText: async () => undefined },
+    system: { info: async () => ({ platform: "mac", locale: "en-US", timezone: "UTC", theme: "light", appVersion: "0.0.0", online: true }), metrics: async () => ({ cpuPercent: 0, memUsedPercent: 0 }), nowPlaying: async () => ({ status: "not-running" as const }), openExternal: async () => undefined, readClipboardText: async () => "", writeClipboardText: async () => undefined },
     settings: { audioAllowed: () => true, dynamicSpeechAllowed: () => false, voiceAllowed: () => true, listenAllowed: () => false, inQuietHours: () => false },
   };
 }

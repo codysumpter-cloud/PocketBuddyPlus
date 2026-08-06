@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { readNativeNowPlaying } from "./native-now-playing.js";
 import * as os from "node:os";
 import { basename, extname, join } from "node:path";
 
@@ -264,6 +265,11 @@ export function createElectronPluginHostCapabilities(userDataPath: string): Elec
           appVersion: app.getVersion(),
           online: net.online,
         };
+      },
+      async nowPlaying() {
+        // Read-only, single fixed AppleScript, never launches Music. See
+        // native-now-playing.ts for why the "is running" guard matters.
+        return readNativeNowPlaying();
       },
       async metrics() {
         const memory = process.getSystemMemoryInfo();

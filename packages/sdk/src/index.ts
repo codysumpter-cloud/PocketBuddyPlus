@@ -60,6 +60,7 @@ export type OpenPetsPermission =
   | "files"
   | "system:openExternal"
   | "system:metrics"
+  | "system:nowPlaying"
   | "clipboard"
   | "network:write"
   | "network:local";
@@ -884,6 +885,23 @@ export interface OpenPetsSystemInfo {
 }
 
 /** Aggregate machine metrics — never per-process or per-app data. */
+export interface OpenPetsNowPlayingTrack {
+  readonly source: string;
+  readonly id: string;
+  readonly title: string;
+  readonly artist?: string;
+  readonly album?: string;
+  readonly durationMs?: number;
+  readonly positionMs?: number;
+  readonly isPlaying: boolean;
+  readonly updatedAt: number;
+}
+
+export type OpenPetsNowPlaying =
+  | { readonly status: "playing" | "paused"; readonly track: OpenPetsNowPlayingTrack }
+  | { readonly status: "idle" | "not-running" | "unsupported" }
+  | { readonly status: "unavailable"; readonly reason: string };
+
 export interface OpenPetsSystemMetrics {
   /** 0–100, recent average. */
   cpuPercent: number;
@@ -898,6 +916,14 @@ export interface OpenPetsSystemApi {
   info(): Promise<OpenPetsSystemInfo>;
   /** Requires `system:metrics`. */
   metrics(): Promise<OpenPetsSystemMetrics>;
+  /**
+   * What the native music player is playing right now, read-only.
+   *
+   * Deliberately narrow: it cannot control playback or read the library, and
+   * it never launches the player. macOS Music only today; every other platform
+   * reports `unsupported`. Requires `system:nowPlaying`.
+   */
+  nowPlaying(): Promise<OpenPetsNowPlaying>;
   /** HTTPS-only; opens the user's real browser. Requires `system:openExternal`. */
   openExternal(url: string): Promise<void>;
   /**

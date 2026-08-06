@@ -19,6 +19,7 @@
  * ```
  */
 import type {
+  OpenPetsNowPlaying,
   OpenPetsBubble,
   OpenPetsBubbleDismissReason,
   OpenPetsBubbleHandle,
@@ -295,7 +296,9 @@ export interface MockHarnessCore {
   files: { provide(files: Array<{ name: string; text?: string; bytes?: Uint8Array }>): void };
   auth: { mock(tokens: { accessToken: string; refreshToken?: string; expiresAt?: number }): void };
   voice: { mockListen(text: string): void };
-  system: { set(info: Partial<{ platform: "mac" | "win" | "linux"; locale: string; timezone: string; theme: "light" | "dark"; online: boolean }>): void; setMetrics(metrics: { cpuPercent: number; memUsedPercent: number; battery?: { percent: number; charging: boolean } }): void; setClipboard(text: string): void };
+  system: { set(info: Partial<{ platform: "mac" | "win" | "linux"; locale: string; timezone: string; theme: "light" | "dark"; online: boolean }>): void; setMetrics(metrics: { cpuPercent: number; memUsedPercent: number; battery?: { percent: number; charging: boolean } }): void;
+    /** Drive ctx.system.nowPlaying() in tests. */
+    setNowPlaying(value: OpenPetsNowPlaying): void; setClipboard(text: string): void };
   panel: { sendToPlugin(msg: unknown): void };
 }
 
@@ -327,6 +330,8 @@ export function createMockContext(optionsOrConfig: MockContextOptions | Record<s
   let clipboardText = "";
   let systemInfo: { platform: "mac" | "win" | "linux"; locale: string; timezone: string; theme: "light" | "dark"; appVersion: string; online: boolean } = { platform: "mac", locale: "en-US", timezone: "UTC", theme: "light", appVersion: "0.0.0-test", online: true };
   let systemMetrics: { cpuPercent: number; memUsedPercent: number; battery?: { percent: number; charging: boolean } } = { cpuPercent: 5, memUsedPercent: 40 };
+  // Default to "no native player" so existing suites see the common case.
+  let nowPlaying: OpenPetsNowPlaying = { status: "not-running" };
   let nextId = 0;
   const newId = (prefix: string) => `${prefix}-${++nextId}`;
 
@@ -638,6 +643,9 @@ export function createMockContext(optionsOrConfig: MockContextOptions | Record<s
     system: {
       info: async () => ({ ...systemInfo }),
       metrics: async () => { requirePermission("system:metrics"); return { ...systemMetrics }; },
+      // Tests get a deterministic default; override via nowPlaying in the harness
+      // options to exercise a playing/paused track.
+      nowPlaying: async () => { requirePermission("system:nowPlaying"); return nowPlaying; },
       openExternal: async (url) => { requirePermission("system:openExternal"); if (!url.startsWith("https://")) throw new Error("openExternal requires an HTTPS URL."); calls.openedExternal.push(url); },
       readClipboardText: async () => { requirePermission("clipboard"); return clipboardText; },
       writeClipboardText: async (text) => { requirePermission("clipboard"); clipboardText = text; calls.clipboardWrites.push(text); },
@@ -687,6 +695,7 @@ export function createMockContext(optionsOrConfig: MockContextOptions | Record<s
     system: {
       set: (info) => { systemInfo = { ...systemInfo, ...info }; },
       setMetrics: (metrics) => { systemMetrics = metrics; },
+      setNowPlaying: (value: OpenPetsNowPlaying) => { nowPlaying = value; },
       setClipboard: (text) => { clipboardText = text; },
     },
     panel: { sendToPlugin: (msg) => { for (const handler of panelToPluginHandlers) handler(msg); } },

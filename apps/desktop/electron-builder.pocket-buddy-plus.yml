@@ -5,6 +5,12 @@ artifactName: Pocket-Buddy+-${version}-${os}-${arch}.${ext}
 
 mac:
   executableName: Pocket Buddy+
+  # Required for the read-only system:nowPlaying capability. Without it macOS
+  # kills the Apple Event instead of prompting, so Apple Music never works.
+  extendInfo:
+    NSAppleEventsUsageDescription: >-
+      Pocket Buddy+ asks the Music app what is playing so your Buddy can react
+      to it. It only reads the current track and never controls playback.
 
 nsis:
   artifactName: Pocket-Buddy+-${version}-win-${arch}-setup.${ext}
