@@ -24,6 +24,8 @@
         y: placement.y,
         supportId: placement.supportId,
         supportOffsetX: placement.supportOffsetX,
+        wallSide: placement.wallSide ?? null,
+        wallIndex: placement.wallIndex ?? null,
       };
     },
 
@@ -34,6 +36,8 @@
       placement.y = snapshot.y;
       placement.supportId = snapshot.supportId;
       placement.supportOffsetX = snapshot.supportOffsetX;
+      placement.wallSide = snapshot.wallSide;
+      placement.wallIndex = snapshot.wallIndex;
       return placement;
     },
   });
