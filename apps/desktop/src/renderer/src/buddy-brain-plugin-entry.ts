@@ -5,22 +5,20 @@ const MIGRATION_MARKER_KEY = "pocket-buddy-plus:buddy-brain-migrated:v1";
 
 type PluginResult = { readonly ok: boolean; readonly error?: string };
 
-type ControlCenterApi = {
+type BuddyBrainControlCenterApi = {
   getPluginsSnapshot(): Promise<{ readonly plugins?: ReadonlyArray<{ readonly id: string; readonly enabled: boolean }> }>;
   setPluginEnabled(id: string, enabled: boolean): Promise<PluginResult>;
   executePluginCommand(id: string, commandId: string, args?: Record<string, unknown>): Promise<PluginResult>;
 };
 
-declare global {
-  interface Window {
-    openPetsControlCenter?: ControlCenterApi;
-  }
+function getControlCenterApi(): BuddyBrainControlCenterApi | undefined {
+  return (window as unknown as { openPetsControlCenter?: BuddyBrainControlCenterApi }).openPetsControlCenter;
 }
 
 let reconcileQueued = false;
 let migrationStarted = false;
 
-async function ensurePluginEnabled(api: ControlCenterApi): Promise<boolean> {
+async function ensurePluginEnabled(api: BuddyBrainControlCenterApi): Promise<boolean> {
   const snapshot = await api.getPluginsSnapshot();
   const plugin = snapshot.plugins?.find((candidate) => candidate.id === PLUGIN_ID);
   if (!plugin) return false;
@@ -30,7 +28,7 @@ async function ensurePluginEnabled(api: ControlCenterApi): Promise<boolean> {
 }
 
 async function openBuddyBrain(): Promise<void> {
-  const api = window.openPetsControlCenter;
+  const api = getControlCenterApi();
   if (!api) return;
   try {
     if (!await ensurePluginEnabled(api)) return;
@@ -43,7 +41,7 @@ async function openBuddyBrain(): Promise<void> {
 async function runLegacyMigration(): Promise<void> {
   if (migrationStarted || window.localStorage.getItem(MIGRATION_MARKER_KEY) === "done") return;
   migrationStarted = true;
-  const api = window.openPetsControlCenter;
+  const api = getControlCenterApi();
   if (!api) return;
   const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
   if (!raw) {
@@ -92,8 +90,12 @@ function createBrainCard(): HTMLElement {
     const target = event.target as HTMLElement;
     if (target.closest("[data-brain-open]")) void openBuddyBrain();
     if (target.closest("[data-brain-care]")) {
-      const api = window.openPetsControlCenter;
-      if (api) void ensurePluginEnabled(api).then((enabled) => enabled && api.executePluginCommand(PLUGIN_ID, "pet"));
+      const api = getControlCenterApi();
+      if (api) {
+        void ensurePluginEnabled(api).then(async (enabled) => {
+          if (enabled) await api.executePluginCommand(PLUGIN_ID, "pet");
+        });
+      }
     }
   });
   return card;
