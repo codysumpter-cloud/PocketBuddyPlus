@@ -52,9 +52,29 @@ jobs:
               body.append(line[10:] if line.startswith('          ') else line)
           if not body or not body[0].startswith("python3 <<'PY'"):
               raise SystemExit('patch workflow body was not extracted safely')
-          Path('/tmp/apply-eight-way-motion.sh').write_text('\n'.join(body) + '\n')
+          patch = '\n'.join(body) + '\n'
+          for old, new in (
+              ('northeast', 'north-east'),
+              ('southeast', 'south-east'),
+              ('southwest', 'south-west'),
+              ('northwest', 'north-west'),
+          ):
+              patch = patch.replace(old, new)
+          Path('/tmp/apply-eight-way-motion.sh').write_text(patch)
           PY
           bash /tmp/apply-eight-way-motion.sh
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/desktop/src/pet-animation-manifest.ts')
+          text = path.read_text()
+          old = '  parsePocketBuddyAnimationManifest,\n  resolvePetAnimationFrames,\n'
+          new = '  parsePocketBuddyAnimationManifest,\n  resolvePetAnimationFrames,\n  resolvePetAnimationId,\n'
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one resolver import insertion point, found {count}')
+          path.write_text(text.replace(old, new, 1))
+          PY
 
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
