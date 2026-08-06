@@ -52,6 +52,7 @@ export class BuddyProfileStore {
     if (persisted) {
       this.#profile = advanceBuddyProfile(persisted.profile, now);
       this.#origin = persisted.origin;
+      if (this.#origin === "default" && candidate !== undefined) this.#tryLegacyMigration(candidate, now);
     } else {
       const migrated = this.#parseCandidate(candidate);
       this.#profile = advanceBuddyProfile(migrated ?? createDefaultBuddyProfile(now), now);
