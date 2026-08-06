@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createInventoryAwarePluginJsHost } from "../src/inventory/buddy-inventory-plugin-sdk.js";
 import { BUDDY_INVENTORY_FILENAME, BuddyInventoryStore } from "../src/inventory/buddy-inventory-store.js";
 import type { PluginJsHost, PluginJsHostStartOptions } from "../src/plugin-js-host.js";
+import type { OpenPetsJavascriptPluginManifest } from "../src/plugin-manifest.js";
 import type { PluginSdkApi } from "../src/plugin-sdk-bridge.js";
 import type { PluginStateRecord } from "../src/plugin-state.js";
 
@@ -43,6 +44,13 @@ try {
     quantity: 1,
     reason: "Conflicting retry",
   }), /already used/i);
+  assert.throws(() => store.mutate("test.plugin", {
+    operation: "grant",
+    transactionId: "reward:00000001",
+    itemId: "consumable.apple",
+    quantity: 1,
+    reason: "Starter reward",
+  }), /already used/i, "the same source cannot reuse a transaction id for a different item");
 
   now += 1;
   const equipped = store.mutate("test.plugin", {
@@ -101,7 +109,7 @@ try {
   const record = {
     id: "battle.plugin",
     approvedPermissions: ["pets:read", "pets:manage"],
-  } as PluginStateRecord;
+  } as unknown as PluginStateRecord;
   const manifest = {
     manifestVersion: 3,
     id: "battle.plugin",
@@ -111,7 +119,7 @@ try {
     sdkVersion: "3.3.0",
     entry: "index.js",
     permissions: ["pets:read", "pets:manage"],
-  } as const;
+  } as unknown as OpenPetsJavascriptPluginManifest;
   const instance = await host.startPlugin({ record, manifest, entryPath: "/tmp/index.js", sdk: {} as PluginSdkApi, onBroken: () => undefined });
   assert.ok(capturedSdk?.inventory);
   const inventory = capturedSdk!.inventory!;
@@ -133,8 +141,8 @@ try {
     async startPlugin(options) { readOnlySdk = options.sdk as typeof readOnlySdk; return { stop() {} }; },
   }, store);
   await readOnlyHost.startPlugin({
-    record: { ...record, id: "reader.plugin", approvedPermissions: ["pets:read"] } as PluginStateRecord,
-    manifest: { ...manifest, id: "reader.plugin", permissions: ["pets:read"] },
+    record: { ...record, id: "reader.plugin", approvedPermissions: ["pets:read"] } as unknown as PluginStateRecord,
+    manifest: { ...manifest, id: "reader.plugin", permissions: ["pets:read"] } as OpenPetsJavascriptPluginManifest,
     entryPath: "/tmp/index.js",
     sdk: {} as PluginSdkApi,
     onBroken: () => undefined,
