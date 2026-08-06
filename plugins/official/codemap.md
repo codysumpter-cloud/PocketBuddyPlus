@@ -31,7 +31,7 @@ First-party SDK v3 plugin product source. These plugins are the reviewed default
 | `openpets.day-routine` | Daily routine nudges and scheduled check-ins. | `schedule`, `storage`, `commands`, `pet.speak`, `config` |
 | `openpets.mood-check-in` | Mood logging/check-in companion with configurable prompts and command entry points. | `schedule`, `storage`, `commands`, `pet`, `config` |
 | `openpets.fortune-cookie` | Periodic or command-triggered fortune messages. | `schedule`, `storage`, `commands`, `pet.speak` |
-| `openpets.virtual-pet` | Tamagotchi-style companion state machine with hunger/energy/happiness/affection decay, pinned HUD, click handling, and action commands. | `events`, `schedule`, `storage`, `ui.bubble`, `commands`, `pet.react`, `assets`, `audio`, `config` |
+| `openpets.virtual-pet` | Persistent virtual-pet lifecycle with hunger/energy/happiness/affection, health, mess, sickness, medicine, care mistakes, growth stages, restart-safe catch-up, pinned HUD, click handling, and optional classic death/restart behavior. | `events`, `schedule`, `storage`, `ui.bubble`, `commands`, `pet.react`, `assets`, `audio`, `config` |
 
 ## Integration Points
 

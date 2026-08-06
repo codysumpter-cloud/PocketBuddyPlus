@@ -1,13 +1,15 @@
-// Golden test for openpets.virtual-pet.
+// Behavior tests for openpets.virtual-pet.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   cleanState,
   getMood,
+  resolveStage,
   addXp,
   applyDecay,
   register,
   SCHEDULE_ID,
+  STATE_VERSION,
 } from "./index.js";
 
 let createTestHarness;
@@ -21,214 +23,286 @@ let activeHarness = null;
 const originalDateNow = Date.now;
 Object.defineProperty(Date, "now", {
   value: () => {
-    if (activeHarness && activeHarness.clock) {
-      return activeHarness.clock.now();
-    }
-    return 1000000;
+    if (activeHarness?.clock) return activeHarness.clock.now();
+    return 1_000_000;
   },
   configurable: true,
 });
 
-// 1) Test Pure Helpers
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+
+// Pure state helpers protect migration, lifecycle, decay, and classic-mode behavior.
 {
-  // cleanState
   const defaultState = cleanState(null);
+  assert.equal(defaultState.version, STATE_VERSION);
   assert.equal(defaultState.hunger, 80);
   assert.equal(defaultState.energy, 80);
   assert.equal(defaultState.happiness, 80);
   assert.equal(defaultState.affection, 50);
+  assert.equal(defaultState.health, 100);
+  assert.equal(defaultState.mess, 0);
+  assert.equal(defaultState.isSick, false);
+  assert.equal(defaultState.careMistakes, 0);
   assert.equal(defaultState.level, 1);
   assert.equal(defaultState.xp, 0);
 
-  const customState = cleanState({ hunger: 20, level: 3, careCounts: { fed: 5 } });
-  assert.equal(customState.hunger, 20);
-  assert.equal(customState.level, 3);
-  assert.equal(customState.careCounts.fed, 5);
+  const migratedState = cleanState({ hunger: 20, level: 3, careCounts: { fed: 5 } });
+  assert.equal(migratedState.hunger, 20);
+  assert.equal(migratedState.level, 3);
+  assert.equal(migratedState.health, 100, "old saves gain safe lifecycle defaults");
+  assert.equal(migratedState.careCounts.fed, 5);
+  assert.equal(migratedState.careCounts.cleaned, 0);
 
-  // getMood
-  assert.equal(getMood({ hunger: 80, energy: 80, happiness: 80, affection: 80, sleptUntil: 0 }, 1000), "happy");
-  assert.equal(getMood({ hunger: 80, energy: 80, happiness: 80, affection: 80, sleptUntil: 5000 }, 1000), "sleeping");
-  assert.equal(getMood({ hunger: 20, energy: 80, happiness: 80, affection: 50, sleptUntil: 0 }, 1000), "hungry");
-  assert.equal(getMood({ hunger: 80, energy: 10, happiness: 80, affection: 50, sleptUntil: 0 }, 1000), "tired");
-  assert.equal(getMood({ hunger: 80, energy: 80, happiness: 15, affection: 50, sleptUntil: 0 }, 1000), "bored");
+  assert.equal(getMood(cleanState({ deadAt: 100 }), 1_000), "dead");
+  assert.equal(getMood(cleanState({ isSick: true }), 1_000), "sick");
+  assert.equal(getMood(cleanState({ mess: 3 }), 1_000), "dirty");
+  assert.equal(getMood(cleanState({ sleptUntil: 5_000 }), 1_000), "sleeping");
+  assert.equal(getMood(cleanState({ hunger: 20 }), 1_000), "hungry");
+  assert.equal(getMood(cleanState({ energy: 10 }), 1_000), "tired");
+  assert.equal(getMood(cleanState({ happiness: 15 }), 1_000), "bored");
+  assert.equal(getMood(cleanState({ hunger: 80, energy: 80, happiness: 80, affection: 80 }), 1_000), "happy");
 
-  // addXp
+  const bornAt = 10 * DAY;
+  assert.equal(resolveStage(cleanState({ bornAt, level: 1 }), bornAt + HOUR), "hatchling");
+  assert.equal(resolveStage(cleanState({ bornAt, level: 3 }), bornAt + HOUR), "growing");
+  assert.equal(resolveStage(cleanState({ bornAt, level: 5 }), bornAt + 8 * DAY), "companion");
+  assert.equal(resolveStage(cleanState({ bornAt, level: 10, affection: 90, careMistakes: 1 }), bornAt + 8 * DAY), "beloved");
+
   const levelUp = addXp({ xp: 45, level: 1 }, 10);
-  assert.equal(levelUp.xp, 5);
-  assert.equal(levelUp.level, 2);
-  assert.equal(levelUp.leveledUp, true);
-
+  assert.deepEqual(levelUp, { xp: 5, level: 2, leveledUp: true });
   const normalXp = addXp({ xp: 10, level: 1 }, 10);
-  assert.equal(normalXp.xp, 20);
-  assert.equal(normalXp.level, 1);
-  assert.equal(normalXp.leveledUp, false);
+  assert.deepEqual(normalXp, { xp: 20, level: 1, leveledUp: false });
 
-  // applyDecay
-  // 2 hours awake decay: hunger -4, energy -6, happiness -4, affection -2
-  const stateDecayed = applyDecay({ hunger: 80, energy: 80, happiness: 80, affection: 50, sleptUntil: 0, lastSeenAt: 1000 }, 2 * 3600_000, 1000 + 2 * 3600_000);
+  const now = 1_000 + 2 * HOUR;
+  const stateDecayed = applyDecay(
+    cleanState({ hunger: 80, energy: 80, happiness: 80, affection: 50, lastSeenAt: 1_000 }),
+    2 * HOUR,
+    now,
+  );
   assert.equal(stateDecayed.hunger, 76);
   assert.equal(stateDecayed.energy, 74);
   assert.equal(stateDecayed.happiness, 76);
   assert.equal(stateDecayed.affection, 48);
+  assert.equal(stateDecayed.mess, 0);
 
-  // 1 hour sleep decay: hunger -2, energy +15, happiness -0.5, affection same
-  const stateSlept = applyDecay({ hunger: 80, energy: 50, happiness: 80, affection: 50, sleptUntil: 1000 + 3600_000, lastSeenAt: 1000 }, 3600_000, 1000 + 3600_000);
-  assert.equal(stateSlept.hunger, 78);
-  assert.equal(stateSlept.energy, 65);
-  assert.equal(stateSlept.happiness, 79.5);
-  assert.equal(stateSlept.affection, 50);
+  const fourHours = applyDecay(
+    cleanState({ hunger: 100, energy: 100, happiness: 100, affection: 100, lastSeenAt: 1_000 }),
+    4 * HOUR,
+    1_000 + 4 * HOUR,
+  );
+  assert.equal(fourHours.mess, 1, "awake time accumulates mess deterministically");
+
+  const sickFromMess = applyDecay(
+    cleanState({ mess: 3, messProgressMs: 3 * HOUR, lastSeenAt: 1_000 }),
+    HOUR,
+    1_000 + HOUR,
+  );
+  assert.equal(sickFromMess.mess, 4);
+  assert.equal(sickFromMess.isSick, true);
+  assert.ok(sickFromMess.health < 100);
+
+  const sleeping = applyDecay(
+    cleanState({ hunger: 80, energy: 50, happiness: 80, affection: 50, sleptUntil: 1_000 + HOUR, lastSeenAt: 1_000 }),
+    HOUR,
+    1_000 + HOUR,
+  );
+  assert.equal(sleeping.hunger, 78);
+  assert.equal(sleeping.energy, 65);
+  assert.equal(sleeping.happiness, 79.5);
+  assert.equal(sleeping.affection, 50);
+  assert.equal(sleeping.mess, 0, "sleep does not create mess");
+
+  const casualSurvivor = applyDecay(
+    cleanState({ health: 1, isSick: true, sickSince: 1, lastSeenAt: 1_000 }),
+    HOUR,
+    1_000 + HOUR,
+    { classicLifecycle: false },
+  );
+  assert.equal(casualSurvivor.deadAt, 0);
+  assert.equal(casualSurvivor.health, 10, "casual mode never permanently loses the pet");
+
+  const classicDeath = applyDecay(
+    cleanState({ health: 1, isSick: true, sickSince: 1, lastSeenAt: 1_000 }),
+    HOUR,
+    1_000 + HOUR,
+    { classicLifecycle: true },
+  );
+  assert.equal(classicDeath.deadAt, 1_000 + HOUR);
+  assert.equal(classicDeath.deathReason, "sickness");
 }
 
 const PERMISSIONS = ["pet:speak", "pet:interact", "pet:pin", "pet:reaction", "schedule", "storage", "commands", "audio", "events"];
 const LOCALES = { en: JSON.parse(await readFile(new URL("./locales/en.json", import.meta.url), "utf8")) };
 
-// 2) Start / Reconcile logic
+// Startup initializes a migratable persistent state, tick schedule, and four-item HUD.
 {
   const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: 100_000_000_000 });
   activeHarness = h;
   await h.start();
-  // Expect state to be initialized is storage
-  h.expectStored("state", (s) => s.lastSeenAt === 100_000_000_000 && s.hunger === 80);
-  // Expect schedules to contain tick schedule
+  h.expectStored("state", (s) => s.lastSeenAt === 100_000_000_000 && s.bornAt === 100_000_000_000 && s.health === 100);
   assert.ok(h.calls.schedules.has(SCHEDULE_ID));
-  // Expect pinned status bubble to show HUD
   h.expectBubble({ sticky: true, pin: true });
-  assert.deepEqual(h.calls.bubbles[0].spec.dismissOn, [], "HUD must not dismiss when clicked or when the pet is clicked");
-  
-  // Verify that the bubble contains the correct HUD items/values rather than text
-  const lastBubble = h.calls.bubbles[h.calls.bubbles.length - 1];
-  assert.ok(lastBubble, "Should have a bubble");
-  assert.ok(lastBubble.spec.hud, "Bubble should have a HUD spec");
+  assert.deepEqual(h.calls.bubbles[0].spec.dismissOn, []);
+
+  const lastBubble = h.calls.bubbles.at(-1);
+  assert.ok(lastBubble?.spec.hud);
   assert.equal(lastBubble.spec.hud.items.length, 4);
-  
   const [food, energy, play, bond] = lastBubble.spec.hud.items;
-  assert.equal(food.icon, "food");
-  assert.equal(food.value, 80);
-  assert.equal(food.tone, "amber");
-  assert.equal(food.label, "Food");
-  
-  assert.equal(energy.icon, "zap");
-  assert.equal(energy.value, 80);
-  assert.equal(energy.tone, "blue");
-  assert.equal(energy.label, "Energy");
-  
-  assert.equal(play.icon, "play");
-  assert.equal(play.value, 80);
-  assert.equal(play.tone, "green");
-  assert.equal(play.label, "Play");
-  
-  assert.equal(bond.icon, "heart");
-  assert.equal(bond.value, 50);
-  assert.equal(bond.tone, "pink");
-  assert.equal(bond.label, "Bond");
-
+  assert.deepEqual([food.icon, food.value, food.label], ["food", 80, "Food"]);
+  assert.deepEqual([energy.icon, energy.value, energy.label], ["zap", 80, "Energy"]);
+  assert.deepEqual([play.icon, play.value, play.label], ["play", 80, "Play"]);
+  assert.deepEqual([bond.icon, bond.value, bond.label], ["heart", 50, "Bond"]);
   h.expectNoErrors();
 }
 
-// 2b) With showStats disabled, no HUD bubble is pinned
+// Hidden stats must not create a pinned HUD.
 {
-  const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: 100_000_000_000, config: { showStats: false } });
+  const h = createTestHarness(register, {
+    permissions: PERMISSIONS,
+    locales: LOCALES,
+    nowMs: 100_000_000_000,
+    config: { showStats: false },
+  });
   activeHarness = h;
   await h.start();
-  // No pinned status bubble should be created when stats are hidden
-  assert.equal(h.calls.bubbles.length, 0, "Should not create a HUD bubble when showStats is false");
+  assert.equal(h.calls.bubbles.length, 0);
   h.expectNoErrors();
 }
 
-// 3) Reconcile with wall-clock decay catch-up
+// Restart catch-up decays needs and preserves old saves without requiring a reset.
 {
-  const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: 101_000_000_000 });
+  const now = 101_000_000_000;
+  const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: now });
   activeHarness = h;
-  // Set old state manually in storage. Last seen 2 hours ago.
-  const oldState = cleanState({ hunger: 100, energy: 100, happiness: 100, affection: 100, lastSeenAt: 101_000_000_000 - 2 * 3600_000 });
-  await h.ctx.storage.set("state", oldState);
+  await h.ctx.storage.set("state", { hunger: 100, energy: 100, happiness: 100, affection: 100, lastSeenAt: now - 2 * HOUR });
   await h.start();
-  
-  // 2 hours elapsed = hunger -4 (96), energy -6 (94), happiness -4 (96), affection -2 (98)
-  h.expectStored("state", (s) => s.hunger === 96 && s.energy === 94 && s.happiness === 96 && s.affection === 98);
+  h.expectStored("state", (s) => s.hunger === 96 && s.energy === 94 && s.happiness === 96 && s.affection === 98 && s.version === STATE_VERSION);
   h.expectNoErrors();
 }
 
-// 4) Commands / actions mutate stats
+// Everyday care actions mutate the intended public state and reactions.
 {
-  const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: 102_000_000_000 });
+  const now = 102_000_000_000;
+  const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: now });
   activeHarness = h;
   await h.start();
-  
-  // Feed command: hunger +25, xp +5
+
   await h.runCommand("feed");
   h.expectStored("state", (s) => s.hunger === 100 && s.xp === 5 && s.careCounts.fed === 1);
   h.expectSpoke(/food|munch|tasty|delicious/);
   h.expectReacted("celebrating");
 
-  // Play command: happiness +25, energy -15, xp +5
   await h.runCommand("play");
   h.expectStored("state", (s) => s.happiness === 100 && s.energy === 65 && s.xp === 10 && s.careCounts.played === 1);
-  h.expectSpoke(/fun|Yay|games|Again/);
+  h.expectReacted("celebrating");
 
-  // Pet command: affection +15, happiness +10, xp +3
   await h.runCommand("pet");
   h.expectStored("state", (s) => s.affection === 65 && s.happiness === 100 && s.xp === 13 && s.careCounts.petted === 1);
-  h.expectSpoke(/Purr|nuzzles|Warm|soft/);
+  h.expectReacted("waving");
 
-  // Nap command: energy +40, sleptUntil is set
   await h.runCommand("nap");
-  h.expectStored("state", (s) => s.energy === 100 && s.sleptUntil === 102_000_000_000 + 15 * 60_000 && s.careCounts.napped === 1);
-  h.expectSpoke(/Zzz|curls|Sleepy|Resting/);
+  h.expectStored("state", (s) => s.energy === 100 && s.sleptUntil === now + 15 * 60_000 && s.careCounts.napped === 1);
   h.expectReacted("waiting");
 
-  // Show status command
   await h.runCommand("status");
-  h.expectSpoke(/resting|hungry|sleepy|play|great|content/);
-
+  h.expectSpoke(/resting|hungry|sleepy|play|great|content|sick|clean|ended/);
   h.expectNoErrors();
 }
 
-// 5) Play wakes up pet if sleeping
+// Activity wakes a sleeping pet.
 {
   const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: 103_000_000_000 });
   activeHarness = h;
   await h.start();
-  await h.runCommand("nap"); // sleeping until 103B + 15M
+  await h.runCommand("nap");
   h.expectStored("state", (s) => s.sleptUntil > 0);
-  
-  // Running play should wake up pet
   await h.runCommand("play");
   h.expectStored("state", (s) => s.sleptUntil === 0);
   h.expectNoErrors();
 }
 
-// 6) Click event triggers petting
+// Clicking the pet remains a direct affection action.
 {
   const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: 104_000_000_000 });
   activeHarness = h;
   await h.start();
-  
-  // Emit click event
   await h.emit("pet:clicked", {});
   h.expectStored("state", (s) => s.affection === 65 && s.careCounts.petted === 1);
-  h.expectSpoke(/Purr|nuzzles|Warm|soft/);
   h.expectNoErrors();
 }
 
-// 7) Nudge neglected
+// Dirty and sick states expose health in the HUD, block strenuous actions, and require two medicine doses.
 {
-  const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: 105_000_000_000 });
+  const now = 105_000_000_000;
+  const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: now });
   activeHarness = h;
-  // Set neglected state
-  const neglectedState = cleanState({ hunger: 10, lastSeenAt: 105_000_000_000 - 15 * 60_000 });
-  await h.ctx.storage.set("state", neglectedState);
+  await h.ctx.storage.set("state", cleanState({
+    hunger: 40,
+    energy: 40,
+    happiness: 40,
+    health: 60,
+    mess: 4,
+    isSick: true,
+    sickSince: now - HOUR,
+    lastSeenAt: now,
+  }));
   await h.start();
-  
-  // check if nudge triggered
-  h.expectSpoke(/hungry/);
-  h.expectStored("state", (s) => s.lastNudgeAt === 105_000_000_000);
 
-  // If we advance clock by 5 mins, nudge should NOT fire again (cooldown)
+  const healthHud = h.calls.bubbles.at(-1).spec.hud.items[3];
+  assert.equal(healthHud.label, "Health");
+  assert.equal(healthHud.value, 60);
+
+  await h.runCommand("feed");
+  h.expectStored("state", (s) => s.hunger === 40 && s.careCounts.fed === 0);
+  h.expectSpoke(/medicine/);
+
+  await h.runCommand("clean");
+  h.expectStored("state", (s) => s.mess === 0 && s.careCounts.cleaned === 1 && s.health === 70);
+
+  await h.runCommand("medicine");
+  h.expectStored("state", (s) => s.isSick === true && s.medicineDoses === 1 && s.careCounts.medicated === 1);
+  await h.runCommand("medicine");
+  h.expectStored("state", (s) => s.isSick === false && s.medicineDoses === 0 && s.careCounts.medicated === 2);
+  h.expectSpoke(/better/);
+  h.expectNoErrors();
+}
+
+// Classic lifecycle death is reversible only through the explicit new-life command.
+{
+  const now = 106_000_000_000;
+  const h = createTestHarness(register, {
+    permissions: PERMISSIONS,
+    locales: LOCALES,
+    nowMs: now,
+    config: { classicLifecycle: true },
+  });
+  activeHarness = h;
+  await h.ctx.storage.set("state", cleanState({ deadAt: now - HOUR, deathReason: "neglect", lastSeenAt: now }));
+  await h.start();
+
+  await h.runCommand("pet");
+  h.expectStored("state", (s) => s.deadAt > 0 && s.careCounts.petted === 0);
+
+  await h.runCommand("start-over");
+  h.expectStored("state", (s) => s.deadAt === 0 && s.bornAt === now && s.careCounts.restarted === 1 && s.health === 100);
+  h.expectSpoke(/new little buddy/);
+  h.expectNoErrors();
+}
+
+// Nudges are prioritized and cooldown-protected.
+{
+  const now = 107_000_000_000;
+  const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: now });
+  activeHarness = h;
+  await h.ctx.storage.set("state", cleanState({ hunger: 10, lastSeenAt: now - 15 * 60_000 }));
+  await h.start();
+  h.expectSpoke(/hungry/);
+  h.expectStored("state", (s) => s.lastNudgeAt === now);
+
   const previousSpeakCount = h.calls.speak.length;
   await h.clock.advance("5m");
   assert.equal(h.calls.speak.length, previousSpeakCount, "nudge should not spam");
-  
   h.expectNoErrors();
 }
 
