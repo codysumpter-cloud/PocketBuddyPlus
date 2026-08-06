@@ -1,15 +1,34 @@
 import type { OpenPetsJavascriptPluginManifest } from "../plugin-manifest.js";
 import type { PluginSdkApi } from "../plugin-sdk-bridge.js";
 import type { PluginStateRecord } from "../plugin-state.js";
-import type { BuddyInventoryMutation, BuddyInventorySnapshot } from "./buddy-inventory-contract.js";
+import type { BuddyEquipmentSlot, BuddyInventoryMutation, BuddyInventorySnapshot } from "./buddy-inventory-contract.js";
 import type { BuddyInventoryStore } from "./buddy-inventory-store.js";
+
+export type InventoryTransactionSpec = {
+  readonly transactionId: string;
+  readonly reason: string;
+};
+
+export type InventoryQuantityMutationSpec = InventoryTransactionSpec & {
+  readonly itemId: string;
+  readonly quantity: number;
+};
+
+export type InventoryEquipSpec = InventoryTransactionSpec & {
+  readonly itemId: string;
+  readonly slot?: BuddyEquipmentSlot;
+};
+
+export type InventoryUnequipSpec = InventoryTransactionSpec & {
+  readonly slot: BuddyEquipmentSlot;
+};
 
 export type InventorySdkNamespace = {
   snapshot(): BuddyInventorySnapshot;
-  grant(spec: Omit<Extract<BuddyInventoryMutation, { operation: "grant" }>, "operation">): BuddyInventorySnapshot;
-  consume(spec: Omit<Extract<BuddyInventoryMutation, { operation: "consume" }>, "operation">): BuddyInventorySnapshot;
-  equip(spec: Omit<Extract<BuddyInventoryMutation, { operation: "equip" }>, "operation">): BuddyInventorySnapshot;
-  unequip(spec: Omit<Extract<BuddyInventoryMutation, { operation: "unequip" }>, "operation">): BuddyInventorySnapshot;
+  grant(spec: InventoryQuantityMutationSpec): BuddyInventorySnapshot;
+  consume(spec: InventoryQuantityMutationSpec): BuddyInventorySnapshot;
+  equip(spec: InventoryEquipSpec): BuddyInventorySnapshot;
+  unequip(spec: InventoryUnequipSpec): BuddyInventorySnapshot;
   onChange(handler: (snapshot: BuddyInventorySnapshot) => unknown): { subscriptionId: string };
   offChange(subscriptionId: string): void;
 };
