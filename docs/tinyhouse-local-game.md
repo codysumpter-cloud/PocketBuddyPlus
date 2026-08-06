@@ -9,15 +9,15 @@ the public repository.
 
 The checked-in code owns house topology, exact isometric projection, snapping,
 animation grouping, tabletop relationships, wall mounting, save/load/export,
-the local asset loader, and the Cozy Mode productivity layer. The player owns the
-licensed TinyHouse 0.17 files and selects the extracted folder at startup. The
-browser creates temporary object URLs; the files are not uploaded or copied into
-the workspace.
+editable room recipes, the local asset loader, and the Cozy Mode productivity
+layer. The player owns the licensed TinyHouse 0.17 files and selects the extracted
+folder at startup. The browser creates temporary object URLs; the files are not
+uploaded or copied into the workspace.
 
 This boundary is intentional. The asset pack may be edited and used in projects,
 but its source assets may not be redistributed. The repository therefore stores
 only filenames, dimensions, animation recipes, interaction metadata, structure
-coordinates, and original Prismtek UI/runtime code.
+coordinates, room-template manifest IDs, and original Prismtek UI/runtime code.
 
 ## Editable house topology
 
@@ -64,12 +64,46 @@ Undo/redo currently protects floor, wall, door, connected-room, reset, and
 floor/wall-style edits. Furniture movement remains governed by the existing
 pointer-locked furnishing runtime and house save/load contract.
 
+## Editable showcase room templates
+
+`room-templates-core.js`, `room-templates.js`, and `room-templates.css` turn the
+pack's showcase compositions into reusable editable presets rather than static
+background screenshots.
+
+The Rooms gallery currently provides:
+
+- a 5×5 Bathroom recipe with animated bath, sink, toilet, shelves, mirror, window, toiletries, and plants;
+- a 5×5 Kitchen recipe with cabinets, animated sink and appliances, refrigerator, washing machine, oven, table, seating, and countertop props;
+- a larger 6×6 Office recipe with animated computers, printers, machines, desks, chairs, partitions, storage, and wall decor;
+- a 4×4 Japanese Room recipe with tatami-style surfaces, closet, low table, cushions, tea, shelving, bonsai, lantern, artwork, and an animated sliding door.
+
+Each recipe stores only TinyHouse manifest IDs, coordinates, scale, support
+relationships, structural wall anchors, and animation state. Applying a recipe:
+
+1. validates every required licensed asset against the loaded local manifest;
+2. asks before replacing an occupied house;
+3. stores a one-step complete-house backup;
+4. creates the recipe's real floor/wall structure;
+5. creates individually movable floor, wall-mounted, and tabletop placements;
+6. preserves normal interaction, save/load, animation, and export behavior.
+
+**Play Room Animations** triggers the current template's real animated placements
+through the same animation runtime used by individually placed furniture.
+
+The animated full-room GIFs and PNG compositions are also supported as optional
+local gallery previews. Named files can be matched from words such as `bathroom`,
+`kitchen`, `office`, and `japanese`. UUID-named uploads must be assigned through
+the matching room card's **Choose Preview** input so the runtime never guesses the
+wrong room. Preview files remain revocable browser object URLs and are excluded
+from saves, host messages, and repository source.
+
 ## Furnishing and Cozy behavior
 
 The house builder retains pointer-locked furniture dragging, tabletop attachment,
 wall mounting, grouped animation states, catalog search, camera controls, and Cozy
 Mode. Cozy Mode continues to publish only bounded productivity state and never
-publishes licensed asset handles, image bytes, or the private house save.
+publishes licensed asset handles, image bytes, room-preview URLs, or the private
+house save.
 
 ## Open-source design references
 
@@ -77,15 +111,17 @@ The implementation is original Prismtek code. No third-party source, art, audio,
 or models are vendored. Earlier Cozy patterns were evaluated from Pixel Agents,
 Pomotroid, and Magenta Lo-Fi Player. The Blueprint Room Planner additionally uses
 clean-room behavioral references from Diorama, Blueprint3D Modern, Godot Home
-Builder, Arcada, and FreeSO. See `docs/tinyhouse-cozy-reference-notes.md` for the
-adoption boundary.
+Builder, Arcada, and FreeSO. The room-template recipes use the user's licensed
+TinyHouse manifest and the pack's own showcase compositions as local layout and
+animation references without committing those compositions. See
+`docs/tinyhouse-cozy-reference-notes.md` for the adoption boundary.
 
 ## Verification
 
 The root `pnpm test:tinyhouse-local` command runs behavior contracts for the
 original asset boundary, pointer dragging, structural wall mounting, editable
-house topology, Blueprint planning, and Cozy Mode. The house-grid contract
-specifically protects:
+house topology, Blueprint planning, room templates, and Cozy Mode. The
+house-grid contract specifically protects:
 
 - the initial 25-cell/10-edge structure;
 - exact expanded-cell projection;
@@ -96,3 +132,13 @@ specifically protects:
 - bridge-tile split detection;
 - lossless topology persistence;
 - full-house export wiring.
+
+The room-template contract protects:
+
+- the Bathroom, Kitchen, Office, and Japanese editable recipes;
+- meaningful structure dimensions and furnishing counts;
+- required manifest identifiers for animated and static pack assets;
+- explicit UUID preview assignment instead of arbitrary filename-order guessing;
+- ephemeral local-only preview handling;
+- complete-house backup/restore and whole-room animation controls;
+- stylesheet and script ordering.
