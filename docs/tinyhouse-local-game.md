@@ -137,7 +137,8 @@ The room-template contract protects:
 
 - the Bathroom, Kitchen, Office, and Japanese editable recipes;
 - meaningful structure dimensions and furnishing counts;
-- required manifest identifiers for animated and static pack assets;
+- complete resolution of every recipe asset ID against the shipped manifest;
+- valid floor anchors for every non-wall root placement;
 - explicit UUID preview assignment instead of arbitrary filename-order guessing;
 - ephemeral local-only preview handling;
 - complete-house backup/restore and whole-room animation controls;
