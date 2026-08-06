@@ -122,7 +122,7 @@
         { key: "candle", assetId: "japanese-room-candle", supportKey: "table", supportOffsetX: 32, layer: 49 },
         { key: "bonsai", assetId: "japanese-room-bonsai", supportKey: "shelf", supportOffsetX: 12, layer: 50 },
         { key: "vase", assetId: "japanese-room-japanese-vase", supportKey: "shelf", supportOffsetX: -26, layer: 51 },
-        { key: "plant", assetId: "japanese-room-japanese-plant", column: 3.55, row: 3.4, layer: 32 },
+        { key: "plant", assetId: "japanese-room-japanese-plant", column: 3.35, row: 3.4, layer: 32 },
         { key: "clothes", assetId: "japanese-room-clothes-case", column: 0.45, row: 2, layer: 29 },
         { key: "lamp", assetId: "japanese-room-japanese-lamp", column: 3.35, row: 0.65, layer: 24 },
         { key: "canvas", assetId: "japanese-room-japanese-canvas", wall: { axis: "left", column: 0, row: 1, offsetX: 64, offsetY: 58 }, layer: 8 },
