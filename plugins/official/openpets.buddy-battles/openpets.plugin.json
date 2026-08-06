@@ -1,0 +1,20 @@
+{
+  "manifestVersion": 3,
+  "id": "openpets.buddy-battles",
+  "name": "Buddy Battles",
+  "description": "Run deterministic local sparring matches using your Buddy profile and shared equipment.",
+  "version": "1.0.0",
+  "runtime": "javascript",
+  "icon": "sparkles",
+  "sdkVersion": "3.0.0",
+  "entry": "index.js",
+  "permissions": [
+    "pets:read",
+    "pets:manage",
+    "storage",
+    "commands",
+    "status",
+    "ui:toast",
+    "pet:reaction"
+  ]
+}
