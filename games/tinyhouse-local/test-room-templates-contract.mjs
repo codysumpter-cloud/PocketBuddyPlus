@@ -21,6 +21,12 @@ for (const template of core.templates) {
   assert.ok(template.structure.rows >= 4 && template.structure.rows <= 6);
   assert.ok(template.placements.length >= 13, `${template.name} should be meaningfully furnished`);
   assert.equal(core.missingAssetIds(template, [{ id: "nope" }]).length > 0, true);
+  for (const placement of template.placements.filter((candidate) => !candidate.wall && !candidate.supportKey)) {
+    assert.ok(Math.round(placement.column) >= 0 && Math.round(placement.column) < template.structure.columns,
+      `${template.name} ${placement.key} must anchor to an existing floor column`);
+    assert.ok(Math.round(placement.row) >= 0 && Math.round(placement.row) < template.structure.rows,
+      `${template.name} ${placement.key} must anchor to an existing floor row`);
+  }
 }
 assert.equal(core.matchPreviewFile("Animated Bathroom Showcase.gif"), "bathroom");
 assert.equal(core.matchPreviewFile("office_loop.GIF"), "office");
@@ -47,4 +53,4 @@ assert.match(manifestSource, /state-washing-machine/);
 assert.match(manifestSource, /state-office-normal-table/);
 assert.match(manifestSource, /ani-japanese-door/);
 
-console.log("TinyHouse room-template contract passed: editable recipes, explicit local GIF previews, restore backup, and whole-room animation controls.");
+console.log("TinyHouse room-template contract passed: editable recipes, explicit local GIF previews, valid floor anchors, restore backup, and whole-room animation controls.");
