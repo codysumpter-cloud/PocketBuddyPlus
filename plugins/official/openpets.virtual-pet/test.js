@@ -135,6 +135,12 @@ const DAY = 24 * HOUR;
 const PERMISSIONS = ["pet:speak", "pet:interact", "pet:pin", "pet:reaction", "schedule", "storage", "commands", "audio", "events"];
 const LOCALES = { en: JSON.parse(await readFile(new URL("./locales/en.json", import.meta.url), "utf8")) };
 
+function latestHud(harness) {
+  const bubble = harness.calls.bubbles.findLast((entry) => entry.spec?.hud);
+  assert.ok(bubble?.spec.hud, "expected a pinned HUD bubble");
+  return bubble.spec.hud;
+}
+
 // Startup initializes a migratable persistent state, tick schedule, and four-item HUD.
 {
   const h = createTestHarness(register, { permissions: PERMISSIONS, locales: LOCALES, nowMs: 100_000_000_000 });
@@ -145,10 +151,9 @@ const LOCALES = { en: JSON.parse(await readFile(new URL("./locales/en.json", imp
   h.expectBubble({ sticky: true, pin: true });
   assert.deepEqual(h.calls.bubbles[0].spec.dismissOn, []);
 
-  const lastBubble = h.calls.bubbles.at(-1);
-  assert.ok(lastBubble?.spec.hud);
-  assert.equal(lastBubble.spec.hud.items.length, 4);
-  const [food, energy, play, bond] = lastBubble.spec.hud.items;
+  const hud = latestHud(h);
+  assert.equal(hud.items.length, 4);
+  const [food, energy, play, bond] = hud.items;
   assert.deepEqual([food.icon, food.value, food.label], ["food", 80, "Food"]);
   assert.deepEqual([energy.icon, energy.value, energy.label], ["zap", 80, "Energy"]);
   assert.deepEqual([play.icon, play.value, play.label], ["play", 80, "Play"]);
@@ -249,7 +254,7 @@ const LOCALES = { en: JSON.parse(await readFile(new URL("./locales/en.json", imp
   }));
   await h.start();
 
-  const healthHud = h.calls.bubbles.at(-1).spec.hud.items[3];
+  const healthHud = latestHud(h).items[3];
   assert.equal(healthHud.label, "Health");
   assert.equal(healthHud.value, 60);
 
