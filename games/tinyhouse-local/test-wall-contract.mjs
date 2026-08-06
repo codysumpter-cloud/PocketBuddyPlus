@@ -66,6 +66,8 @@ assert.match(dragSource, /applyWallPlacement\(placement, wallTarget\)/);
 assert.match(runtimeSource, /placeSelectedOnWall/);
 assert.match(runtimeSource, /restoreWallPlacementsAfterLoad/);
 assert.match(runtimeSource, /wall-badge/);
+assert.match(runtimeSource, /structureEdgeKey/);
+assert.match(runtimeSource, /wallColumn/);
 assert.match(coreSource, /structureWallTargets/);
 assert.match(coreSource, /edge\.kind !== "wall"/);
 assert.match(coreSource, /structureEdgeKey/);
@@ -80,4 +82,4 @@ assert.ok(wallCoreIndex > dragCoreIndex);
 assert.ok(dragRuntimeIndex > wallCoreIndex);
 assert.ok(wallRuntimeIndex > dragRuntimeIndex);
 
-console.log("TinyHouse wall contract passed: tabletop children stay visible and wall-tagged items target real structural walls.");
+console.log("TinyHouse wall contract passed: tabletop children stay visible and wall-tagged items persist on real structural walls.");
