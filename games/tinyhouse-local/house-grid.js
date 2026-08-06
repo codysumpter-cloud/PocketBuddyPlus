@@ -23,6 +23,7 @@
     grid: null,
     mode: "furnish",
     plugins: [],
+    initialized: false,
   };
   if (!context.viewport || !context.stage || !context.floorLayer || !context.wallLayer || !context.itemLayer) return;
 
@@ -94,7 +95,14 @@
 
   const runtime = {
     context,
-    use(plugin) { context.plugins.push(plugin); },
+    use(plugin) {
+      context.plugins.push(plugin);
+      if (context.initialized) {
+        Promise.resolve(plugin.init?.(context))
+          .then(() => context.renderStructure?.())
+          .catch((error) => console.error(`[tinyhouse/structure] ${plugin.name || "late plugin"} failed`, error));
+      }
+    },
   };
   window.TinyHouseStructureRuntime = runtime;
 
@@ -125,6 +133,7 @@
     await new Promise((resolve) => setTimeout(resolve, 0));
     context.loadInitialStructure();
     for (const plugin of context.plugins) await plugin.init?.(context);
+    context.initialized = true;
     exposeApi();
     context.renderStructure?.();
     console.info("[tinyhouse/structure] editable isometric house grid ready", {
