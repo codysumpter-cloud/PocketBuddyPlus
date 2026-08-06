@@ -4,12 +4,14 @@
 
 Pocket Buddy+ keeps one Buddy identity across desktop companionship, agent integrations, creator tools, and plugin-powered experiences. The Buddy is the shared character; plugins add what the Buddy can do.
 
-> **Active development:** the desktop companion, model-backed Buddy Talk, plugin runtime, animation system, creator plugins, and agent integrations already exist. Shared inventory/economy, battles, trading, and broader device sync are being built on top of those foundations rather than as separate apps.
+> **Active development:** the desktop companion, model-backed Buddy Talk, host-owned Buddy profile, shared inventory/equipment ledger, plugin runtime, animation system, creator plugins, and agent integrations already exist. Battles, trading, and broader device sync are being built on top of those foundations rather than as separate apps.
 
 ## What works today
 
 - Animated desktop Buddies with installable sprite packs, multi-animation manifests, reactions, movement, and per-Buddy reaction mapping.
 - A Pocket Buddy+ Control Center with Buddy status, care, AI conversation with local fallback, notes, tasks, collection, wardrobe, pet management, plugins, and integrations.
+- A versioned host-owned Buddy profile that approved plugins can read without receiving Talk history, notes, tasks, files, or credentials.
+- A shared transactional inventory/equipment ledger with canonical item definitions, quantities, slots, idempotent mutation receipts, and sandboxed plugin access.
 - Sandboxed JavaScript/TypeScript plugins with declared permissions, quotas, schedules, storage, commands, panels, events, audio, notifications, secrets, and network controls.
 - Host-managed AI access for Buddy Talk and approved plugins through Anthropic, OpenAI, **NVIDIA NIM**, or Ollama.
 - Secure user-supplied API keys kept in the host secret store instead of renderer state, plugin source, or plugin configuration.
@@ -30,7 +32,11 @@ Pocket Buddy+ owns the durable systems that every experience needs:
 
 Plugins own experiences. That is where battles, trading, games, social features, creator tools, journaling, GitHub workflows, and future Prismtek ideas belong.
 
-Read the platform direction in [`docs/pocket-buddy-platform.md`](docs/pocket-buddy-platform.md).
+Platform references:
+
+- [`docs/pocket-buddy-platform.md`](docs/pocket-buddy-platform.md) — product and plugin architecture
+- [`docs/buddy-profile.md`](docs/buddy-profile.md) — public Buddy identity/state contract
+- [`docs/buddy-inventory.md`](docs/buddy-inventory.md) — shared item, equipment, and transaction contract
 
 ## NVIDIA AI setup
 
@@ -116,7 +122,8 @@ pnpm package:desktop:plus:dir
 
 ```text
 apps/desktop              Pocket Buddy+ Electron host and Control Center
-apps/desktop/src/buddy    Buddy domain and behavior foundation
+apps/desktop/src/buddy    Buddy identity and behavior foundation
+apps/desktop/src/inventory Shared item, equipment, and transaction ledger
 packages/sdk              Compatibility-published plugin SDK
 packages/mcp              Local MCP bridge
 packages/agent-events     Safe agent event and speech sanitization
@@ -131,6 +138,8 @@ docs                      Architecture, plugin, provider, and release documentat
 - Buddy Talk sends only the current message, up to 12 recent Talk messages, and the Buddy's public mood/need snapshot to the configured provider.
 - Notes, tasks, files, plugin state, screen contents, and credentials stay out of Buddy Talk requests.
 - Plugin permissions are declared and approved before host capabilities are exposed.
+- `pets:read` permits profile/inventory snapshots; inventory mutations require the stronger `pets:manage` permission.
+- Inventory mutations accept only trusted host item definitions and produce source-attributed, idempotent receipts.
 - JavaScript plugins run in sandboxed hosts; the application renders trusted UI descriptors.
 - Private-network and SSRF protections apply to plugin network access.
 - Dynamic speech is filtered and requires explicit host settings.
