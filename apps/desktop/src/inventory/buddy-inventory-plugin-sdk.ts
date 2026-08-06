@@ -75,24 +75,24 @@ function decorateInventorySdk(
 ): InventorySdkApi {
   const declared = new Set<string>(manifest.permissions);
   const approved = new Set<string>(record.approvedPermissions.filter((permission) => declared.has(permission)));
-  const requirePermission = (permission: "inventory:read" | "inventory:write") => {
+  const requirePermission = (permission: "pets:read" | "pets:manage") => {
     if (!approved.has(permission)) throw new Error(`Plugin permission is not approved: ${permission}`);
   };
   const mutate = (operation: BuddyInventoryMutation["operation"], spec: unknown): BuddyInventorySnapshot => {
-    requirePermission("inventory:write");
+    requirePermission("pets:manage");
     if (!spec || typeof spec !== "object" || Array.isArray(spec)) throw new Error("Inventory mutation spec is invalid.");
     return store.mutate(record.id, { ...(spec as Record<string, unknown>), operation });
   };
 
   return Object.assign(sdk, {
     inventory: {
-      snapshot: () => { requirePermission("inventory:read"); return store.snapshot(); },
+      snapshot: () => { requirePermission("pets:read"); return store.snapshot(); },
       grant: (spec: unknown) => mutate("grant", spec),
       consume: (spec: unknown) => mutate("consume", spec),
       equip: (spec: unknown) => mutate("equip", spec),
       unequip: (spec: unknown) => mutate("unequip", spec),
       onChange: (handler: (snapshot: BuddyInventorySnapshot) => unknown) => {
-        requirePermission("inventory:read");
+        requirePermission("pets:read");
         if (typeof handler !== "function") throw new Error("Inventory change handler is invalid.");
         if (subscriptions.size >= 16) throw new Error("Inventory subscription quota exceeded.");
         const subscriptionId = nextSubscriptionId();
