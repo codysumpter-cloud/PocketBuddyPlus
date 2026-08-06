@@ -46,7 +46,7 @@ Current lineup (verified 2026-07-10 against the folder + manifests):
 | Plugin id | What it is |
 |-----------|------------|
 | `openpets.reminders` | Quick reminders with due/missed alerts, snooze/done, status, optional notify/sound |
-| `openpets.virtual-pet` | Tamagotchi-style state machine (hunger/energy/happiness/affection), pinned HUD, click handling |
+| `openpets.virtual-pet` | Persistent lifecycle with hunger/energy/happiness/affection, health, mess, sickness, medicine, care mistakes, growth stages, restart catch-up, and optional classic death/restart behavior |
 | `openpets.focus-buddy` | Focus-session timers with status and completion/break feedback |
 | `openpets.water-reminder` | Hydration reminder loop with configurable cadence |
 | `openpets.day-routine` | Morning/evening daily check-ins |
@@ -55,6 +55,13 @@ Current lineup (verified 2026-07-10 against the folder + manifests):
 | `openpets.magic-8-ball` | Command-driven decision/fortune responses |
 | `openpets.fortune-cookie` | Periodic or command-triggered fortunes |
 | `openpets.calendar-airmail` | Google primary-calendar reminders delivered by a selected bundled courier sprite ten minutes before and at event start |
+
+The Virtual Pet plugin defaults to **casual lifecycle mode**: health can become
+critical, but the pet is never permanently lost. Users who explicitly enable
+**Classic lifecycle** allow prolonged neglect or untreated sickness to end the
+current life, after which the right-click **Start a new life** command resets the
+pet while preserving the restart count. Existing v1 saves migrate forward by
+adding lifecycle fields with safe defaults; they do not require a reset.
 
 `plugins/official/codemap.md` carries the per-plugin SDK-surface breakdown.
 
@@ -108,4 +115,3 @@ Official and community plugins are packaged into catalog **v2** artifacts and
 ZIPs on R2 (see [catalog.md](catalog.md)). Current runtime work should not
 optimize for the legacy v1 catalog (kept as an empty compatibility shim). The
 packaging + release gates are in [testing-and-validation.md](testing-and-validation.md).
-</content>
