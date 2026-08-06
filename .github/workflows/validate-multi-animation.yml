@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: multi-animation-${{ github.ref }}
@@ -39,32 +39,8 @@ jobs:
           corepack prepare pnpm@11.0.8 --activate
           pnpm --version
 
-      - name: Normalize traversal assertion and refresh lockfile
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-
-          path = Path('packages/pixel-asset-pipeline/src/check-pixellab-importer.ts')
-          text = path.read_text()
-          old = 'await assert.rejects(() => inspectPixelLabExport(unsafe), /Unsafe ZIP path/);'
-          new = 'await assert.rejects(() => inspectPixelLabExport(unsafe), /Unsafe ZIP path|invalid relative path/);'
-          if old in text:
-              path.write_text(text.replace(old, new, 1))
-          elif new not in text:
-              raise SystemExit('Traversal assertion is not in an expected state')
-          PY
-
-          pnpm install --no-frozen-lockfile
-          git diff --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add packages/pixel-asset-pipeline/src/check-pixellab-importer.ts pnpm-lock.yaml
-          if ! git diff --cached --quiet; then
-            git commit -m 'test(pets): accept parser-level traversal rejection'
-            git push origin HEAD:agent/multi-animation-pet-manifests
-          fi
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
 
       - name: Focused schema and importer tests
         run: |
@@ -72,6 +48,7 @@ jobs:
           pnpm --filter @open-pets/pet-format test
           pnpm --filter @open-pets/pixel-asset-pipeline build
           pnpm --filter @open-pets/pixel-asset-pipeline test
+          pnpm --filter @open-pets/client build
           pnpm --filter install-pet build
           pnpm --filter install-pet test
           pnpm --filter @open-pets/desktop test:build
@@ -110,13 +87,12 @@ jobs:
             find apps/desktop/dist-electron-plus -maxdepth 2 -type f -printf '%P %s bytes\n' 2>/dev/null | sort | head -200 || true
           } > /tmp/multi-animation-validation-summary.txt
 
-      - name: Upload lockfile and importer runtime
+      - name: Upload importer runtime and summary
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: multi-animation-build-support
           path: |
-            pnpm-lock.yaml
             /tmp/pixel-importer-runtime.tgz
             /tmp/multi-animation-validation-summary.txt
           if-no-files-found: warn
