@@ -103,7 +103,14 @@ export async function getReactionAnimationSettingsSnapshot(selectedPetId?: strin
     ?? (selected.id === builtInPet.id ? state.preferences.reactionAnimationOverrides : undefined)
     ?? {};
   const pets = availablePets.map((pet) => ({ id: pet.id, displayName: pet.displayName, builtIn: pet.builtIn }));
-  if (selected.id === builtInPet.id) {
+  /**
+   * Pets that predate the animation manifest still render on the universal 8x9
+   * spritesheet grid, so they get the same legacy snapshot the built-in pet
+   * gets - only the preview image differs. Throwing here instead took the whole
+   * Reaction Mapping screen down for every pet installed before manifests
+   * existed.
+   */
+  const legacyGridSnapshot = (spriteUrl: string): ReactionAnimationSettingsSnapshot => {
     return {
       selectedPetId: selected.id,
       selectedPetDisplayName: selected.displayName,
@@ -129,11 +136,13 @@ export async function getReactionAnimationSettingsSnapshot(selectedPetId?: strin
         };
       }),
       overrides,
-      preview: { kind: "builtin-sheet", frameWidth: defaultPetSprite.frameWidth, frameHeight: defaultPetSprite.frameHeight, direction: "south", sprite: defaultPetSprite, spriteUrl: "openpets-pet-preview://spritesheet/default" },
+      preview: { kind: "builtin-sheet", frameWidth: defaultPetSprite.frameWidth, frameHeight: defaultPetSprite.frameHeight, direction: "south", sprite: defaultPetSprite, spriteUrl },
     };
-  }
+  };
+
+  if (selected.id === builtInPet.id) return legacyGridSnapshot("openpets-pet-preview://spritesheet/default");
   const manifest = await readInstalledPetAnimationManifest(selected.id);
-  if (!manifest) throw new Error(`Installed pet ${selected.id} does not provide an animation manifest.`);
+  if (!manifest) return legacyGridSnapshot(`openpets-installed://spritesheet/${encodeURIComponent(selected.id)}`);
   return {
     selectedPetId: selected.id,
     selectedPetDisplayName: selected.displayName,
