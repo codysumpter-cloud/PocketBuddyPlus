@@ -8,7 +8,7 @@
       id: "bathroom",
       name: "Bathroom",
       description: "Animated bath, sink, toilet, shelves, mirror, window, toiletries, and plants.",
-      previewKeywords: ["bath", "bathroom", "wc"],
+      previewKeywords: ["bathroom", "bath", "toilet"],
       structure: { columns: 5, rows: 5 },
       theme: {
         floorAssetId: "floor-wall-tiles-128-floor-128-whitecheck",
