@@ -3,7 +3,33 @@ import { resolvePetAnimationId } from "@open-pets/pet-format";
 
 import { allowedReactions, type OpenPetsReaction } from "./local-ipc-protocol.js";
 
-export type PetMotionState = "idle" | "run-left" | "run-right";
+export const petMotionDirections = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"] as const;
+export type PetMotionDirection = typeof petMotionDirections[number];
+export type PetMotionState = "idle" | "run-left" | "run-right" | `run-${PetMotionDirection}`;
+
+export const motionDirectionByState = {
+  "run-left": "west",
+  "run-right": "east",
+  "run-north": "north",
+  "run-north-east": "north-east",
+  "run-east": "east",
+  "run-south-east": "south-east",
+  "run-south": "south",
+  "run-south-west": "south-west",
+  "run-west": "west",
+  "run-north-west": "north-west",
+} as const satisfies Record<Exclude<PetMotionState, "idle">, PetMotionDirection>;
+
+export function resolvePetMotionDirection(state: PetMotionState): PetMotionDirection | null {
+  return state === "idle" ? null : motionDirectionByState[state];
+}
+
+export function resolvePetMotionState(dx: number, dy: number): PetMotionState {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 0.001) return "idle";
+  const octant = (Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8;
+  const direction = (["east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"] as const)[octant] ?? "east";
+  return `run-${direction}`;
+}
 export type UniversalSpriteState = "idle" | "running-right" | "running-left" | "waving" | "jumping" | "failed" | "waiting" | "running" | "review";
 export type UserSelectableAnimationState = Exclude<UniversalSpriteState, "running-left" | "running-right">;
 export type PetAnimationId = string;
@@ -19,8 +45,16 @@ export interface SpriteStateDefinition {
 
 export const motionToSpriteState = {
   idle: "idle",
-  "run-right": "running-right",
   "run-left": "running-left",
+  "run-right": "running-right",
+  "run-north": "running-left",
+  "run-north-east": "running-right",
+  "run-east": "running-right",
+  "run-south-east": "running-right",
+  "run-south": "running-right",
+  "run-south-west": "running-left",
+  "run-west": "running-left",
+  "run-north-west": "running-left",
 } as const satisfies Record<PetMotionState, UniversalSpriteState>;
 
 export const defaultReactionToSpriteState = {

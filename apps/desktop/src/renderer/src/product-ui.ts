@@ -29,6 +29,26 @@ type BuddyUiState = {
   readonly activeSection: BuddySection;
 };
 
+type BuddyChatRequest = {
+  readonly message: string;
+  readonly history: readonly { readonly role: "user" | "buddy"; readonly text: string }[];
+  readonly buddy: {
+    readonly name: string;
+    readonly mood: string;
+    readonly activity: string;
+    readonly dominantNeed: string;
+    readonly affection: number;
+  };
+};
+
+type BuddyChatResponse =
+  | { readonly ok: true; readonly text: string; readonly provider: string; readonly model: string }
+  | { readonly ok: false; readonly reason: "unavailable" | "empty" | "provider-error" };
+
+type BuddyChatApi = {
+  completeBuddyChat(request: BuddyChatRequest): Promise<BuddyChatResponse>;
+};
+
 const PRODUCT_NAME = "Pocket Buddy+";
 const THEME_STORAGE_KEY = "pocket-buddy-plus:theme:v1";
 const BUDDY_STORAGE_KEY = "pocket-buddy-plus:buddy-ui:v1";
@@ -40,6 +60,8 @@ let currentTheme: ThemeMode = readTheme();
 let buddyUiState = readBuddyUiState();
 let buddyModal: HTMLDivElement | null = null;
 let observerQueued = false;
+let buddyTalkPending = false;
+let buddyTalkStatus = "Configured provider or local fallback";
 
 function brandVisibleText(value: string): string {
   return value
@@ -162,6 +184,19 @@ function buddyReply(input: string): string {
   return options[(input.length + Math.round(snapshot.affection * 10)) % options.length];
 }
 
+function getBuddyChatApi(): BuddyChatApi | null {
+  const api = (window as typeof window & { openPetsControlCenter?: Partial<BuddyChatApi> }).openPetsControlCenter;
+  return typeof api?.completeBuddyChat === "function" ? api as BuddyChatApi : null;
+}
+
+function providerLabel(provider: string): string {
+  if (provider === "anthropic") return "Anthropic";
+  if (provider === "openai") return "OpenAI";
+  if (provider === "nvidia") return "NVIDIA NIM";
+  if (provider === "ollama") return "Ollama";
+  return "AI provider";
+}
+
 function createThemeControl(): HTMLElement {
   const wrapper = document.createElement("div");
   wrapper.className = "pb-theme-control";
@@ -225,7 +260,7 @@ function createBuddyModal(): HTMLDivElement {
   modal.setAttribute("aria-modal", "true");
   modal.setAttribute("aria-label", "Buddy+ center");
   modal.addEventListener("click", handleBuddyModalClick);
-  modal.addEventListener("submit", handleBuddyModalSubmit);
+  modal.addEventListener("submit", (event) => { void handleBuddyModalSubmit(event as SubmitEvent); });
   modal.addEventListener("change", handleBuddyModalChange);
   return modal;
 }
@@ -279,7 +314,7 @@ function handleBuddyModalClick(event: MouseEvent): void {
   }
 }
 
-function handleBuddyModalSubmit(event: SubmitEvent): void {
+async function handleBuddyModalSubmit(event: SubmitEvent): Promise<void> {
   event.preventDefault();
   const form = event.target as HTMLFormElement;
   const data = new FormData(form);
@@ -289,13 +324,47 @@ function handleBuddyModalSubmit(event: SubmitEvent): void {
     updateBuddyUiState((current) => ({ ...current, buddy: { ...current.buddy, displayName, updatedAtMs: Date.now() } }));
   }
   if (form.dataset.pbForm === "talk") {
+    if (buddyTalkPending) return;
     const text = String(data.get("message") ?? "").trim().slice(0, 500);
     if (!text) return;
+    const snapshot = createBuddySnapshot(buddyUiState.buddy);
+    const request: BuddyChatRequest = {
+      message: text,
+      history: buddyUiState.messages.slice(-12).map((message) => ({ role: message.role, text: message.text })),
+      buddy: {
+        name: snapshot.name,
+        mood: snapshot.mood,
+        activity: snapshot.activity,
+        dominantNeed: snapshot.dominantNeed,
+        affection: snapshot.affection,
+      },
+    };
     const now = Date.now();
-    const reply = buddyReply(text);
     const userMessage: BuddyUiState["messages"][number] = { role: "user", text, at: now };
-    const buddyMessage: BuddyUiState["messages"][number] = { role: "buddy", text: reply, at: now + 1 };
-    updateBuddyUiState((current) => ({ ...current, messages: [...current.messages, userMessage, buddyMessage].slice(-80) }));
+    buddyTalkPending = true;
+    buddyTalkStatus = "Thinking…";
+    form.reset();
+    updateBuddyUiState((current) => ({ ...current, messages: [...current.messages, userMessage].slice(-80) }));
+
+    let reply = buddyReply(text);
+    try {
+      const api = getBuddyChatApi();
+      const response = api ? await api.completeBuddyChat(request) : { ok: false as const, reason: "unavailable" as const };
+      if (response.ok) {
+        reply = response.text;
+        buddyTalkStatus = `${providerLabel(response.provider)}${response.model ? ` · ${response.model}` : ""}`;
+      } else {
+        buddyTalkStatus = response.reason === "provider-error" ? "Provider unavailable · local fallback" : "Local fallback";
+      }
+    } catch {
+      buddyTalkStatus = "Provider unavailable · local fallback";
+    }
+
+    const buddyMessage: BuddyUiState["messages"][number] = { role: "buddy", text: reply, at: Date.now() };
+    updateBuddyUiState((current) => ({ ...current, messages: [...current.messages, buddyMessage].slice(-80) }));
+    buddyTalkPending = false;
+    renderBuddyModal();
+    return;
   }
   if (form.dataset.pbForm === "note") {
     const text = String(data.get("note") ?? "").trim().slice(0, 500);
@@ -365,7 +434,7 @@ function renderBuddySection(section: BuddySection): string {
       </div>`;
   }
   if (section === "talk") {
-    return `<section class="pb-panel pb-talk"><div class="pb-panel-heading"><div><p class="pb-kicker">Talk to Buddy</p><h3>Local conversation</h3></div><span class="pb-status-chip">Mood-aware</span></div><div class="pb-messages">${buddyUiState.messages.map((message) => `<article class="pb-message ${message.role}"><strong>${message.role === "buddy" ? escapeHtml(snapshot.name) : "You"}</strong><p>${escapeHtml(message.text)}</p></article>`).join("")}</div><form data-pb-form="talk" class="pb-compose"><textarea name="message" maxlength="500" placeholder="Say something to ${escapeHtml(snapshot.name)}…" required></textarea><button type="submit">Send</button></form></section>`;
+    return `<section class="pb-panel pb-talk"><div class="pb-panel-heading"><div><p class="pb-kicker">Talk to Buddy</p><h3>AI conversation</h3></div><span class="pb-status-chip">${escapeHtml(buddyTalkStatus)}</span></div><p class="pb-body-copy">The current message, Buddy’s public mood/need snapshot, and up to 12 recent Talk messages go to your configured provider. Notes, tasks, files, plugins, and credentials stay out of the request.</p><div class="pb-messages">${buddyUiState.messages.map((message) => `<article class="pb-message ${message.role}"><strong>${message.role === "buddy" ? escapeHtml(snapshot.name) : "You"}</strong><p>${escapeHtml(message.text)}</p></article>`).join("")}</div><form data-pb-form="talk" class="pb-compose"><textarea name="message" maxlength="500" placeholder="Say something to ${escapeHtml(snapshot.name)}…" required ${buddyTalkPending ? "disabled" : ""}></textarea><button type="submit" ${buddyTalkPending ? "disabled" : ""}>${buddyTalkPending ? "Thinking…" : "Send"}</button></form></section>`;
   }
   if (section === "notes") {
     return `<div class="pb-two-column"><section class="pb-panel"><p class="pb-kicker">Notes</p><h3>Things Buddy remembers for you</h3><form data-pb-form="note" class="pb-compose compact"><textarea name="note" maxlength="500" placeholder="Add a note…" required></textarea><button type="submit">Save note</button></form><div class="pb-list">${buddyUiState.notes.length ? buddyUiState.notes.map((note, index) => `<article><p>${escapeHtml(note)}</p><button type="button" data-pb-note-delete="${index}" aria-label="Delete note">×</button></article>`).join("") : `<p class="pb-empty">No notes yet.</p>`}</div></section><section class="pb-panel"><p class="pb-kicker">Tasks</p><h3>A tiny shared to-do list</h3><form data-pb-form="task" class="pb-form-row"><input name="task" maxlength="240" placeholder="Add a task…" required><button type="submit">Add</button></form><div class="pb-list">${buddyUiState.tasks.length ? buddyUiState.tasks.map((task) => `<article class="pb-task ${task.completed ? "completed" : ""}"><button type="button" class="pb-task-check" data-pb-task-toggle="${task.id}" aria-label="Toggle task">${task.completed ? "✓" : ""}</button><p>${escapeHtml(task.text)}</p><button type="button" data-pb-task-delete="${task.id}" aria-label="Delete task">×</button></article>`).join("") : `<p class="pb-empty">Nothing on the list.</p>`}</div></section></div>`;

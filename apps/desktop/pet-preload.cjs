@@ -1,6 +1,18 @@
 const { ipcRenderer } = require("electron");
 
-const allowedMotionStates = new Set(["idle", "run-left", "run-right"]);
+const allowedMotionStates = new Set(["idle", "run-left", "run-right", "run-north", "run-north-east", "run-east", "run-south-east", "run-south", "run-south-west", "run-west", "run-north-west"]);
+const motionDirectionByState = Object.freeze({
+  "run-left": "west",
+  "run-right": "east",
+  "run-north": "north",
+  "run-north-east": "north-east",
+  "run-east": "east",
+  "run-south-east": "south-east",
+  "run-south": "south",
+  "run-south-west": "south-west",
+  "run-west": "west",
+  "run-north-west": "north-west",
+});
 const allowedReactionStates = new Set(["idle", "running-right", "running-left", "waving", "jumping", "failed", "waiting", "running", "review"]);
 const safeAnimationId = /^[a-z0-9][a-z0-9._-]{0,126}$/;
 let lastInteractiveHit = null;
@@ -51,7 +63,7 @@ const startManifestPlayer = () => {
     return catalog.animations[direct] ? direct : catalog.idle;
   };
   const resolveFrames = (animation) => {
-    const wanted = motion === "run-left" ? "west" : motion === "run-right" ? "east" : (animation.defaultDirection || catalog.defaultDirection || "south");
+    const wanted = motionDirectionByState[motion] || animation.defaultDirection || catalog.defaultDirection || "south";
     if (Array.isArray(animation.frames?.[wanted]) && animation.frames[wanted].length) return animation.frames[wanted];
     if (animation.directionIndependent) {
       for (const frames of Object.values(animation.frames || {})) if (Array.isArray(frames) && frames.length) return frames;

@@ -4,6 +4,7 @@ import { delimiter, join, resolve } from "node:path";
 
 import { getAppStateSnapshot, initializeAppState, releaseStartupInstallLock } from "./app-state.js";
 import { createAppIcon } from "./assets.js";
+import { installBuddyChatIpcHandler } from "./buddy-chat-ipc.js";
 import { setLocaleFromPreference } from "./i18n/index.js";
 import { installDefaultPetDisplayHandlers, shouldOpenDefaultPetOnLaunch, showDefaultPet } from "./default-pet-controller.js";
 import { installAppLifecycle } from "./lifecycle.js";
@@ -108,6 +109,7 @@ if (!gotSingleInstanceLock) {
     initializePluginPlatformSettings(app.getPath("userData"));
     registerPocketBuddyPlusBundledPlugins(bundledOfficialPluginIds);
     const pluginCapabilities = createElectronPluginHostCapabilities(app.getPath("userData"));
+    installBuddyChatIpcHandler(pluginCapabilities.aiGateway);
     let devPluginWatcher: ReturnType<typeof startDevPluginWatcher> | undefined;
     const pluginService = initializePluginService(app.getPath("userData"), defaultPluginPetApi, app.getVersion(), new ElectronPluginJsHost(), writePluginRuntimeLog, process.env.OPENPETS_DISABLE_PLUGIN_CATALOG === "1" || devPluginMode, resolveBundledOfficialPluginRoots(), !devPluginMode, pluginCapabilities, undefined, (sourcePath) => devPluginWatcher?.addPaths([sourcePath]), (sourcePath) => devPluginWatcher?.removePath(sourcePath));
     // Wall-clock schedules (daily/cron/at) re-arm deterministically after sleep.

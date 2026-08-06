@@ -36,6 +36,8 @@ const behaviorTests = [
   ".test-dist/tests/codex-pets.test.js",
   ".test-dist/tests/claude-memory.test.js",
   ".test-dist/tests/plugin-config.test.js",
+  ".test-dist/tests/buddy-chat.test.js",
+  ".test-dist/tests/plugin-ai-gateway.test.js",
   ".test-dist/tests/plugin-assets.test.js",
   ".test-dist/tests/plugin-delivery.test.js",
   ".test-dist/tests/plugin-state.test.js",
@@ -126,8 +128,10 @@ async function main() {
   console.log("\n[4/5] Running contract tests...");
   for (const test of contractTests) await run("node", [test]);
 
-  // 5. Run remaining dist checks
-  console.log("\n[5/5] Running dist checks...");
+  // 5. Build main output and run remaining dist checks. This keeps `pnpm test`
+  // self-contained on a clean checkout instead of relying on a preceding build.
+  console.log("\n[5/5] Building main output and running dist checks...");
+  await run("pnpm", ["build:main"]);
   for (const check of distChecks) {
     await run("node", [check]);
   }
