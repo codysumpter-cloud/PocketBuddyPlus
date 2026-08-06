@@ -9,8 +9,8 @@
     "directory": "packages/sdk"
   },
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/public.js",
+  "types": "dist/public.d.ts",
   "files": [
     "dist"
   ],
@@ -26,8 +26,8 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/public.d.ts",
+      "default": "./dist/public.js"
     },
     "./testing": {
       "types": "./dist/testing.d.ts",

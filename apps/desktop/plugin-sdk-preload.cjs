@@ -157,6 +157,14 @@ const sdk = {
     spawn: (spec) => call("pets.spawn", [spec]).then((result) => makePetHandle(result && result.petHandleId)),
     onChange: (fn) => subscription("pets.onChange", "pets.offChange", [], fn),
   },
+  inventory: {
+    snapshot: () => call("inventory.snapshot", []),
+    grant: (spec) => call("inventory.grant", [spec]),
+    consume: (spec) => call("inventory.consume", [spec]),
+    equip: (spec) => call("inventory.equip", [spec]),
+    unequip: (spec) => call("inventory.unequip", [spec]),
+    onChange: (fn) => subscription("inventory.onChange", "inventory.offChange", [], fn),
+  },
   ui: {
     bubble: (spec) => call("ui.bubble", [spec]).then(makeBubbleHandle),
     alert: (spec) => call("ui.alert", [spec]).then((handle) => {
