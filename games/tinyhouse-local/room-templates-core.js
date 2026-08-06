@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const TEMPLATE_VERSION = 1;
+  const TEMPLATE_VERSION = 2;
 
   const templates = Object.freeze([
     {
@@ -128,6 +128,70 @@
         { key: "canvas", assetId: "japanese-room-japanese-canvas", wall: { axis: "left", column: 0, row: 1, offsetX: 64, offsetY: 58 }, layer: 8 },
         { key: "letters", assetId: "japanese-room-japanese-canvas-leters", wall: { axis: "right", column: 3, row: 0, offsetX: 64, offsetY: 60 }, layer: 9 },
         { key: "door", assetId: "ani-japanese-door", wall: { axis: "left", column: 0, row: 0, offsetX: 72, offsetY: 80 }, scale: 0.65, layer: 12 },
+      ],
+    },
+    {
+      id: "bedroom",
+      name: "Bedroom",
+      description: "Compact yellow bedroom with a bed, desk, wall TV, shelf, door, rug, plants, books, console, lamp, and cat.",
+      previewKeywords: ["bedroom", "sleep", "bed"],
+      structure: { columns: 4, rows: 4 },
+      theme: {
+        floorAssetId: "floor-wall-tiles-128-floor-128-classyblue",
+        leftWallAssetId: "floor-wall-tiles-128-wall-l-128-yellow",
+        rightWallAssetId: "floor-wall-tiles-128-wall-r-128-yellow",
+      },
+      placements: [
+        { key: "bed", assetId: "bedroom-bed-d-4", column: 2.65, row: 2.75, layer: 28 },
+        { key: "rug", assetId: "carpets-carpet-3-tile", column: 0.85, row: 3.05, layer: 4 },
+        { key: "desk", assetId: "desks-desk-1-tile", column: 2.75, row: 0.95, layer: 24 },
+        { key: "chair", assetId: "chairs-chair-2-a-tile", column: 2.15, row: 1.75, layer: 31 },
+        { key: "nightstand", assetId: "bedroom-night-table-tile", column: 3.45, row: 2.25, layer: 27 },
+        { key: "tv", assetId: "ani-big-tv-a", wall: { axis: "right", column: 2, row: 0, offsetX: 64, offsetY: 58 }, scale: 0.75, layer: 9 },
+        { key: "shelf", assetId: "living-roon-shelving-6", wall: { axis: "left", column: 0, row: 0, offsetX: 66, offsetY: 58 }, layer: 8 },
+        { key: "door", assetId: "doors-door-1-beige", wall: { axis: "left", column: 0, row: 2, offsetX: 64, offsetY: 78 }, layer: 12 },
+        { key: "plant", assetId: "plants-plant-1", supportKey: "shelf", supportOffsetX: 20, layer: 50 },
+        { key: "cactus", assetId: "plants-cactus-2", supportKey: "desk", supportOffsetX: 44, layer: 51 },
+        { key: "book", assetId: "books-book-green", supportKey: "desk", supportOffsetX: 18, layer: 52 },
+        { key: "console", assetId: "consoles-nintendo-switch", supportKey: "desk", supportOffsetX: -28, layer: 53 },
+        { key: "lamp", assetId: "lamp-lamp-8-a-tile", supportKey: "nightstand", supportOffsetX: 0, layer: 54 },
+        { key: "cat", assetId: "ani-cat", supportKey: "bed", supportOffsetX: -8, layer: 55 },
+      ],
+    },
+    {
+      id: "room",
+      name: "Room",
+      description: "Large mixed-use bedroom, lounge, and workstation with a bed, sofa, desk, wall TV, windows, computer gear, plants, lava lamp, and cat.",
+      previewKeywords: ["studio room", "living room", "mixed room", "room"],
+      structure: { columns: 6, rows: 5 },
+      theme: {
+        floorAssetId: "floor-wall-tiles-128-floor-128-violet",
+        leftWallAssetId: "floor-wall-tiles-128-wall-l-128-bone",
+        rightWallAssetId: "floor-wall-tiles-128-wall-r-128-bone",
+      },
+      placements: [
+        { key: "bed", assetId: "bedroom-bed-a-4", column: 4.25, row: 3.65, layer: 27 },
+        { key: "sofa", assetId: "sofa-sofa-3-a-tile", column: 1.55, row: 3.8, layer: 29 },
+        { key: "coffee-table", assetId: "living-roon-smalltable-5", column: 1.55, row: 2.75, layer: 31 },
+        { key: "desk", assetId: "desks-desk-1-tile", column: 3.55, row: 0.9, layer: 24 },
+        { key: "chair", assetId: "chairs-gaming-chair-gchair-9-a", column: 3.35, row: 1.8, layer: 34 },
+        { key: "tower", assetId: "ani-pc-tower", column: 2.75, row: 0.85, layer: 25 },
+        { key: "rug", assetId: "carpets-carpet-red", column: 3.25, row: 2.8, scale: 1.1, layer: 4 },
+        { key: "lava", assetId: "ani-lava-lamp", column: 5.2, row: 1.25, layer: 32 },
+        { key: "speaker", assetId: "living-roon-speaker-6-tile", column: 1.2, row: 0.8, layer: 26 },
+        { key: "plant-a", assetId: "plants-plant-1", column: 2.35, row: 0.4, layer: 22 },
+        { key: "plant-b", assetId: "plants-plant-2", column: 0.55, row: 3.1, layer: 30 },
+        { key: "plant-c", assetId: "plants-plant-5", column: 0.35, row: 4.15, layer: 33 },
+        { key: "tv", assetId: "ani-big-tv-a", wall: { axis: "left", column: 0, row: 1, offsetX: 68, offsetY: 60 }, scale: 0.85, layer: 9 },
+        { key: "window-a", assetId: "windows-window-11", wall: { axis: "right", column: 2, row: 0, offsetX: 64, offsetY: 58 }, layer: 8 },
+        { key: "window-b", assetId: "windows-window-11-b", wall: { axis: "right", column: 4, row: 0, offsetX: 64, offsetY: 58 }, layer: 10 },
+        { key: "shelf", assetId: "living-roon-shelving-6", wall: { axis: "left", column: 0, row: 4, offsetX: 68, offsetY: 58 }, layer: 11 },
+        { key: "door", assetId: "doors-door-1-beige", wall: { axis: "left", column: 0, row: 3, offsetX: 64, offsetY: 78 }, layer: 12 },
+        { key: "macbook", assetId: "ani-macbook", supportKey: "desk", supportOffsetX: -20, layer: 50 },
+        { key: "printer", assetId: "ani-printer", supportKey: "desk", supportOffsetX: 48, layer: 51 },
+        { key: "books", assetId: "books-books-pile", supportKey: "coffee-table", supportOffsetX: -20, layer: 52 },
+        { key: "console", assetId: "consoles-nintendo-switch", supportKey: "coffee-table", supportOffsetX: 22, layer: 53 },
+        { key: "cat", assetId: "ani-cat", supportKey: "bed", supportOffsetX: 0, layer: 54 },
       ],
     },
   ]);
