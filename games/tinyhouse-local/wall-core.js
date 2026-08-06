@@ -35,11 +35,41 @@
     return { x: floor.x + room.rightWallShiftX, y: floor.y + room.wallLiftY };
   }
 
+  function structureWallTargets(hitPoint, anchorPoint) {
+    const structure = window.TinyHouseStructure;
+    const gridCore = window.TinyHouseGridCore;
+    if (!structure?.grid || !gridCore) return [];
+    const targets = [];
+    for (const edge of structure.grid.edges.values()) {
+      if (edge.kind !== "wall") continue;
+      const top = gridCore.wallTopLeft(edge.axis, edge.column, edge.row, structure.grid.room);
+      const centerX = top.x + 64;
+      const centerY = top.y + 58;
+      const dx = Math.abs(hitPoint.x - centerX) / 58;
+      const dy = Math.abs(hitPoint.y - centerY) / 54;
+      if (dx > 1.16 || dy > 1.12) continue;
+      targets.push({
+        side: edge.axis,
+        index: edge.axis === "left" ? edge.row : edge.column,
+        column: edge.column,
+        row: edge.row,
+        structureEdgeKey: gridCore.edgeKey(edge.axis, edge.column, edge.row),
+        x: clamp(anchorPoint.x, top.x + 20, top.x + 108),
+        y: clamp(anchorPoint.y, top.y + 28, top.y + 108),
+        distance: Math.sqrt(dx * dx + dy * dy),
+      });
+    }
+    return targets;
+  }
+
   function nearestWallTarget(hitPoint, asset, room, anchorPoint = hitPoint) {
     if (!isWallMountable(asset) || !room) return null;
+    const structural = structureWallTargets(hitPoint, anchorPoint)
+      .sort((a, b) => a.distance - b.distance)[0];
+    if (window.TinyHouseStructure) return structural || null;
+
     let best = null;
     let bestScore = Infinity;
-
     for (const side of ["left", "right"]) {
       for (let index = 0; index < (side === "left" ? room.rows : room.columns); index += 1) {
         const top = wallTopLeft(room, side, index);
@@ -49,7 +79,6 @@
         const dy = Math.abs(hitPoint.y - centerY) / 54;
         const score = dx * dx + dy * dy;
         if (dx > 1.16 || dy > 1.12 || score >= bestScore) continue;
-
         bestScore = score;
         best = {
           side,
@@ -68,8 +97,15 @@
     placement.supportOffsetX = 0;
     placement.wallSide = target.side;
     placement.wallIndex = target.index;
-    placement.column = target.side === "right" ? target.index : 0;
-    placement.row = target.side === "left" ? target.index : 0;
+    placement.structureEdgeKey = target.structureEdgeKey || null;
+    placement.wallColumn = Number.isFinite(target.column) ? target.column : null;
+    placement.wallRow = Number.isFinite(target.row) ? target.row : null;
+    placement.column = Number.isFinite(target.column)
+      ? target.column
+      : (target.side === "right" ? target.index : 0);
+    placement.row = Number.isFinite(target.row)
+      ? target.row
+      : (target.side === "left" ? target.index : 0);
     placement.x = target.x;
     placement.y = target.y;
     return placement;
@@ -78,13 +114,17 @@
   function clearWallPlacement(placement) {
     placement.wallSide = null;
     placement.wallIndex = null;
+    placement.structureEdgeKey = null;
+    placement.wallColumn = null;
+    placement.wallRow = null;
     return placement;
   }
 
   function wallZIndex(placement) {
-    const index = Number(placement.wallIndex) || 0;
+    const column = Number(placement.wallColumn ?? placement.column) || 0;
+    const row = Number(placement.wallRow ?? placement.row) || 0;
     const layer = Number(placement.layer) || 0;
-    return 760 + index * 12 + layer;
+    return 760 + Math.round((column + row) * 12) + layer;
   }
 
   window.TinyHouseWallCore = Object.freeze({
