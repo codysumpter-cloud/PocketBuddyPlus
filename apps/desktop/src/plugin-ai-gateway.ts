@@ -5,7 +5,7 @@ import type { PluginAiRequest, PluginAiResult } from "./plugin-sdk-bridge.js";
 /**
  * Host AI gateway (§13.2): one user-configured provider/model serves every
  * plugin. Keys live in the encrypted host secrets store, never in plugin
- * code. Supports Anthropic, OpenAI, and Ollama (OpenAI-compatible) backends,
+ * code. Supports Anthropic, OpenAI, NVIDIA NIM, and Ollama backends,
  * including function-calling tools and token streaming.
  */
 
@@ -15,8 +15,11 @@ export const hostAiApiKeySecret = "ai-api-key";
 const defaultModels: Record<string, string> = {
   anthropic: "claude-haiku-4-5-20251001",
   openai: "gpt-4o-mini",
+  nvidia: "meta/llama-3.3-70b-instruct",
   ollama: "llama3.2",
 };
+
+type ResolvedProvider = "anthropic" | "openai" | "nvidia" | "ollama";
 
 export class PluginAiGateway {
   readonly #secrets: PluginSecretsStore;
@@ -47,7 +50,7 @@ export class PluginAiGateway {
   /** One-shot audio transcription backing voice.listen (OpenAI-compatible only). */
   async transcribe(audio: Uint8Array, mimeType: string): Promise<string> {
     const { provider, baseUrl, apiKey } = await this.#resolveProvider();
-    if (provider === "anthropic") throw new Error("Speech-to-text needs an OpenAI-compatible AI provider.");
+    if (provider === "anthropic" || provider === "nvidia") throw new Error("Speech-to-text needs an OpenAI or Ollama AI provider.");
     const url = `${baseUrl ?? (provider === "ollama" ? "http://127.0.0.1:11434/v1" : "https://api.openai.com/v1")}/audio/transcriptions`;
     const form = new FormData();
     form.append("file", new Blob([Buffer.from(audio)], { type: mimeType }), "speech.webm");
@@ -58,9 +61,9 @@ export class PluginAiGateway {
     return typeof parsed.text === "string" ? parsed.text : "";
   }
 
-  async #resolveProvider(): Promise<{ provider: "anthropic" | "openai" | "ollama"; model: string; baseUrl?: string; apiKey?: string }> {
+  async #resolveProvider(): Promise<{ provider: ResolvedProvider; model: string; baseUrl?: string; apiKey?: string }> {
     const settings = getPluginPlatformSettings().ai;
-    if (settings.provider === "none") throw new Error("No AI provider is configured in OpenPets settings.");
+    if (settings.provider === "none") throw new Error("No AI provider is configured in Pocket Buddy+ settings.");
     const apiKey = await this.#secrets.get(hostSecretsOwner, hostAiApiKeySecret);
     if (settings.provider !== "ollama" && !apiKey) throw new Error("The configured AI provider has no API key.");
     return {
@@ -119,7 +122,7 @@ export class PluginAiGateway {
     return { text };
   }
 
-  async #openAiComplete(req: PluginAiRequest, model: string, apiKey: string | undefined, baseUrl: string | undefined, provider: "openai" | "ollama"): Promise<PluginAiResult> {
+  async #openAiComplete(req: PluginAiRequest, model: string, apiKey: string | undefined, baseUrl: string | undefined, provider: Exclude<ResolvedProvider, "anthropic">): Promise<PluginAiResult> {
     const response = await fetch(`${openAiBase(baseUrl, provider)}/chat/completions`, {
       method: "POST",
       headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) },
@@ -143,7 +146,7 @@ export class PluginAiGateway {
     return { text: message?.content ?? "", ...(toolCalls.length > 0 ? { toolCalls } : {}) };
   }
 
-  async #openAiStream(req: PluginAiRequest, model: string, apiKey: string | undefined, baseUrl: string | undefined, provider: "openai" | "ollama", onToken: (chunk: string) => void): Promise<{ text: string }> {
+  async #openAiStream(req: PluginAiRequest, model: string, apiKey: string | undefined, baseUrl: string | undefined, provider: Exclude<ResolvedProvider, "anthropic">, onToken: (chunk: string) => void): Promise<{ text: string }> {
     const response = await fetch(`${openAiBase(baseUrl, provider)}/chat/completions`, {
       method: "POST",
       headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) },
@@ -169,9 +172,11 @@ export class PluginAiGateway {
   }
 }
 
-function openAiBase(baseUrl: string | undefined, provider: "openai" | "ollama"): string {
+export function openAiBase(baseUrl: string | undefined, provider: Exclude<ResolvedProvider, "anthropic">): string {
   if (baseUrl) return baseUrl.replace(/\/$/, "");
-  return provider === "ollama" ? "http://127.0.0.1:11434/v1" : "https://api.openai.com/v1";
+  if (provider === "ollama") return "http://127.0.0.1:11434/v1";
+  if (provider === "nvidia") return "https://integrate.api.nvidia.com/v1";
+  return "https://api.openai.com/v1";
 }
 
 async function readSseStream(body: ReadableStream<Uint8Array>, onData: (data: string) => void): Promise<void> {
