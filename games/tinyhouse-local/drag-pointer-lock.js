@@ -89,6 +89,13 @@
     if (placement) core.restorePlacement(placement, active.original);
   }
 
+  function nearestValidFloorCell(anchor) {
+    const structure = window.TinyHouseStructure;
+    return structure
+      ? structure.worldToNearestFloorCell(anchor.x, anchor.y)
+      : playable.worldToNearestCell(anchor.x, anchor.y);
+  }
+
   function finalizeDrag(event) {
     if (!active || event.pointerId !== active.pointerId) return;
     const placement = findPlacement(active.id);
@@ -125,7 +132,7 @@
       placement.x = anchor.x;
       placement.y = anchor.y;
     } else {
-      const cell = playable.worldToNearestCell(anchor.x, anchor.y);
+      const cell = nearestValidFloorCell(anchor);
       if (cell) {
         wallCore?.clearWallPlacement(placement);
         placement.supportId = null;
