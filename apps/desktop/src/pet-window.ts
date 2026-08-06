@@ -1557,6 +1557,23 @@ function escapeCssUrl(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "");
 }
 
+/**
+ * Lets a mover declare which way a pet is about to travel.
+ *
+ * The publisher below is reactive: it reads the delta from the window's own
+ * `move` event, which only fires once the window has ALREADY moved. The pet
+ * therefore slid a few pixels in its idle pose before the run animation
+ * appeared, and small nudges under the 3px threshold never animated at all.
+ * A mover that knows its target can call this first so the animation leads the
+ * movement instead of trailing it.
+ */
+const motionIntentByWindow = new WeakMap<BrowserWindow, (state: PetMotionState) => void>();
+
+export function signalPetMotionIntent(window: BrowserWindow, state: PetMotionState): void {
+  if (window.isDestroyed()) return;
+  motionIntentByWindow.get(window)?.(state);
+}
+
 function installMotionStatePublisher(window: BrowserWindow): void {
   let lastX = window.getPosition()[0];
   let lastSent: PetMotionState = "idle";
@@ -1587,6 +1604,14 @@ function installMotionStatePublisher(window: BrowserWindow): void {
     }
     scheduleIdle();
   };
+
+  // A mover that knows where it is heading wins over the reactive delta, so the
+  // animation starts with the movement rather than a frame or two behind it.
+  motionIntentByWindow.set(window, (state) => {
+    lastX = window.getPosition()[0];
+    sendMotionState(state);
+    scheduleIdle();
+  });
 
   window.on("move", handleMove);
   window.on("moved", handleMove);
