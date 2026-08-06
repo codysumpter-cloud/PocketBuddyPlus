@@ -46,6 +46,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function transactionMatches(
+  existing: BuddyInventoryLedgerEntry,
+  source: string,
+  mutation: BuddyInventoryMutation,
+  definitions: ReadonlyMap<string, BuddyItemDefinition>,
+): boolean {
+  if (existing.source !== source || existing.operation !== mutation.operation || existing.reason !== mutation.reason) return false;
+  if (mutation.operation === "grant" || mutation.operation === "consume") {
+    return existing.itemId === mutation.itemId && existing.quantity === mutation.quantity;
+  }
+  if (mutation.operation === "equip") {
+    const definition = definitions.get(mutation.itemId);
+    const slot = mutation.slot ?? definition?.equipmentSlot;
+    return existing.itemId === mutation.itemId && existing.slot === slot;
+  }
+  return existing.slot === mutation.slot;
+}
+
 export class BuddyInventoryStore {
   readonly #path: string;
   readonly #clock: () => number;
@@ -88,7 +106,9 @@ export class BuddyInventoryStore {
     const mutation = this.#parseMutation(mutationValue);
     const existing = this.#document!.ledger.find((entry) => entry.transactionId === mutation.transactionId);
     if (existing) {
-      if (existing.source !== source || existing.operation !== mutation.operation) throw new Error("Inventory transaction id was already used for a different mutation.");
+      if (!transactionMatches(existing, source, mutation, this.#definitionMap)) {
+        throw new Error("Inventory transaction id was already used for a different mutation.");
+      }
       return this.snapshot();
     }
 
