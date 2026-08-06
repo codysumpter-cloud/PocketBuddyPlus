@@ -69,6 +69,9 @@ assert.match(windowSource, /readInstalledPetAnimationManifest/, "runtime must lo
 assert.match(windowSource, /image-rendering:pixelated/, "runtime must preserve nearest-neighbor pixels");
 assert.doesNotMatch(windowSource, /image-rendering:\s*(auto|smooth)/, "runtime must never enable smoothing");
 assert.match(preload, /completedIterations >= iterations[\s\S]*reaction = catalog\.idle/, "finite reactions must recover to idle");
-assert.match(preload, /motion === "run-left" \? "west" : motion === "run-right" \? "east"/, "left/right desktop motion must select directional frames");
+assert.match(preload, /const motionDirectionByState = Object\.freeze/, "runtime must centralize motion-to-direction resolution");
+assert.match(preload, /"run-left": "west"/, "legacy run-left must keep selecting west frames");
+assert.match(preload, /"run-right": "east"/, "legacy run-right must keep selecting east frames");
+assert.match(preload, /"run-north-east": "north-east"/, "eight-way motion must select diagonal manifest frames");
 
 console.log("Per-pet animation manifest, Settings, and runtime contracts passed.");

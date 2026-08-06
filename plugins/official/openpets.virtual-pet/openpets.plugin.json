@@ -3,7 +3,7 @@
   "id": "openpets.virtual-pet",
   "name": "$t:plugin.name",
   "description": "$t:plugin.description",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "runtime": "javascript",
   "icon": "heart",
   "sdkVersion": "3.0.0",
@@ -22,8 +22,12 @@
     "storage",
     "commands",
     "audio",
-    "events"
+    "events",
+    "ui:panel"
   ],
+  "panels": {
+    "brain": "brain.html"
+  },
   "configSchema": {
     "showStats": {
       "type": "boolean",

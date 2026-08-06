@@ -1,0 +1,37 @@
+{
+  "manifestVersion": 3,
+  "id": "openpets.music-buddy",
+  "name": "$t:plugin.name",
+  "description": "$t:plugin.description",
+  "version": "1.0.0",
+  "runtime": "javascript",
+  "icon": "sparkles",
+  "sdkVersion": "3.0.0",
+  "entry": "index.js",
+  "permissions": [
+    "auth",
+    "status",
+    "commands",
+    "network",
+    "network:write",
+    "pet:speak",
+    "pet:reaction"
+  ],
+  "network": {
+    "hosts": ["api.spotify.com"]
+  },
+  "configSchema": {
+    "announceTrackChanges": {
+      "type": "boolean",
+      "default": true,
+      "label": "$t:config.announceTrackChanges.label",
+      "description": "$t:config.announceTrackChanges.description"
+    },
+    "quietWhenPaused": {
+      "type": "boolean",
+      "default": true,
+      "label": "$t:config.quietWhenPaused.label",
+      "description": "$t:config.quietWhenPaused.description"
+    }
+  }
+}
