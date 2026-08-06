@@ -30,9 +30,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
 
-      - run: corepack enable
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.0.8 --activate
+          pnpm --version
 
       - name: Install and refresh lockfile
         run: pnpm install --no-frozen-lockfile
@@ -76,7 +79,7 @@ jobs:
           {
             echo "commit=${GITHUB_SHA}"
             echo "node=$(node --version)"
-            echo "pnpm=$(pnpm --version)"
+            echo "pnpm=$(pnpm --version 2>/dev/null || echo unavailable)"
             echo "lock_sha256=$(sha256sum pnpm-lock.yaml | cut -d' ' -f1)"
             find apps/desktop/dist-electron-plus -maxdepth 2 -type f -printf '%P %s bytes\n' 2>/dev/null | sort | head -200 || true
           } > /tmp/multi-animation-validation-summary.txt
