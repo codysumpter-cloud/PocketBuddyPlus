@@ -7,12 +7,10 @@ type I18nApi = {
   getI18n(): Promise<I18nSnapshot>;
 };
 
-declare global {
-  interface Window {
-    openPetsControlCenter: I18nApi & Record<string, unknown>;
-    __buddyBrainI18nInstalled?: boolean;
-  }
-}
+type BuddyBrainWindow = Window & {
+  openPetsControlCenter?: I18nApi & Record<string, unknown>;
+  __buddyBrainI18nInstalled?: boolean;
+};
 
 const messages: Record<string, string> = {
   "settings.buddyBrain.eyebrow": "Visual behavior mapping",
@@ -33,8 +31,9 @@ const messages: Record<string, string> = {
 };
 
 function install(): void {
-  const api = window.openPetsControlCenter;
-  if (!api || window.__buddyBrainI18nInstalled) return;
+  const buddyWindow = window as BuddyBrainWindow;
+  const api = buddyWindow.openPetsControlCenter;
+  if (!api || buddyWindow.__buddyBrainI18nInstalled) return;
   const originalGetI18n = api.getI18n.bind(api);
   api.getI18n = async () => {
     const snapshot = await originalGetI18n();
@@ -43,7 +42,7 @@ function install(): void {
       messages: { ...messages, ...snapshot.messages },
     };
   };
-  window.__buddyBrainI18nInstalled = true;
+  buddyWindow.__buddyBrainI18nInstalled = true;
 }
 
 install();
