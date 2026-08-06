@@ -35,7 +35,7 @@ export function installBuddyChatIpcHandler(aiGateway: PluginAiGateway): void {
         model: settings.model,
       };
     } catch (error) {
-      warn("buddy-chat", "provider completion failed", {
+      warn("ui", "Buddy chat provider completion failed", {
         durationMs: Date.now() - startedAt,
         historyMessages: request.history.length,
         messageLength: request.message.length,
