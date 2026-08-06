@@ -38,4 +38,4 @@ Both tools are explicit user-invoked sandboxed panels. They:
 - use the PocketBuddy+ host save dialog instead of browser downloads;
 - do not include purchased Prismtek or third-party art assets.
 
-They are official catalog plugins, not default-enabled companion behaviors.
+They are bundled official plugins, disabled by default, and never run until the user explicitly enables and opens them.
