@@ -28,13 +28,7 @@ export const pluginSdkInventoryRoutes = [
 export const pluginSdkAsyncRoutes = [...pluginSdkCoreAsyncRoutes, ...pluginSdkInventoryRoutes] as const;
 export const pluginSdkSyncRoutes = ["i18n.t", "i18n.locale"] as const;
 export const pluginSdkRoutes = [...pluginSdkAsyncRoutes, ...pluginSdkSyncRoutes] as const;
-
-/**
- * Core routes are exhaustively implemented in plugin-js-host.ts. Inventory
- * routes are installed before plugins start by the host-owned inventory
- * adapter, so they intentionally stay outside that object-literal exhaustiveness.
- */
-export type PluginSdkRoute = typeof pluginSdkCoreAsyncRoutes[number] | typeof pluginSdkSyncRoutes[number];
+export type PluginSdkRoute = typeof pluginSdkRoutes[number];
 
 export function isPluginSdkRoute(path: string): path is PluginSdkRoute {
   return (pluginSdkRoutes as readonly string[]).includes(path);
