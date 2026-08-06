@@ -36,6 +36,7 @@ First-party SDK v3 plugin product source. These plugins are the reviewed default
 | `openpets.virtual-pet` | Persistent virtual-pet lifecycle with hunger/energy/happiness/affection, health, mess, sickness, medicine, care mistakes, growth stages, restart-safe catch-up, pinned HUD, click handling, and optional classic death/restart behavior. | `events`, `schedule`, `storage`, `ui.bubble`, `commands`, `pet.react`, `assets`, `audio`, `config` |
 | `openpets.prismpixel-rig-studio` | Extracts modular outfit overlay/erase-mask frames from matching bare and dressed animation sheets and exports PrismPixel item/state contracts. | `commands`, `ui.panel`, `files` |
 | `openpets.prismcade-creator` | Builds Prismcade game manifests and outfit-aware character recipes in a sandboxed creator panel. | `commands`, `ui.panel`, `files` |
+| `openpets.music-buddy` | Provider-based music companion with Spotify now-playing status, announcements, and playback controls. | `auth`, `network`, `network:write`, `status`, `commands`, `pet` |
 
 ## Integration Points
 
