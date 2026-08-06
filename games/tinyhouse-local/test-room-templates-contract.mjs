@@ -11,6 +11,7 @@ const manifestSource = readFileSync(new URL("manifest.js", root), "utf8");
 
 const context = { window: {} };
 vm.createContext(context);
+vm.runInContext(manifestSource, context);
 vm.runInContext(templateSource, context);
 
 const core = context.window.TinyHouseRoomTemplatesCore;
@@ -21,6 +22,8 @@ for (const template of core.templates) {
   assert.ok(template.structure.rows >= 4 && template.structure.rows <= 6);
   assert.ok(template.placements.length >= 13, `${template.name} should be meaningfully furnished`);
   assert.equal(core.missingAssetIds(template, [{ id: "nope" }]).length > 0, true);
+  assert.deepEqual([...core.missingAssetIds(template, context.window.TINYHOUSE_MANIFEST.assets)], [],
+    `${template.name} must resolve every recipe ID in the shipped manifest`);
   for (const placement of template.placements.filter((candidate) => !candidate.wall && !candidate.supportKey)) {
     assert.ok(Math.round(placement.column) >= 0 && Math.round(placement.column) < template.structure.columns,
       `${template.name} ${placement.key} must anchor to an existing floor column`);
@@ -53,4 +56,4 @@ assert.match(manifestSource, /state-washing-machine/);
 assert.match(manifestSource, /state-office-normal-table/);
 assert.match(manifestSource, /ani-japanese-door/);
 
-console.log("TinyHouse room-template contract passed: editable recipes, explicit local GIF previews, valid floor anchors, restore backup, and whole-room animation controls.");
+console.log("TinyHouse room-template contract passed: editable recipes, explicit local GIF previews, valid floor anchors, complete manifest resolution, restore backup, and whole-room animation controls.");
