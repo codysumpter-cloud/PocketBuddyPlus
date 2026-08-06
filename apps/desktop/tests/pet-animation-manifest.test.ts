@@ -60,7 +60,7 @@ const renderer = readFileSync(join(root, "src/renderer/src/main.tsx"), "utf8");
 const preload = readFileSync(join(root, "pet-preload.cjs"), "utf8");
 const windowSource = readFileSync(join(root, "src/pet-window.ts"), "utf8");
 const windows = readFileSync(join(root, "src/windows.ts"), "utf8");
-assert.match(renderer, /getReactionAnimationSettings\(petId\?\)/, "Settings API must retrieve a selected pet catalogue");
+assert.match(renderer, /getReactionAnimationSettings\(\s*petId\?:\s*string\s*\)/, "Settings API must retrieve a selected pet catalogue");
 assert.match(renderer, /reactionSettings\.selectedPetId/, "Settings must identify the pet being edited");
 assert.match(renderer, /animation\.complete[^\n]*incomplete/, "incomplete animations must be marked or disabled");
 assert.match(renderer, /openpets-installed:\/\/frame/, "Settings preview must use selected-pet manifest frames");
