@@ -294,7 +294,7 @@ async function react(ctx, reaction) {
 
 async function guardAlive(ctx, state) {
   if (state.deadAt <= 0) return true;
-  await react(ctx, "failed");
+  await react(ctx, "error");
   await speak(ctx, "speech.blocked.dead");
   return false;
 }
@@ -302,7 +302,7 @@ async function guardAlive(ctx, state) {
 async function guardHealthyForActivity(ctx, state) {
   if (!await guardAlive(ctx, state)) return false;
   if (!state.isSick) return true;
-  await react(ctx, "failed");
+  await react(ctx, "error");
   await speak(ctx, "speech.blocked.sick");
   return false;
 }
