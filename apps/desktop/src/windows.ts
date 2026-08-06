@@ -13,7 +13,7 @@ import { getCatalogPageUiState, getCatalogSearchUiState, getCatalogUiState } fro
 import { getCodexPetsUiState, importCodexPet, readCodexPetSpritesheet } from "./codex-pets.js";
 import { setConfinementEnabled } from "./confinement-manager.js";
 import { setCrossDisplayRoamingEnabled } from "./display.js";
-import { getActiveLocale, getActiveMessages, LOCALE_LABELS, SUPPORTED_LOCALES, setLocaleFromPreference, t, type Locale, type LocalePreference } from "./i18n/index.js";
+import { getActiveLocale, getActiveMessages, LOCALE_LABELS, SUPPORTED_LOCALES, setLocaleFromPreference, t, type Locale, type LocalePreference, type MessageKey } from "./i18n/index.js";
 import { recoverDefaultPetMouseInterop, refreshDefaultPetContent, resetDefaultPetToInitialPosition } from "./default-pet-controller.js";
 import { getLanStatusSnapshot } from "./lan-controller.js";
 import { validatePreferencePatch } from "./preference-patch.js";
@@ -799,8 +799,8 @@ async function getLocalizedReactionAnimationSettingsSnapshot(petId?: string): Pr
     animations: snapshot.animations.map((animation) => animation.sourceState === "built-in"
       ? {
           ...animation,
-          label: t(`settings.animation.${animation.id}.label`),
-          description: t(`settings.animation.${animation.id}.description`),
+          label: t(`settings.animation.${animation.id}.label` as MessageKey),
+          description: t(`settings.animation.${animation.id}.description` as MessageKey),
         }
       : animation),
   };

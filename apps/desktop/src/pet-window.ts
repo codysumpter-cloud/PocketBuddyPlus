@@ -1156,7 +1156,7 @@ function createPetBodyMarkup(stageLabel: string, bubble: string, spriteMarkup: s
   </div>`;
 }
 
-function createPetWindowCss(paused: boolean, scale: PetScaleValue, frameWidth = defaultPetSprite.frameWidth, frameHeight = defaultPetSprite.frameHeight): string {
+function createPetWindowCss(paused: boolean, scale: PetScaleValue, frameWidth: number = defaultPetSprite.frameWidth, frameHeight: number = defaultPetSprite.frameHeight): string {
   const opacity = paused ? "0.62" : "1";
   const playState = paused ? "paused" : "running";
   const scaledWidth = Math.ceil(frameWidth * scale);
