@@ -1,22 +1,12 @@
-import type { OpenPetsJavascriptPluginManifest } from "../plugin-manifest.js";
 import { sdkCallHandlers } from "../plugin-js-host.js";
 import type { PluginJsHost, PluginJsHostInstance, PluginJsHostStartOptions } from "../plugin-js-host.js";
-import type { PluginSdkApi } from "../plugin-sdk-bridge.js";
-import type { PluginStateRecord } from "../plugin-state.js";
-import type { BuddyInventoryMutation, BuddyInventorySnapshot } from "./buddy-inventory-contract.js";
 import type { BuddyInventoryStore } from "./buddy-inventory-store.js";
+import {
+  decorateInventorySdk,
+  disposeInventorySdkSubscriptions,
+  type InventorySdkApi,
+} from "./buddy-inventory-sdk-api.js";
 
-type InventorySdkNamespace = {
-  snapshot(): BuddyInventorySnapshot;
-  grant(spec: Omit<Extract<BuddyInventoryMutation, { operation: "grant" }>, "operation">): BuddyInventorySnapshot;
-  consume(spec: Omit<Extract<BuddyInventoryMutation, { operation: "consume" }>, "operation">): BuddyInventorySnapshot;
-  equip(spec: Omit<Extract<BuddyInventoryMutation, { operation: "equip" }>, "operation">): BuddyInventorySnapshot;
-  unequip(spec: Omit<Extract<BuddyInventoryMutation, { operation: "unequip" }>, "operation">): BuddyInventorySnapshot;
-  onChange(handler: (snapshot: BuddyInventorySnapshot) => unknown): { subscriptionId: string };
-  offChange(subscriptionId: string): void;
-};
-
-type InventorySdkApi = PluginSdkApi & { inventory: InventorySdkNamespace };
 type RunCallback = (id: unknown) => ((...callbackArgs: unknown[]) => Promise<unknown>) | undefined;
 type InventoryRouteHandler = (sdk: InventorySdkApi, args: unknown[], runCallback: RunCallback) => unknown;
 
@@ -45,66 +35,27 @@ export function createInventoryAwarePluginJsHost(inner: PluginJsHost, store: Bud
       if (!options.sdk) return inner.startPlugin(options);
       const subscriptions = new Map<string, () => void>();
       let nextSubscription = 0;
-      const sdk = decorateInventorySdk(options.sdk, options.record, options.manifest, store, subscriptions, () => `inventory-${++nextSubscription}`);
+      const sdk = decorateInventorySdk({
+        sdk: options.sdk,
+        record: options.record,
+        manifest: options.manifest,
+        store,
+        subscriptions,
+        nextSubscriptionId: () => `inventory-${++nextSubscription}`,
+      });
       let instance: PluginJsHostInstance;
       try {
         instance = await inner.startPlugin({ ...options, sdk });
       } catch (error) {
-        for (const dispose of subscriptions.values()) dispose();
-        subscriptions.clear();
+        disposeInventorySdkSubscriptions(subscriptions);
         throw error;
       }
       return {
         stop() {
-          for (const dispose of subscriptions.values()) dispose();
-          subscriptions.clear();
+          disposeInventorySdkSubscriptions(subscriptions);
           instance.stop();
         },
       };
     },
   };
-}
-
-function decorateInventorySdk(
-  sdk: PluginSdkApi,
-  record: PluginStateRecord,
-  manifest: OpenPetsJavascriptPluginManifest,
-  store: BuddyInventoryStore,
-  subscriptions: Map<string, () => void>,
-  nextSubscriptionId: () => string,
-): InventorySdkApi {
-  const declared = new Set<string>(manifest.permissions);
-  const approved = new Set<string>(record.approvedPermissions.filter((permission) => declared.has(permission)));
-  const requirePermission = (permission: "pets:read" | "pets:manage") => {
-    if (!approved.has(permission)) throw new Error(`Plugin permission is not approved: ${permission}`);
-  };
-  const mutate = (operation: BuddyInventoryMutation["operation"], spec: unknown): BuddyInventorySnapshot => {
-    requirePermission("pets:manage");
-    if (!spec || typeof spec !== "object" || Array.isArray(spec)) throw new Error("Inventory mutation spec is invalid.");
-    return store.mutate(record.id, { ...(spec as Record<string, unknown>), operation });
-  };
-
-  return Object.assign(sdk, {
-    inventory: {
-      snapshot: () => { requirePermission("pets:read"); return store.snapshot(); },
-      grant: (spec: unknown) => mutate("grant", spec),
-      consume: (spec: unknown) => mutate("consume", spec),
-      equip: (spec: unknown) => mutate("equip", spec),
-      unequip: (spec: unknown) => mutate("unequip", spec),
-      onChange: (handler: (snapshot: BuddyInventorySnapshot) => unknown) => {
-        requirePermission("pets:read");
-        if (typeof handler !== "function") throw new Error("Inventory change handler is invalid.");
-        if (subscriptions.size >= 16) throw new Error("Inventory subscription quota exceeded.");
-        const subscriptionId = nextSubscriptionId();
-        subscriptions.set(subscriptionId, store.onChange((snapshot) => { void Promise.resolve(handler(snapshot)).catch(() => undefined); }));
-        return { subscriptionId };
-      },
-      offChange: (subscriptionId: string) => {
-        const dispose = subscriptions.get(subscriptionId);
-        if (!dispose) return;
-        subscriptions.delete(subscriptionId);
-        dispose();
-      },
-    } satisfies InventorySdkNamespace,
-  }) as InventorySdkApi;
 }
