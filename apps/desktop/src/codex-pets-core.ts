@@ -26,7 +26,9 @@ export function validateCodexPetMetadata(value: unknown, folderName: string): Co
     displayName: value.displayName.trim(),
     description: value.description.trim(),
     spritesheetPath: "spritesheet.webp",
-    animationManifestPath: value.animationManifestPath === "animation-manifest.json" ? "animation-manifest.json" : undefined,
+    ...(value.animationManifestPath === "animation-manifest.json"
+      ? { animationManifestPath: "animation-manifest.json" as const }
+      : {}),
   };
 }
 
