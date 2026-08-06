@@ -43,7 +43,7 @@
     "verify:ui:selftest": "pnpm --filter @open-pets/desktop verify:ui:selftest",
     "check:licenses": "node scripts/check-license-boundary.mjs",
     "test:oracle": "node --test tools/godot-oracle/parity.test.mjs tools/godot-oracle/wall-parity.test.mjs",
-    "test:tinyhouse-local": "node games/tinyhouse-local/test-contract.mjs && node games/tinyhouse-local/test-drag-contract.mjs && node games/tinyhouse-local/test-wall-contract.mjs && node games/tinyhouse-local/test-house-grid-contract.mjs && node games/tinyhouse-local/test-room-templates-contract.mjs && node games/tinyhouse-local/test-cozy-contract.mjs"
+    "test:tinyhouse-local": "node games/tinyhouse-local/test-contract.mjs && node games/tinyhouse-local/test-drag-contract.mjs && node games/tinyhouse-local/test-wall-contract.mjs && node games/tinyhouse-local/test-house-grid-contract.mjs && node games/tinyhouse-local/test-room-templates-contract.mjs && node games/tinyhouse-local/test-rotation-camera-contract.mjs && node games/tinyhouse-local/test-cozy-contract.mjs"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
