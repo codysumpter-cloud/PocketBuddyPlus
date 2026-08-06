@@ -66,6 +66,9 @@ assert.match(dragSource, /applyWallPlacement\(placement, wallTarget\)/);
 assert.match(runtimeSource, /placeSelectedOnWall/);
 assert.match(runtimeSource, /restoreWallPlacementsAfterLoad/);
 assert.match(runtimeSource, /wall-badge/);
+assert.match(coreSource, /structureWallTargets/);
+assert.match(coreSource, /edge\.kind !== "wall"/);
+assert.match(coreSource, /structureEdgeKey/);
 
 const appIndex = html.indexOf('<script src="app.js"></script>');
 const dragCoreIndex = html.indexOf('<script src="drag-core.js"></script>');
@@ -77,4 +80,4 @@ assert.ok(wallCoreIndex > dragCoreIndex);
 assert.ok(dragRuntimeIndex > wallCoreIndex);
 assert.ok(wallRuntimeIndex > dragRuntimeIndex);
 
-console.log("TinyHouse wall contract passed: tabletop children stay visible and wall-tagged items mount on both walls.");
+console.log("TinyHouse wall contract passed: tabletop children stay visible and wall-tagged items target real structural walls.");
