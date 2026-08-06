@@ -30,6 +30,16 @@
 .structure-room-actions button:last-child{grid-column:1/-1}
 .structure-help{margin:9px 0 7px;font-size:10px;line-height:1.35;color:#cabeb3}
 .structure-status{padding-top:7px;border-top:1px solid #5f5658;font:700 10px/1.3 monospace;color:#aeeacb}
+.blueprint-heading{grid-column:1/-1;display:flex;flex-direction:column;gap:2px;padding:7px;border:2px solid #4e6266;background:#253337}
+.blueprint-heading span{font:900 11px/1 monospace;color:#b9f4e6}
+.blueprint-heading small{font:700 8px/1.25 monospace;color:#91aaa6}
+.blueprint-field{display:flex;flex-direction:column;gap:3px;color:#c8bdb1;font:700 8px/1 monospace}
+.blueprint-field:first-of-type{grid-column:1/-1}
+.blueprint-field select{min-height:30px;border:2px solid #5e6262;background:#24252a;color:#fff4dd;font:700 10px/1 monospace;padding:0 6px}
+.blueprint-history{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.blueprint-history button:disabled{cursor:not-allowed;opacity:.4;filter:saturate(.35)}
+.blueprint-status{grid-column:1/-1;margin:0;padding:6px;border:1px solid #506462;background:#202a2a;color:#aeeacb;font:700 9px/1.35 monospace}
+.blueprint-status.invalid{border-color:#805159;color:#ffb9c0;background:#332326}
 #world-viewport[data-structure-mode]:not([data-structure-mode="furnish"]) #placement-ghost{display:none!important}
 @media(max-width:900px){#structure-tools{right:8px;top:82px;width:210px}.structure-room-actions{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){#structure-tools{transition:none}}
