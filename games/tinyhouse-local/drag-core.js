@@ -24,8 +24,11 @@
         y: placement.y,
         supportId: placement.supportId,
         supportOffsetX: placement.supportOffsetX,
-        wallSide: placement.wallSide ?? null,
+        wallSide: placement.wallSide || null,
         wallIndex: placement.wallIndex ?? null,
+        structureEdgeKey: placement.structureEdgeKey || null,
+        wallColumn: placement.wallColumn ?? null,
+        wallRow: placement.wallRow ?? null,
       };
     },
 
@@ -36,8 +39,19 @@
       placement.y = snapshot.y;
       placement.supportId = snapshot.supportId;
       placement.supportOffsetX = snapshot.supportOffsetX;
-      placement.wallSide = snapshot.wallSide;
-      placement.wallIndex = snapshot.wallIndex;
+      if (snapshot.wallSide) {
+        placement.wallSide = snapshot.wallSide;
+        placement.wallIndex = snapshot.wallIndex;
+        placement.structureEdgeKey = snapshot.structureEdgeKey;
+        placement.wallColumn = snapshot.wallColumn;
+        placement.wallRow = snapshot.wallRow;
+      } else {
+        delete placement.wallSide;
+        delete placement.wallIndex;
+        delete placement.structureEdgeKey;
+        delete placement.wallColumn;
+        delete placement.wallRow;
+      }
       return placement;
     },
   });
