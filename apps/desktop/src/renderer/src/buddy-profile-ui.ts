@@ -67,10 +67,11 @@ function reconcile(profile: BuddyPublicProfile): boolean {
   return true;
 }
 
-function reloadOnce(): void {
-  if (window.sessionStorage.getItem(RELOAD_GUARD_KEY) === "1") return;
+function reloadOnce(): boolean {
+  if (window.sessionStorage.getItem(RELOAD_GUARD_KEY) === "1") return false;
   window.sessionStorage.setItem(RELOAD_GUARD_KEY, "1");
   window.location.reload();
+  return true;
 }
 
 let syncQueued = false;
@@ -83,8 +84,8 @@ function queueProfileSync(): void {
     const candidate = readCandidate();
     if (!bridge || candidate === undefined) return;
     void bridge.syncBuddyProfile(candidate).then((profile) => {
-      if (reconcile(profile)) reloadOnce();
-      else window.sessionStorage.removeItem(RELOAD_GUARD_KEY);
+      if (reconcile(profile) && reloadOnce()) return;
+      window.sessionStorage.removeItem(RELOAD_GUARD_KEY);
     }).catch(() => undefined);
   }, 0);
 }
@@ -106,11 +107,7 @@ async function initialize(): Promise<void> {
   const bridge = api();
   if (!bridge) return;
   const profile = await bridge.initializeBuddyProfile(readCandidate());
-  const changed = reconcile(profile);
-  if (changed) {
-    reloadOnce();
-    return;
-  }
+  if (reconcile(profile) && reloadOnce()) return;
   window.sessionStorage.removeItem(RELOAD_GUARD_KEY);
   installMutationSync();
 }
