@@ -1,0 +1,64 @@
+name: Fix multi-animation desktop compile issues
+
+on:
+  push:
+    branches:
+      - agent/multi-animation-pet-manifests
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/multi-animation-pet-manifests
+
+      - name: Apply deterministic desktop compiler fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          pet_window = Path('apps/desktop/src/pet-window.ts')
+          text = pet_window.read_text()
+          old = 'function createPetWindowCss(paused: boolean, scale: PetScaleValue, frameWidth = defaultPetSprite.frameWidth, frameHeight = defaultPetSprite.frameHeight): string {'
+          new = 'function createPetWindowCss(paused: boolean, scale: PetScaleValue, frameWidth: number = defaultPetSprite.frameWidth, frameHeight: number = defaultPetSprite.frameHeight): string {'
+          if text.count(old) != 1:
+              raise SystemExit('Unexpected createPetWindowCss signature')
+          pet_window.write_text(text.replace(old, new, 1))
+
+          windows = Path('apps/desktop/src/windows.ts')
+          text = windows.read_text()
+          old_import = 'type Locale, type LocalePreference } from "./i18n/index.js";'
+          new_import = 'type Locale, type LocalePreference, type MessageKey } from "./i18n/index.js";'
+          if text.count(old_import) != 1:
+              raise SystemExit('Unexpected i18n import')
+          text = text.replace(old_import, new_import, 1)
+          text = text.replace('label: t(`settings.animation.${animation.id}.label`),', 'label: t(`settings.animation.${animation.id}.label` as MessageKey),', 1)
+          text = text.replace('description: t(`settings.animation.${animation.id}.description`),', 'description: t(`settings.animation.${animation.id}.description` as MessageKey),', 1)
+          windows.write_text(text)
+
+          lan = Path('apps/desktop/tests/lan-state.test.ts')
+          text = lan.read_text()
+          marker = '// Registration is the coordinator trust boundary: unsafe IDs must never enter'
+          starts = [index for index in range(len(text)) if text.startswith(marker, index)]
+          if len(starts) != 2:
+              raise SystemExit(f'Expected two duplicated LAN blocks, found {len(starts)}')
+          end_marker = '\n\nconst topologyDiagnostics = normalizeLanTopology('
+          end = text.find(end_marker, starts[1])
+          if end < 0:
+              raise SystemExit('Could not find end of duplicated LAN block')
+          lan.write_text(text[:starts[1]] + text[end + 2:])
+          PY
+
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/desktop/src/pet-window.ts apps/desktop/src/windows.ts apps/desktop/tests/lan-state.test.ts
+          git commit -m 'fix(desktop): compile dynamic pet animation settings'
+          git push origin HEAD:agent/multi-animation-pet-manifests
