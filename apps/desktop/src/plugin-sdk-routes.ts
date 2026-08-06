@@ -1,7 +1,6 @@
-export const pluginSdkAsyncRoutes = [
+const pluginSdkCoreAsyncRoutes = [
   "pet.speak", "pet.react", "pet.setAnimation", "pet.setScale", "pet.setStatusReaction", "pet.moveBy", "pet.wander", "pet.moveToHome", "pet.moveTo", "pet.followCursor", "pet.physics", "pet.onTick", "pet.offTick", "pet.getState", "pet.show", "pet.hide", "pet.close",
   "pets.list", "pets.spawn", "pets.onChange", "pets.offChange",
-  "inventory.snapshot", "inventory.grant", "inventory.consume", "inventory.equip", "inventory.unequip", "inventory.onChange", "inventory.offChange",
   "ui.bubble", "ui.alert", "ui.bubbleUpdate", "ui.bubbleDismiss", "ui.bubblePin", "ui.bubbleUnpin", "ui.bubbleSubscribe", "ui.toast", "ui.panel", "ui.panelShow", "ui.panelHide", "ui.panelPost", "ui.panelClose", "ui.panelOnMessage", "ui.delivery", "ui.deliveryDismiss", "ui.deliverySubscribe", "ui.menuSetItems", "ui.menuOnSelect", "ui.menuOffSelect",
   "audio.play", "audio.importUserSound", "audio.forgetUserSound", "audio.stop",
   "events.on", "events.off",
@@ -22,9 +21,20 @@ export const pluginSdkAsyncRoutes = [
   "log.debug", "log.info", "log.warn", "log.error",
 ] as const;
 
+export const pluginSdkInventoryRoutes = [
+  "inventory.snapshot", "inventory.grant", "inventory.consume", "inventory.equip", "inventory.unequip", "inventory.onChange", "inventory.offChange",
+] as const;
+
+export const pluginSdkAsyncRoutes = [...pluginSdkCoreAsyncRoutes, ...pluginSdkInventoryRoutes] as const;
 export const pluginSdkSyncRoutes = ["i18n.t", "i18n.locale"] as const;
 export const pluginSdkRoutes = [...pluginSdkAsyncRoutes, ...pluginSdkSyncRoutes] as const;
-export type PluginSdkRoute = typeof pluginSdkRoutes[number];
+
+/**
+ * Core routes are exhaustively implemented in plugin-js-host.ts. Inventory
+ * routes are installed before plugins start by the host-owned inventory
+ * adapter, so they intentionally stay outside that object-literal exhaustiveness.
+ */
+export type PluginSdkRoute = typeof pluginSdkCoreAsyncRoutes[number] | typeof pluginSdkSyncRoutes[number];
 
 export function isPluginSdkRoute(path: string): path is PluginSdkRoute {
   return (pluginSdkRoutes as readonly string[]).includes(path);
