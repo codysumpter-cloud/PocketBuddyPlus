@@ -92,8 +92,12 @@ declare module "./index.js" {
   }
 
   interface OpenPetsContext {
-    /** Shared host-owned inventory/equipment ledger. */
-    readonly inventory: import("./public.js").OpenPetsInventoryApi;
+    /**
+     * Shared host-owned inventory/equipment ledger. Pocket Buddy+ always
+     * provides this namespace; it remains optional in the compatibility SDK so
+     * plugins can still typecheck against older OpenPets hosts and test harnesses.
+     */
+    readonly inventory?: import("./public.js").OpenPetsInventoryApi;
   }
 }
 
