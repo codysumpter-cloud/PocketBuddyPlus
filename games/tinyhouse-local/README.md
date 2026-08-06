@@ -107,7 +107,7 @@ node test-cozy-contract.mjs
 
 `test-house-grid-contract.mjs` protects the real cell/edge model, exact projection, rectangular room planning, bridge-tile split detection, room expansion, door connectivity, persistence, and full-house export wiring.
 
-`test-room-templates-contract.mjs` protects the four editable recipes, required licensed manifest IDs, explicit UUID preview assignment, local-only showcase handling, one-step restore, whole-room animation controls, and script ordering.
+`test-room-templates-contract.mjs` protects the four editable recipes, complete asset-ID resolution against the shipped manifest, valid floor anchors, explicit UUID preview assignment, local-only showcase handling, one-step restore, whole-room animation controls, and script ordering.
 
 ## Asset boundary
 
