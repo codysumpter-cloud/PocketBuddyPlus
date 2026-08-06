@@ -32,6 +32,7 @@ const api = {
   updatePluginPlatformSettings: (patch) => ipcRenderer.invoke("openpets:plugin-platform-settings-update", patch),
   setPluginAiApiKey: (key) => ipcRenderer.invoke("openpets:plugin-platform-ai-key-set", key),
   getPluginAiApiKeyStatus: () => ipcRenderer.invoke("openpets:plugin-platform-ai-key-status"),
+  completeBuddyChat: (request) => ipcRenderer.invoke("openpets:buddy-chat-complete", request),
   getCatalog: () => ipcRenderer.invoke("openpets:get-catalog"),
   getCatalogPage: (page) => ipcRenderer.invoke("openpets:get-catalog-page", page),
   getCatalogSearch: () => ipcRenderer.invoke("openpets:get-catalog-search"),
