@@ -1,0 +1,110 @@
+name: Apply verified eight-way pet motion
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/apply-eight-way-motion-pr-v2.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-eight-way-motion-v2-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    if: github.head_ref == 'fix/manifestless-pet-reaction-settings'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Extract and apply deterministic patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          source = Path('.github/workflows/apply-eight-way-motion.yml').read_text().splitlines()
+          marker = '      - name: Apply deterministic source patch'
+          try:
+              marker_index = source.index(marker)
+          except ValueError as error:
+              raise SystemExit('patch workflow marker not found') from error
+          run_index = next(index for index in range(marker_index + 1, len(source)) if source[index].strip() == 'run: |')
+          body = []
+          for line in source[run_index + 1:]:
+              if line.startswith('      - name:'):
+                  break
+              body.append(line[10:] if line.startswith('          ') else line)
+          if not body or not body[0].startswith("python3 <<'PY'"):
+              raise SystemExit('patch workflow body was not extracted safely')
+          patch = '\n'.join(body) + '\n'
+          for old, new in (
+              ('northeast', 'north-east'),
+              ('southeast', 'south-east'),
+              ('southwest', 'south-west'),
+              ('northwest', 'north-west'),
+          ):
+              patch = patch.replace(old, new)
+          Path('/tmp/apply-eight-way-motion.sh').write_text(patch)
+          PY
+          bash /tmp/apply-eight-way-motion.sh
+          python3 <<'PY'
+          from pathlib import Path
+
+          manifest_path = Path('apps/desktop/src/pet-animation-manifest.ts')
+          manifest_text = manifest_path.read_text()
+          import_old = '  parsePocketBuddyAnimationManifest,\n  resolvePetAnimationFrames,\n'
+          import_new = '  parsePocketBuddyAnimationManifest,\n  resolvePetAnimationFrames,\n  resolvePetAnimationId,\n'
+          count = manifest_text.count(import_old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one resolver import insertion point, found {count}')
+          manifest_path.write_text(manifest_text.replace(import_old, import_new, 1))
+
+          test_path = Path('apps/desktop/tests/pet-animation-manifest.test.ts')
+          test_text = test_path.read_text()
+          assertion_old = 'assert.match(preload, /motion === "run-left" \\? "west" : motion === "run-right" \\? "east"/, "left/right desktop motion must select directional frames");\n'
+          assertion_new = '''assert.match(preload, /const motionDirectionByState = Object\\.freeze/, "runtime must centralize motion-to-direction resolution");
+assert.match(preload, /"run-left": "west"/, "legacy run-left must keep selecting west frames");
+assert.match(preload, /"run-right": "east"/, "legacy run-right must keep selecting east frames");
+assert.match(preload, /"run-north-east": "north-east"/, "eight-way motion must select diagonal manifest frames");
+'''
+          count = test_text.count(assertion_old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one legacy preload assertion, found {count}')
+          test_path.write_text(test_text.replace(assertion_old, assertion_new, 1))
+          PY
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify desktop typecheck and tests
+        run: |
+          pnpm --filter @open-pets/desktop typecheck
+          pnpm --filter @open-pets/desktop test
+
+      - name: Commit verified patch and remove temporary workflows
+        shell: bash
+        run: |
+          rm .github/workflows/apply-eight-way-motion.yml
+          rm .github/workflows/apply-eight-way-motion-pr.yml
+          rm .github/workflows/apply-eight-way-motion-pr-v2.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(pets): add eight-direction motion states [eight-way-motion-applied]"
+          git push origin HEAD:fix/manifestless-pet-reaction-settings
