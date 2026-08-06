@@ -36,10 +36,10 @@ export function chooseTrainingDrill(profile) {
   if (dominantNeed === "energy") return { id: "balance", label: "balance and breathing", reaction: "thinking" };
   if (dominantNeed === "hunger") return { id: "patience", label: "patience practice", reaction: "waiting" };
   if (dominantNeed === "social") return { id: "teamwork", label: "teamwork signals", reaction: "waving" };
-  if (dominantNeed === "play") return { id: "agility", label: "agility course", reaction: "running" };
+  if (dominantNeed === "play") return { id: "agility", label: "agility course", reaction: "celebrating" };
   if (dominantNeed === "cleanliness" || dominantNeed === "comfort") return { id: "focus", label: "gentle focus drills", reaction: "thinking" };
   return profile?.mood === "playful"
-    ? { id: "agility", label: "agility course", reaction: "running" }
+    ? { id: "agility", label: "agility course", reaction: "celebrating" }
     : { id: "focus", label: "focus drills", reaction: "thinking" };
 }
 
