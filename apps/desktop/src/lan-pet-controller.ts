@@ -1,7 +1,7 @@
 import { BrowserWindow } from "electron";
 
 import { getAppStateSnapshot, type PetScaleValue } from "./app-state.js";
-import { clampToVisibleWorkArea, defaultPetWindowSize, getDefaultPetInitialPosition } from "./display.js";
+import { clampToVisibleWorkArea, defaultPetWindowSize, getDefaultPetInitialPosition, toWindowCoordinate } from "./display.js";
 import { debug, info, warn } from "./logger.js";
 import { planLanPetPresence, resolveRenderableLanPetId } from "./lan-pet-presence.js";
 import type { LanPetRecord, LanPoint } from "./lan-state.js";
@@ -71,7 +71,9 @@ export function reclampLanVisitingPetWindows(): void {
     if (entry.window.isDestroyed()) continue;
     const safe = readWindowPosition(entry.window);
     const [x, y] = entry.window.getPosition();
-    if (safe.x !== x || safe.y !== y) entry.window.setPosition(safe.x, safe.y, false);
+    const lanX = toWindowCoordinate(safe.x);
+    const lanY = toWindowCoordinate(safe.y);
+    if (lanX !== null && lanY !== null && (lanX !== x || lanY !== y)) entry.window.setPosition(lanX, lanY, false);
   }
 }
 

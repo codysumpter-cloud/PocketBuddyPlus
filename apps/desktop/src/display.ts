@@ -218,6 +218,28 @@ export function clampToNearestDisplayIfOffscreen(
  * Shared primitive used by both clampToVisibleWorkArea and
  * clampToNearestDisplayIfOffscreen.
  */
+/**
+ * Electron's window coordinate setters take a C++ `int`. Anything else aborts
+ * the call with "Error processing argument at index 0, conversion failure" -
+ * an uncaught exception that kills the main process, not a recoverable error.
+ *
+ * Measured against Electron 42 rather than assumed. Every one of these is
+ * rejected: a fraction, a value past int32, NaN, Infinity, and - the one that
+ * is easy to miss - NEGATIVE ZERO, which `Number.isSafeInteger` reports as a
+ * valid integer. `Math.round` produces -0 for any value in (-0.5, 0], so a pet
+ * drifting across the origin of a display whose work area starts at or below 0
+ * hits it.
+ *
+ * Returns null when the coordinate cannot be represented, so callers skip the
+ * write instead of crashing.
+ */
+export function toWindowCoordinate(value: number): number | null {
+  const rounded = Math.round(value);
+  if (!Number.isFinite(rounded) || Math.abs(rounded) > 2147483647) return null;
+  // `rounded === 0` is true for -0; returning the literal normalizes it to +0.
+  return rounded === 0 ? 0 : rounded;
+}
+
 function clampIntoWorkArea(
   position: Point,
   size: WindowSize,
