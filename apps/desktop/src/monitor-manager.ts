@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 
 import { app, BrowserWindow, ipcMain, screen, type IpcMainInvokeEvent } from "electron";
 
+import { setConfinementOuterBounds } from "./confinement-manager.js";
 import {
   clampWindowBoundsToSelectedWorkArea,
   getDisplayChoices,
@@ -56,6 +57,7 @@ export function initializeMonitorSelection(userDataPath: string): void {
     });
   }
   setSelectedDisplay(selected);
+  syncOuterConfinementBounds();
   writeState(selected);
   info("ui", "monitor selection initialized", { selected, effective: getEffectiveSelectedDisplayKey() });
 }
@@ -75,6 +77,7 @@ export function setMonitorSelection(selection: unknown): MonitorSelectionSnapsho
   }
 
   setSelectedDisplay(selection);
+  syncOuterConfinementBounds();
   writeState(selection);
   reclampVisibleWindows("monitor-selection-changed");
   const snapshot = getMonitorSelectionSnapshot();
@@ -110,6 +113,7 @@ export function installMonitorWindowGuard(): void {
 
   const topologyChanged = (reason: string) => (): void => {
     invalidateDisplayCache();
+    syncOuterConfinementBounds();
     debug("ui", "display topology changed", { reason, selected: getSelectedDisplayPreference() });
     setTimeout(() => reclampVisibleWindows(reason), 120).unref?.();
   };
@@ -120,6 +124,7 @@ export function installMonitorWindowGuard(): void {
 
 export function reclampVisibleWindows(reason = "manual"): void {
   invalidateDisplayCache();
+  syncOuterConfinementBounds();
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed() && window.isVisible()) clampWindowToSelectedMonitor(window, reason);
   }
@@ -169,6 +174,11 @@ function clampWindowToSelectedMonitor(window: BrowserWindow, reason: string): vo
   } finally {
     guardInProgress.delete(window);
   }
+}
+
+function syncOuterConfinementBounds(): void {
+  const area = getSelectedWorkArea();
+  setConfinementOuterBounds({ x: area.x, y: area.y, width: area.width, height: area.height });
 }
 
 function writeState(selected: DisplaySelection): void {
