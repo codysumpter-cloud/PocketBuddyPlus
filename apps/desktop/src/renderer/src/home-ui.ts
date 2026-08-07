@@ -11,7 +11,7 @@ type HomePluginApi = {
   executePluginCommand(id: string, commandId: string, args?: Record<string, unknown>): Promise<unknown>;
 };
 
-function api(): HomePluginApi | undefined { return (window as { openPetsControlCenter?: HomePluginApi }).openPetsControlCenter; }
+function api(): HomePluginApi | undefined { return (window as unknown as { openPetsControlCenter?: HomePluginApi }).openPetsControlCenter; }
 
 function createHomeNavButton(): HTMLButtonElement {
   const button = document.createElement("button");
