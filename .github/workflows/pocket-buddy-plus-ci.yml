@@ -23,6 +23,71 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  home-presence-build:
+    name: Build staged Home presence runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply staged Home transform
+        run: python .github/scripts/home_presence_patch.py
+
+      - name: Build plugin artifacts
+        run: pnpm plugins:build
+
+      - name: Verify generated plugin artifacts
+        run: pnpm plugins:build:check
+
+      - name: Typecheck Home plugin
+        run: pnpm plugins:typecheck
+
+      - name: Test Home plugin bundle
+        run: node plugins/official/openpets.home-builder/test.js
+
+      - name: Check plugin SDK
+        run: pnpm --filter @open-pets/plugin-sdk check
+
+      - name: Run desktop tests
+        run: pnpm --filter @open-pets/desktop test
+
+      - name: Package exact changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -N .
+          mkdir -p "$RUNNER_TEMP/home-presence-files"
+          git diff --name-only --diff-filter=ACMRT \
+            | grep -v '^\.github/' \
+            | while IFS= read -r file; do
+                test -f "$file" || continue
+                mkdir -p "$RUNNER_TEMP/home-presence-files/$(dirname "$file")"
+                cp "$file" "$RUNNER_TEMP/home-presence-files/$file"
+              done
+          tar -czf "$RUNNER_TEMP/home-presence-files.tgz" -C "$RUNNER_TEMP/home-presence-files" .
+          git diff --stat
+
+      - name: Upload exact changed files
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-presence-verified-files
+          path: ${{ runner.temp }}/home-presence-files.tgz
+          if-no-files-found: error
+          retention-days: 7
+
   verify:
     name: Build, typecheck, test, and package
     runs-on: ubuntu-latest
