@@ -25,7 +25,7 @@ let statePath: string | null = null;
 let handlersInstalled = false;
 let windowGuardInstalled = false;
 const guardInProgress = new WeakSet<BrowserWindow>();
-const originalMinimumSizes = new WeakMap<BrowserWindow, readonly [number, number]>();
+const originalMinimumSizes = new WeakMap<BrowserWindow, readonly number[]>();
 
 type MonitorStateFile = {
   readonly version: 1;
@@ -148,8 +148,8 @@ function clampWindowToSelectedMonitor(window: BrowserWindow, reason: string): vo
   try {
     const area = getSelectedWorkArea();
     const originalMin = originalMinimumSizes.get(window) ?? window.getMinimumSize();
-    const minWidth = Math.max(1, Math.min(originalMin[0], Math.floor(area.width)));
-    const minHeight = Math.max(1, Math.min(originalMin[1], Math.floor(area.height)));
+    const minWidth = Math.max(1, Math.min(originalMin[0] ?? 1, Math.floor(area.width)));
+    const minHeight = Math.max(1, Math.min(originalMin[1] ?? 1, Math.floor(area.height)));
     const currentMinimum = window.getMinimumSize();
     if (currentMinimum[0] !== minWidth || currentMinimum[1] !== minHeight) {
       window.setMinimumSize(minWidth, minHeight);
