@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import {
   HOME_PUBLIC_ASSETS,
+  PACK_TILE_SIZE,
   advanceHomeSession,
   createHomeFloorTileLayer,
   createHomePlayState,
@@ -35,6 +36,23 @@ import {
   type HomeRoomItem,
   type WorldWall,
 } from "@open-pets/buddy-domain";
+
+/**
+ * Sprites from the user's own TinyHouse pack, keyed by floor material or asset
+ * id. Empty until they load their copy - Home ships no art, so every draw falls
+ * back to the shapes it has always drawn.
+ */
+let packSprites: Readonly<Record<string, string>> = {};
+let onPackSpritesChanged: (() => void) | null = null;
+
+export function setHomePackSprites(next: Readonly<Record<string, string>>): void {
+  packSprites = next;
+  onPackSpritesChanged?.();
+}
+
+export function homePackSpriteCount(): number {
+  return Object.keys(packSprites).length;
+}
 
 const HOME_STORAGE_KEY = "pocket-buddy-plus:phaser-home:v2";
 const LEGACY_HOME_STORAGE_KEY = "pocket-buddy-plus:phaser-home:v1";
@@ -123,6 +141,8 @@ class PhaserHomeScene extends Phaser.Scene {
   private selectedAssetId = HOME_ITEM_ASSETS[0] ?? "home.bed.basic";
   private graphics!: Phaser.GameObjects.Graphics;
   private hoverCell: GridCell | null = null;
+  private spriteObjects: Phaser.GameObjects.Image[] = [];
+  private loadedTextureKeys = new Set<string>();
   private lastPaintedKey: string | null = null;
   private onStateChange?: (snapshot: PhaserHomeSnapshot) => void;
 
@@ -172,6 +192,9 @@ class PhaserHomeScene extends Phaser.Scene {
     });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      onPackSpritesChanged = null;
+      for (const image of this.spriteObjects) image.destroy();
+      this.spriteObjects = [];
       this.input.keyboard?.off("keydown", this.handleKeyDown, this);
       this.game.events.off("home:set-mode", this.handleSetMode, this);
       this.game.events.off("home:set-brush", this.handleSetBrush, this);
@@ -184,8 +207,46 @@ class PhaserHomeScene extends Phaser.Scene {
       this.game.events.off("home:interact-selected", this.handleInteractSelected, this);
     });
 
+    onPackSpritesChanged = () => { this.syncPackTextures(); };
+
     this.persistAndEmit();
     this.renderRoom();
+  }
+
+  /**
+   * Phaser needs textures registered before anything can draw them, and
+   * addBase64 completes asynchronously, so the room repaints once each new
+   * sprite lands rather than waiting for all of them.
+   */
+  private syncPackTextures(): void {
+    for (const [key, dataUrl] of Object.entries(packSprites)) {
+      if (this.loadedTextureKeys.has(key)) continue;
+      this.loadedTextureKeys.add(key);
+      const textureKey = `home-pack:${key}`;
+      if (this.textures.exists(textureKey)) { this.renderRoom(); continue; }
+      this.textures.once(`addtexture-${textureKey}`, () => this.renderRoom());
+      this.textures.addBase64(textureKey, dataUrl);
+    }
+    this.renderRoom();
+  }
+
+  /** A pack texture ready to draw, or null to fall back to the drawn shapes. */
+  private packTexture(key: string): string | null {
+    const textureKey = `home-pack:${key}`;
+    return packSprites[key] && this.textures.exists(textureKey) ? textureKey : null;
+  }
+
+  /**
+   * Place a pack sprite centred on a point. Centred, not bottom-anchored: the
+   * pack authors the isometric diamond's centre at the image centre (a 64x64
+   * floor tile's opaque content runs y=16..55), so bottom-anchoring leaves
+   * furniture floating clear of the floor.
+   */
+  private placeSprite(textureKey: string, centerX: number, centerY: number, depth: number): void {
+    const image = this.add.image(centerX, centerY, textureKey);
+    image.setScale(TILE_WIDTH / PACK_TILE_SIZE);
+    image.setDepth(depth);
+    this.spriteObjects.push(image);
   }
 
   private handleSetMode(mode: HomeMode): void {
@@ -383,6 +444,11 @@ class PhaserHomeScene extends Phaser.Scene {
     if (!this.graphics) return;
     const graphics = this.graphics;
     graphics.clear();
+    // Image game objects are pooled per repaint; Graphics stays underneath so
+    // the drawn fallbacks and the grid never cover the art.
+    for (const image of this.spriteObjects) image.destroy();
+    this.spriteObjects = [];
+    graphics.setDepth(-1000);
 
     const origin = this.roomOrigin();
     this.drawWalls(graphics, origin, false);
@@ -394,14 +460,29 @@ class PhaserHomeScene extends Phaser.Scene {
       const centerY = origin.y + point.y;
       const material = floorMaterialAt(this.floor, cell);
       const hovered = this.hoverCell?.x === cell.x && this.hoverCell?.y === cell.y;
-      drawDiamond(
-        graphics,
-        centerX,
-        centerY,
-        MATERIAL_COLORS[material] ?? 0xc99968,
-        hovered ? 0xffffff : 0x29334a,
-        hovered ? 3 : 1,
-      );
+      const floorTexture = this.packTexture(material);
+      if (floorTexture) {
+        this.placeSprite(floorTexture, centerX, centerY, centerY - 10_000);
+        if (hovered) {
+          graphics.lineStyle(3, 0xffffff, 1);
+          graphics.beginPath();
+          graphics.moveTo(centerX, centerY - TILE_HEIGHT / 2);
+          graphics.lineTo(centerX + TILE_WIDTH / 2, centerY);
+          graphics.lineTo(centerX, centerY + TILE_HEIGHT / 2);
+          graphics.lineTo(centerX - TILE_WIDTH / 2, centerY);
+          graphics.closePath();
+          graphics.strokePath();
+        }
+      } else {
+        drawDiamond(
+          graphics,
+          centerX,
+          centerY,
+          MATERIAL_COLORS[material] ?? 0xc99968,
+          hovered ? 0xffffff : 0x29334a,
+          hovered ? 3 : 1,
+        );
+      }
     }
 
     const drawables = [
@@ -476,6 +557,30 @@ class PhaserHomeScene extends Phaser.Scene {
     const x = origin.x + point.x;
     const y = origin.y + point.y;
     const selected = this.play.selectedItemId === item.id;
+
+    const itemTexture = this.packTexture(definition.assetId);
+    if (itemTexture) {
+      // A multi-tile piece is authored for its whole footprint, so centre it on
+      // the footprint rather than its anchor tile - otherwise a 2x1 bed sits a
+      // tile off. Both corners go through projectCanonicalCell so this stays
+      // correct as the camera rotates.
+      const far = projectCanonicalCell(
+        { x: item.placement.anchor.x + definition.footprint.width - 1, y: item.placement.anchor.y + definition.footprint.height - 1 },
+        this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT,
+      );
+      const footprintX = (x + origin.x + far.x) / 2;
+      const footprintY = (y + origin.y + far.y) / 2;
+
+      graphics.fillStyle(0x0b1020, 0.24);
+      graphics.fillCircle(footprintX, footprintY + 6, TILE_WIDTH * 0.3);
+      this.placeSprite(itemTexture, footprintX, footprintY, footprintY);
+      if (selected) {
+        graphics.lineStyle(2, 0xffd84d, 0.9);
+        graphics.strokeCircle(footprintX, footprintY, TILE_WIDTH * 0.5);
+      }
+      return;
+    }
+
     const width = Math.max(22, definition.footprint.width * 25);
     const height = Math.max(16, definition.footprint.height * 15);
 

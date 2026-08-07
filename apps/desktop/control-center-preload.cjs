@@ -15,6 +15,7 @@ const api = {
   checkForUpdates: () => ipcRenderer.invoke("openpets:check-for-updates"),
   openUpdateReleasePage: () => ipcRenderer.invoke("openpets:open-update-release-page"),
   resetDefaultPetPosition: () => ipcRenderer.invoke("openpets:reset-default-pet-position"),
+  pickHomePackSprites: () => ipcRenderer.invoke("openpets:home-pick-pack-sprites"),
   getPluginsSnapshot: () => ipcRenderer.invoke("openpets:plugins-snapshot"),
   getPluginCatalogSnapshot: (refresh) => ipcRenderer.invoke("openpets:plugins-catalog-snapshot", refresh),
   setPluginEnabled: (id, enabled) => ipcRenderer.invoke("openpets:plugins-set-enabled", id, enabled),

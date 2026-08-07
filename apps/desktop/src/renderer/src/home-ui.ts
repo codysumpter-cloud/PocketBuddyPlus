@@ -3,7 +3,9 @@ import {
   HOME_BRUSHES,
   HOME_ITEM_ASSETS,
   HOME_MODES,
+  homePackSpriteCount,
   mountPhaserHome,
+  setHomePackSprites,
   type HomeBrush,
   type HomeMode,
   type PhaserHomeController,
@@ -82,6 +84,7 @@ function createHomeModal(): HTMLDivElement {
           <button type="button" data-home-rotate="1" title="Rotate room right">Rotate ↷</button>
           <button type="button" data-home-clear-floor>Reset floor</button>
           <button type="button" data-home-reset-room>Reset room</button>
+          <button type="button" data-home-load-pack title="Load sprites from your own TinyHouse pack">Load TinyHouse art</button>
         </div>
         <div class="pb-home-movement" role="group" aria-label="Move player">
           <button type="button" data-home-move="north" aria-label="Move north">↑</button>
@@ -141,6 +144,7 @@ function openHome(): void {
   const stage = modal.querySelector<HTMLElement>("[data-home-stage]");
   if (!stage) return;
   controller?.destroy();
+  restorePackSprites();
   controller = mountPhaserHome(stage, { onStateChange: updateHomeStatus });
   controller.setMode(selectedMode);
   controller.setBrush(selectedBrush);
@@ -224,11 +228,61 @@ function handleModalClick(event: MouseEvent): void {
     return;
   }
 
+  if (target.closest("[data-home-load-pack]")) { void loadTinyHousePack(); return; }
+
   if (target.closest("[data-home-pet]")) controller?.petBuddy();
   else if (target.closest("[data-home-use]")) controller?.interactSelected();
   else if (target.closest("[data-home-channel]")) controller?.interactSelected("next-channel" as HomeItemAction);
   else if (target.closest("[data-home-clear-floor]")) controller?.clearFloor();
   else if (target.closest("[data-home-reset-room]")) controller?.resetRoom();
+}
+
+/** Where a loaded pack is remembered so the user picks it once. */
+const PACK_STORAGE_KEY = "pocket-buddy-plus:home:pack-sprites:v1";
+
+function setHomeNote(text: string): void {
+  const node = modal?.querySelector<HTMLElement>("[data-home-thought]");
+  if (node) node.textContent = text;
+}
+
+async function loadTinyHousePack(): Promise<void> {
+  const api = (window as { openPetsControlCenter?: { pickHomePackSprites?: () => Promise<unknown> } }).openPetsControlCenter;
+  if (!api?.pickHomePackSprites) { setHomeNote("Loading art is not available in this window."); return; }
+
+  setHomeNote("Choose your TinyHouse images…");
+  try {
+    const result = await api.pickHomePackSprites() as { canceled: boolean; sprites?: Record<string, string>; total?: number };
+    if (result.canceled) { setHomeNote("Art loading cancelled."); return; }
+
+    const sprites = result.sprites ?? {};
+    const count = Object.keys(sprites).length;
+    if (count === 0) {
+      setHomeNote("No TinyHouse sprites Home uses were in that selection. Open the pack folder and select its images.");
+      return;
+    }
+    applyPackSprites(sprites);
+    try { window.localStorage.setItem(PACK_STORAGE_KEY, JSON.stringify(sprites)); } catch { /* a full disk just means re-picking later */ }
+    setHomeNote(`TinyHouse art loaded — ${count} of ${result.total ?? count} sprites.`);
+  } catch (error) {
+    setHomeNote(`Could not load the pack: ${String((error as Error)?.message ?? error).slice(0, 120)}`);
+  }
+}
+
+function applyPackSprites(sprites: Record<string, string>): void {
+  setHomePackSprites(sprites);
+}
+
+/** Re-apply a previously loaded pack so the room is not bare on reopen. */
+function restorePackSprites(): void {
+  if (homePackSpriteCount() > 0) return;
+  try {
+    const raw = window.localStorage.getItem(PACK_STORAGE_KEY);
+    if (!raw) return;
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) applyPackSprites(parsed as Record<string, string>);
+  } catch {
+    // A corrupt cache just means no art until the user picks the pack again.
+  }
 }
 
 function syncActiveControls(): void {

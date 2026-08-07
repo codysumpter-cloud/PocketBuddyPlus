@@ -8,3 +8,4 @@ export * from "./tile-layer.js";
 export * from "./parity-scenarios.js";
 export * from "./wall-model.js";
 export * from "./wall-parity.js";
+export * from "./pack-mapping.js";
