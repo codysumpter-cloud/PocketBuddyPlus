@@ -29,6 +29,12 @@ state engine.
   applies them across inherited cards, navigation, forms, dialogs, plugin views,
   galleries, the Buddy center, and the dashboard. `system` follows OS appearance
   and updates live.
+- **Monitor Selection**: `monitor-settings-ui.ts` augments General/Movement
+  settings with the persisted monitor picker. The main process is authoritative:
+  the UI only chooses a monitor, while `monitor-manager.ts` clamps all visible
+  desktop windows to that monitor's usable work area. The obsolete cross-display
+  roaming toggle is hidden because selected-monitor containment is now a hard
+  product rule.
 - **Dashboard**: Reads a narrowed dashboard snapshot for default pet preview,
   install/catalog counts, plugin health, update status, and activity totals.
 - **Pets**: Combines installed pets, catalog v3 pages/search, Codex imports,
@@ -40,8 +46,9 @@ state engine.
   filters, catalog refresh, local load, install/update/uninstall, enable/disable,
   config modal, command execution, runtime/status display, and broken-state
   feedback.
-- **Settings**: Startup, launch-at-login, pet scale, reaction-animation mapping,
-  update check, default-pet position reset, and pet reaction previews.
+- **Settings**: Startup, launch-at-login, monitor selection, pet scale,
+  reaction-animation mapping, update check, default-pet position reset, and pet
+  reaction previews.
 - **Bridge Contract**: Existing app data and actions go through
   `window.openPetsControlCenter`; the Buddy+ product layer imports only the pure
   Buddy domain module and stores its versioned renderer state under the Plus-only
@@ -57,8 +64,14 @@ state engine.
   collection, field guide, and wardrobe preferences.
 - `product-ui.css`: Semantic light/dark theme tokens and Pocket Buddy+ component
   styling.
+- `monitor-settings-ui.ts`: Settings monitor selector backed by the narrow
+  `getMonitorSelection`/`setMonitorSelection` preload bridge.
 - `i18n.tsx`: Renderer translation facade with product-name normalization.
 - `vite-env.d.ts`: Vite/TypeScript renderer environment declarations.
 
 ## Home navigation is plugin-owned
-`home-ui.ts` is now a thin navigation adapter. It locates enabled `openpets.home-builder` and executes its `open-home` command; it no longer mounts the renderer-local Home simulation. This keeps plugin installation/enablement/permission state authoritative for Home.
+
+`home-ui.ts` is a thin navigation adapter. It locates enabled
+`openpets.home-builder` and executes its `open-home` command; it no longer mounts
+the renderer-local Home simulation. This keeps plugin installation, enablement,
+and permission state authoritative for Home.
