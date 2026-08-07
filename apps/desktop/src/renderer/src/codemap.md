@@ -59,3 +59,6 @@ state engine.
   styling.
 - `i18n.tsx`: Renderer translation facade with product-name normalization.
 - `vite-env.d.ts`: Vite/TypeScript renderer environment declarations.
+
+## Home navigation is plugin-owned
+`home-ui.ts` is now a thin navigation adapter. It locates enabled `openpets.home-builder` and executes its `open-home` command; it no longer mounts the renderer-local Home simulation. This keeps plugin installation/enablement/permission state authoritative for Home.

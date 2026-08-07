@@ -153,30 +153,155 @@ export function createHomeStateHandler(storage: StorageLike, panel: PanelLike, f
   };
 }
 
+type BuddyProfileLike = {
+  readonly displayName?: string;
+  readonly mood?: string;
+  readonly activity?: string;
+  readonly dominantNeed?: string;
+  readonly affection?: number;
+  readonly needs?: Readonly<Record<string, number>>;
+};
+
+type HomePetInfo = { readonly id: string; readonly name: string; readonly buddyProfile?: BuddyProfileLike };
+type HomePetAppearance = { readonly frameDataUrl: string; readonly displayName: string; readonly width: number; readonly height: number; readonly animationId: string; readonly direction: string; readonly source: string };
+type PresentationMode = "panel" | "home" | "buddy";
+
+type HomePluginContext = {
+  commands: { register(descriptor: unknown, run: () => unknown): Promise<void> };
+  storage: StorageLike;
+  files?: FilesLike;
+  ui: { panel(options: unknown): Promise<PanelLike & { show(): Promise<void>; close(): Promise<void> }> };
+  pet: {
+    getAppearance(): Promise<HomePetAppearance>;
+    hide(): Promise<void>;
+    show(): Promise<void>;
+    react(reaction: string, options?: { showMessage?: boolean }): Promise<void>;
+  };
+  pets: {
+    list(): Promise<HomePetInfo[]>;
+    onChange(handler: (pets: HomePetInfo[]) => void): () => void;
+  };
+};
+
+let activePanel: (PanelLike & { show(): Promise<void>; close(): Promise<void> }) | null = null;
+let activePresentation: Exclude<PresentationMode, "buddy"> = "panel";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function sendBuddyPresence(context: HomePluginContext, panel: PanelLike): Promise<void> {
+  const pets = await context.pets.list();
+  const pet = pets.find((candidate) => candidate.id === "default") ?? pets[0];
+  const profile = pet?.buddyProfile;
+  await panel.postMessage({
+    type: "home-buddy-presence",
+    buddy: {
+      id: "default",
+      name: profile?.displayName ?? pet?.name ?? "Buddy",
+      profile: profile ?? null,
+    },
+  });
+
+  try {
+    const appearance = await context.pet.getAppearance();
+    const { frameDataUrl, ...metadata } = appearance;
+    const chunks = chunkDataUrl(frameDataUrl);
+    await panel.postMessage({ type: "home-buddy-frame-begin", count: chunks.length, metadata });
+    for (let index = 0; index < chunks.length; index += 1) {
+      await panel.postMessage({ type: "home-buddy-frame-chunk", index, count: chunks.length, data: chunks[index] });
+    }
+    await panel.postMessage({ type: "home-buddy-frame-end" });
+  } catch (error) {
+    await panel.postMessage({ type: "home-buddy-frame-unavailable", error: String((error as Error)?.message ?? error).slice(0, 160) });
+  }
+}
+
+function reactionForHomeAction(action: string): string {
+  if (action === "play") return "celebrating";
+  if (action === "feed") return "success";
+  if (action === "rest" || action === "sit") return "waiting";
+  return "waving";
+}
+
+async function openHome(context: HomePluginContext, presentation: Exclude<PresentationMode, "buddy">): Promise<void> {
+  activePresentation = presentation;
+  if (activePanel) {
+    await context.pet.hide();
+    await activePanel.postMessage({ type: "home-presentation", mode: presentation });
+    await sendBuddyPresence(context, activePanel);
+    await activePanel.show();
+    return;
+  }
+
+  const panel = await context.ui.panel({ panel: "home", title: "Buddy Home", width: 1180, height: 860 });
+  activePanel = panel;
+  const baseHandler = createHomeStateHandler(context.storage, panel, context.files);
+  panel.onMessage(async (message: unknown) => {
+    await baseHandler(message);
+    if (!isRecord(message)) return;
+    if (message.type === "home-state-request") {
+      await panel.postMessage({ type: "home-presentation", mode: activePresentation });
+      await sendBuddyPresence(context, panel);
+      return;
+    }
+    if (message.type === "home-presentation") {
+      const mode = message.mode;
+      if (mode === "buddy") {
+        activePanel = null;
+        await context.pet.show();
+        await panel.close();
+        return;
+      }
+      if (mode === "panel" || mode === "home") {
+        activePresentation = mode;
+        await context.pet.hide();
+        await panel.postMessage({ type: "home-presentation", mode });
+      }
+      return;
+    }
+    if (message.type === "home-panel-closing") {
+      if (activePanel === panel) activePanel = null;
+      await context.pet.show();
+      return;
+    }
+    if (message.type === "home-buddy-react" && typeof message.action === "string") {
+      await context.pet.react(reactionForHomeAction(message.action), { showMessage: false });
+    }
+  });
+  await context.pet.hide();
+}
+
+async function buddyOnly(context: HomePluginContext): Promise<void> {
+  const panel = activePanel;
+  activePanel = null;
+  await context.pet.show();
+  if (panel) await panel.close();
+}
+
 export function register(OpenPetsPlugin: {
   register(plugin: { start(ctx: unknown): Promise<void> | void }): void;
 }): void {
   OpenPetsPlugin.register({
     async start(ctx: unknown) {
-      const context = ctx as {
-        commands: { register(descriptor: unknown, run: () => unknown): Promise<void> };
-        storage: StorageLike;
-        files?: FilesLike;
-        ui: { panel(options: unknown): Promise<PanelLike> };
-      };
+      const context = ctx as HomePluginContext;
       await context.commands.register(
-        {
-          id: "open-home",
-          title: "$t:command.open.title",
-          description: "$t:command.open.description",
-          icon: "home",
-        },
-        async () => {
-          const panel = await context.ui.panel({ panel: "home", title: "Buddy Home", width: 1180, height: 860 });
-          panel.onMessage(createHomeStateHandler(context.storage, panel, context.files));
-          return panel;
-        },
+        { id: "open-home", title: "$t:command.open.title", description: "$t:command.open.description", icon: "home", featured: true },
+        () => openHome(context, "panel"),
       );
+      await context.commands.register(
+        { id: "show-home", title: "Show Buddy in Home", description: "Open the playable Home scene without the builder chrome.", icon: "home" },
+        () => openHome(context, "home"),
+      );
+      await context.commands.register(
+        { id: "buddy-only", title: "Buddy Only", description: "Return Buddy to the normal desktop pet view.", icon: "home" },
+        () => buddyOnly(context),
+      );
+
+      context.pets.onChange(() => {
+        const panel = activePanel;
+        if (panel) void sendBuddyPresence(context, panel).catch(() => undefined);
+      });
     },
   });
 }

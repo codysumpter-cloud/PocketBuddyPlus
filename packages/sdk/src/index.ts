@@ -488,6 +488,19 @@ export interface OpenPetsPetState {
   dragging: boolean;
 }
 
+/** One host-rendered, bounded frame representing a pet without exposing source paths. */
+export interface OpenPetsPetAppearance {
+  petHandleId: string;
+  installedPetId: string;
+  displayName: string;
+  frameDataUrl: string;
+  width: number;
+  height: number;
+  animationId: string;
+  direction: string;
+  source: "manifest-frame" | "legacy-sheet";
+}
+
 export interface OpenPetsPetInfo {
   id: string;
   name: string;
@@ -533,6 +546,8 @@ export interface OpenPetsPetHandle {
   onTick(handler: (dtMs: number) => void): () => void;
   /** Self-perception. Requires `pets:read`. */
   getState(): Promise<OpenPetsPetState>;
+  /** One safe rendered appearance frame for this pet. Requires `pets:read`. */
+  getAppearance(): Promise<OpenPetsPetAppearance>;
   /** Requires `pets:manage`. */
   show(): Promise<void>;
   /** Requires `pets:manage`. */

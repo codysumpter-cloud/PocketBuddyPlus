@@ -363,3 +363,9 @@ If an update is determined to be **safe**, OpenPets CI/CD automation automatical
 | Local dev load | `plugin-local-loader.ts` |
 | Official plugin examples | `plugins/official/*` |
 </content>
+
+## Home presence runtime
+
+`openpets.home-builder` is the canonical Home product surface. The Control Center Home nav launches the plugin instead of mounting a duplicate first-party simulation. Home exposes three presentation choices: **Panel** (full builder chrome), **Home** (immersive house view), and **Buddy** (the normal desktop pet). Within the house, **Play** keeps the human under WASD/arrow control while **Idle** lets both actors move autonomously.
+
+With `pets:read`, Home receives the host-owned public Buddy profile plus one bounded rendered appearance frame. With `pets:manage`, the plugin temporarily hides the desktop Buddy while that same Buddy is represented inside the house; the SDK tracks that hide as a teardown lease so disabling/reloading a plugin cannot strand the default pet invisible. Home never receives the installed pet filesystem path or complete sprite pack through this API.

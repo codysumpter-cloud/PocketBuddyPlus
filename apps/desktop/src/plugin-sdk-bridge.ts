@@ -120,6 +120,7 @@ export interface PluginBubbleHostHandle {
 
 export type PluginPetInfo = { id: string; name: string; kind: "default" | "agent" | "plugin"; visible: boolean };
 export type PluginPetState = { position: { x: number; y: number }; bounds: { x: number; y: number; width: number; height: number }; currentAnimation: string; visible: boolean; dragging: boolean };
+export type PluginPetAppearance = { petHandleId: string; installedPetId: string; displayName: string; frameDataUrl: string; width: number; height: number; animationId: string; direction: string; source: "manifest-frame" | "legacy-sheet" };
 export type PluginAnimationSpec = { kind: "reaction"; reaction: OpenPetsReaction } | { kind: "sprite"; spritePath: string; loop: boolean; fps: number };
 export type PluginReactOptions = { showMessage?: boolean };
 export type PluginPickedFileHost = { fileId: string; name: string; sizeBytes: number };
@@ -162,6 +163,7 @@ export interface PluginHostCapabilities {
     followCursor(petHandleId: string, pluginId: string, opts: { enabled: boolean; lag?: number }): Promise<void>;
     physics(petHandleId: string, pluginId: string, opts: { gravity?: boolean; bounce?: number; climbEdges?: boolean }): Promise<void>;
     getState(petHandleId: string): Promise<PluginPetState>;
+    getAppearance(petHandleId: string): Promise<PluginPetAppearance>;
     onTick(petHandleId: string, handler: (dtMs: number) => void): () => void;
     onChange(handler: (pets: PluginPetInfo[]) => void): () => void;
   };
@@ -259,6 +261,7 @@ export function createDefaultPluginHostCapabilities(petApi: PluginPetApi): Plugi
       followCursor: async () => undefined,
       physics: async () => undefined,
       getState: async () => ({ position: { x: 0, y: 0 }, bounds: { x: 0, y: 0, width: 0, height: 0 }, currentAnimation: "idle", visible: true, dragging: false }),
+      getAppearance: unavailable("pets.getAppearance"),
       onTick: () => () => undefined,
       onChange: () => () => undefined,
     },
@@ -572,8 +575,20 @@ export class PluginSdkBridge {
       },
       offTick: (subscriptionId: unknown) => { const dispose = state.tickSubscriptions.get(String(subscriptionId)); dispose?.(); state.tickSubscriptions.delete(String(subscriptionId)); },
       getState: async () => { requirePermission("pets:read"); return caps.pets.getState(validatePetHandleId(petHandleId)); },
-      show: async () => { requirePermission("pets:manage"); await caps.pets.show(validatePetHandleId(petHandleId)); },
-      hide: async () => { requirePermission("pets:manage"); await caps.pets.hide(validatePetHandleId(petHandleId)); },
+      getAppearance: async () => { requirePermission("pets:read"); return caps.pets.getAppearance(validatePetHandleId(petHandleId)); },
+      show: async () => {
+        requirePermission("pets:manage");
+        const id = validatePetHandleId(petHandleId);
+        state.hiddenPets.delete(id);
+        await caps.pets.show(id);
+      },
+      hide: async () => {
+        requirePermission("pets:manage");
+        const id = validatePetHandleId(petHandleId);
+        const before = await caps.pets.getState(id).catch(() => null);
+        if (before?.visible) state.hiddenPets.add(id);
+        await caps.pets.hide(id);
+      },
       close: async () => {
         requirePermission("pets:manage");
         check(state.spawnedPets.has(petHandleId), "Plugins may only close pets they spawned.");
@@ -856,6 +871,11 @@ export class PluginSdkBridge {
     state.panels.clear();
     for (const petHandleId of state.spawnedPets) { void this.#capabilities.pets.close(id, petHandleId).catch(() => undefined); }
     state.spawnedPets.clear();
+    // A plugin that borrowed the desktop pet visibility must never strand it
+    // hidden after disable/reload/crash cleanup. Only restore pets that were
+    // visible when this plugin hid them.
+    for (const petHandleId of state.hiddenPets) { void this.#capabilities.pets.show(petHandleId).catch(() => undefined); }
+    state.hiddenPets.clear();
     state.pickedFiles.clear();
     state.userCommandDepth = 0;
     state.lastError = undefined;
@@ -868,7 +888,7 @@ export class PluginSdkBridge {
       state = {
         commands: new Map(), menuItems: [], menuHandlers: new Set(), schedules: new Map(), configListeners: new Set(),
         storageSubscriptions: new Map(), busSubscriptions: new Map(), eventSubscriptions: new Map(), tickSubscriptions: new Map(),
-        bubbles: new Map(), deliveries: new Map(), panels: new Map(), spawnedPets: new Set(), pickedFiles: new Set(), userCommandDepth: 0,
+        bubbles: new Map(), deliveries: new Map(), panels: new Map(), spawnedPets: new Set(), hiddenPets: new Set(), pickedFiles: new Set(), userCommandDepth: 0,
         petWindow: new WindowCounter(), logWindow: new WindowCounter(), httpWindow: new WindowCounter(), busWindow: new WindowCounter(),
         audioWindow: new WindowCounter(), notifyWindow: new WindowCounter(), toastWindow: new WindowCounter(), deliveryWindow: new WindowCounter(), aiWindow: new WindowCounter(), voiceWindow: new WindowCounter(),
       };

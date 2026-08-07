@@ -283,6 +283,30 @@
     gap: 3px;
   }
 }
+
+
+/* Presence runtime ------------------------------------------------------- */
+.pb-home-presence-bar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 2px solid #29334a;
+  background: rgba(11, 16, 32, .94);
+}
+.pb-home-segment { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #3d4965; border-radius: 8px; background: #151d31; }
+.pb-home-segment button { min-width: 58px; }
+.pb-home-segment button.active { background: #ffd84d; color: #241d12; border-color: #fff1a8; }
+.pb-home-presence-name { margin-left: auto; font-weight: 800; color: #ffd84d; }
+#home-root[data-presentation="home"] .pb-home-header,
+#home-root[data-presentation="home"] .pb-home-toolbar,
+#home-root[data-presentation="home"] .pb-home-footer { display: none; }
+#home-root[data-presentation="home"] .pb-home-shell { height: 100vh; grid-template-rows: auto minmax(0, 1fr); }
+#home-root[data-presentation="home"] .pb-home-stage { min-height: 0; height: 100%; }
+#home-root[data-presentation="home"] .pb-home-presence-bar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); border: 1px solid #3d4965; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.28); }
+#home-root[data-simulation="idle"] .pb-home-movement { opacity: .35; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -1636,6 +1660,92 @@ function advanceHomeSession(room, state, nowUnix) {
 		}
 	};
 }
+/**
+* Advance only the Home-world poses using the host-owned Buddy profile as the
+* decision signal. The legacy `creature` payload is deliberately preserved
+* byte-for-byte: Home is a presentation/simulation surface, not a second Buddy
+* lifecycle owner.
+*/
+function advanceHomePresenceSession(room, state, presence, nowUnix, options = {}) {
+	const timestamp = Math.max(finiteNonNegative(nowUnix, "nowUnix"), state.lastAdvancedUnix);
+	if (timestamp <= state.lastAdvancedUnix) return {
+		room,
+		play: state
+	};
+	const target = preferredPresenceTarget(room, state, presence);
+	let buddy = state.buddy;
+	let player = state.player;
+	let thought = presenceThought(presence);
+	if (target?.item) {
+		const interactionCell = nearestInteractionCell(room, target.item.id, state.buddy.cell, state.player.cell);
+		if (interactionCell && sameCell(interactionCell, state.buddy.cell)) thought = `${presence.displayName} is hanging out by the ${homeAssetDefinition(target.item.assetId)?.label ?? "furniture"}.`;
+		else if (interactionCell) {
+			buddy = stepToward(room, state, interactionCell);
+			thought = `${presence.displayName} is heading to the ${homeAssetDefinition(target.item.assetId)?.label ?? "furniture"}.`;
+		}
+	} else if (target?.cell) buddy = stepToward(room, state, target.cell);
+	else buddy = deterministicWander(room, state, timestamp);
+	if (options.autonomousPlayer) player = autonomousPlayerStep(room, {
+		...state,
+		buddy,
+		player
+	}, timestamp);
+	return {
+		room,
+		play: {
+			...state,
+			revision: state.revision + 1,
+			buddy,
+			player,
+			creature: state.creature,
+			thought,
+			lastAdvancedUnix: timestamp
+		}
+	};
+}
+function preferredPresenceTarget(room, state, presence) {
+	const action = {
+		eating: "feed",
+		sleeping: "rest",
+		playing: "play"
+	}[presence.activity] ?? {
+		hunger: "feed",
+		energy: "rest",
+		play: "play",
+		comfort: "rest"
+	}[presence.dominantNeed];
+	if (action) {
+		const item = room.items.filter((candidate) => homeAssetDefinition(candidate.assetId)?.actions.includes(action)).sort((a, b) => manhattan(state.buddy.cell, a.placement.anchor) - manhattan(state.buddy.cell, b.placement.anchor))[0];
+		if (item) return { item };
+	}
+	if (presence.dominantNeed === "social" || presence.activity === "socializing") return { cell: state.player.cell };
+	return null;
+}
+function autonomousPlayerStep(room, state, nowUnix) {
+	if (manhattan(state.player.cell, state.buddy.cell) > 2) {
+		const directions = [];
+		if (state.buddy.cell.x > state.player.cell.x) directions.push("east");
+		if (state.buddy.cell.x < state.player.cell.x) directions.push("west");
+		if (state.buddy.cell.y > state.player.cell.y) directions.push("south");
+		if (state.buddy.cell.y < state.player.cell.y) directions.push("north");
+		for (const direction of directions) {
+			const moved = moveHomeActor(room, state, "player", direction);
+			if (!sameCell(moved.player.cell, state.player.cell)) return moved.player;
+		}
+	}
+	if ((state.revision + Math.floor(nowUnix)) % 4 !== 0) return state.player;
+	const start = (state.revision + Math.floor(nowUnix / 4)) % HOME_DIRECTIONS.length;
+	for (let offset = 0; offset < HOME_DIRECTIONS.length; offset += 1) {
+		const direction = HOME_DIRECTIONS[(start + offset) % HOME_DIRECTIONS.length];
+		const moved = moveHomeActor(room, state, "player", direction);
+		if (!sameCell(moved.player.cell, state.player.cell)) return moved.player;
+	}
+	return state.player;
+}
+function presenceThought(presence) {
+	const activity = presence.activity === "idle" ? "taking it easy" : presence.activity.replace(/ing$/u, "ing");
+	return `${presence.displayName} is ${activity}. ${presence.dominantNeed} is the strongest need right now.`;
+}
 function preferredTarget(room, state, drive) {
 	const action = {
 		hunger: "feed",
@@ -2143,7 +2253,7 @@ var RESIZE = "resize";
 * Mount a scene onto a canvas inside `parent`, wiring the input, resize and
 * timer plumbing Phaser used to provide.
 */
-function mountScene(parent, scene, backgroundColor = "#182033") {
+function mountScene$1(parent, scene, backgroundColor = "#182033") {
 	const canvas = document.createElement("canvas");
 	canvas.style.cssText = "display:block;width:100%;height:100%;touch-action:none";
 	canvas.tabIndex = 0;
@@ -2283,6 +2393,7 @@ var HOME_MODES = [
 	"place",
 	"remove"
 ];
+var HOME_SIMULATION_MODES = ["play", "idle"];
 var HOME_ITEM_ASSETS = HOME_PUBLIC_ASSETS.map((asset) => asset.assetId);
 var MATERIAL_COLORS = {
 	"floor.wood": 13212008,
@@ -2311,9 +2422,14 @@ var PhaserHomeScene = class extends Scene {
 	hoverCell = null;
 	lastPaintedKey = null;
 	onStateChange;
-	constructor(onStateChange) {
+	onBuddyAction;
+	simulationMode = "play";
+	buddyPresence = null;
+	buddyAppearance = null;
+	constructor(options = {}) {
 		super();
-		this.onStateChange = onStateChange;
+		this.onStateChange = options.onStateChange;
+		this.onBuddyAction = options.onBuddyAction;
 	}
 	create() {
 		const restored = loadHomeState();
@@ -2346,6 +2462,9 @@ var PhaserHomeScene = class extends Scene {
 		this.game.events.on("home:move-player", this.handleMovePlayer, this);
 		this.game.events.on("home:pet-buddy", this.handlePetBuddy, this);
 		this.game.events.on("home:interact-selected", this.handleInteractSelected, this);
+		this.game.events.on("home:set-simulation-mode", this.handleSimulationMode, this);
+		this.game.events.on("home:set-buddy-presence", this.handleBuddyPresence, this);
+		this.game.events.on("home:set-buddy-appearance", this.handleBuddyAppearance, this);
 		this.time.addEvent({
 			delay: 1e3,
 			loop: true,
@@ -2362,6 +2481,9 @@ var PhaserHomeScene = class extends Scene {
 			this.game.events.off("home:move-player", this.handleMovePlayer, this);
 			this.game.events.off("home:pet-buddy", this.handlePetBuddy, this);
 			this.game.events.off("home:interact-selected", this.handleInteractSelected, this);
+			this.game.events.off("home:set-simulation-mode", this.handleSimulationMode, this);
+			this.game.events.off("home:set-buddy-presence", this.handleBuddyPresence, this);
+			this.game.events.off("home:set-buddy-appearance", this.handleBuddyAppearance, this);
 		});
 		onSpritesChanged = () => this.renderRoom();
 		this.persistAndEmit();
@@ -2411,13 +2533,35 @@ var PhaserHomeScene = class extends Scene {
 		this.persistAndEmit();
 		this.renderRoom();
 	}
+	handleSimulationMode(mode) {
+		if (!HOME_SIMULATION_MODES.includes(mode)) return;
+		this.simulationMode = mode;
+		this.emitSnapshot();
+	}
+	handleBuddyPresence(presence) {
+		this.buddyPresence = presence;
+		this.emitSnapshot();
+		this.renderRoom();
+	}
+	handleBuddyAppearance(image) {
+		this.buddyAppearance = image;
+		this.renderRoom();
+	}
 	handleMovePlayer(direction) {
+		if (this.simulationMode !== "play") return;
 		this.play = moveHomeActor(this.room, this.play, "player", direction);
 		this.persistAndEmit();
 		this.renderRoom();
 	}
 	handlePetBuddy() {
-		this.play = petHomeBuddy(this.play, Math.floor(Date.now() / 1e3));
+		const now = Math.floor(Date.now() / 1e3);
+		this.play = this.buddyPresence ? {
+			...this.play,
+			revision: this.play.revision + 1,
+			thought: `${this.buddyPresence.displayName} leans into the attention.`,
+			lastAdvancedUnix: Math.max(now, this.play.lastAdvancedUnix)
+		} : petHomeBuddy(this.play, now);
+		this.onBuddyAction?.("pet");
 		this.persistAndEmit();
 		this.renderRoom();
 	}
@@ -2430,9 +2574,17 @@ var PhaserHomeScene = class extends Scene {
 		const chosen = action && definition.actions.includes(action) ? action : definition.actions[0];
 		if (!chosen) return;
 		try {
-			const result = interactHomeItem(this.room, this.play, itemId, chosen, Math.floor(Date.now() / 1e3));
+			const now = Math.floor(Date.now() / 1e3);
+			const result = interactHomeItem(this.room, this.play, itemId, chosen, now);
 			this.room = result.room;
-			this.play = result.play;
+			this.play = this.buddyPresence ? {
+				...this.play,
+				revision: this.play.revision + 1,
+				selectedItemId: itemId,
+				thought: result.play.thought,
+				lastAdvancedUnix: Math.max(now, this.play.lastAdvancedUnix)
+			} : result.play;
+			this.onBuddyAction?.(chosen);
 			this.persistAndEmit();
 			this.renderRoom();
 		} catch (error) {
@@ -2440,7 +2592,7 @@ var PhaserHomeScene = class extends Scene {
 		}
 	}
 	handleKeyDown(event) {
-		if (this.mode !== "play") return;
+		if (this.mode !== "play" || this.simulationMode !== "play") return;
 		const direction = directionForKey(event.key);
 		if (!direction) return;
 		event.preventDefault();
@@ -2504,7 +2656,8 @@ var PhaserHomeScene = class extends Scene {
 		this.persistAndEmit();
 	}
 	advanceBuddy() {
-		const result = advanceHomeSession(this.room, this.play, Math.floor(Date.now() / 1e3));
+		const now = Math.floor(Date.now() / 1e3);
+		const result = this.buddyPresence ? advanceHomePresenceSession(this.room, this.play, this.buddyPresence, now, { autonomousPlayer: this.simulationMode === "idle" }) : advanceHomeSession(this.room, this.play, now);
 		if (result.room === this.room && result.play === this.play) return;
 		this.room = result.room;
 		this.play = result.play;
@@ -2522,8 +2675,8 @@ var PhaserHomeScene = class extends Scene {
 	}
 	emitSnapshot() {
 		const creature = this.play.creature;
-		const mood = isRecord(creature.mood) && typeof creature.mood.label === "string" ? creature.mood.label : "content";
-		const name = typeof creature.display_name === "string" ? creature.display_name : "Buddy";
+		const mood = this.buddyPresence?.mood ?? (isRecord(creature.mood) && typeof creature.mood.label === "string" ? creature.mood.label : "content");
+		const name = this.buddyPresence?.displayName ?? (typeof creature.display_name === "string" ? creature.display_name : "Buddy");
 		this.onStateChange?.({
 			cameraCorner: this.room.cameraCorner,
 			mode: this.mode,
@@ -2697,7 +2850,16 @@ var PhaserHomeScene = class extends Scene {
 	drawBuddy(graphics, origin) {
 		const point = projectCanonicalCell(this.play.buddy.cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
 		const x = origin.x + point.x;
-		const y = origin.y + point.y - 28;
+		const floorY = origin.y + point.y;
+		if (this.buddyAppearance) {
+			const height = Number(this.buddyAppearance.height ?? 0);
+			const scale = height > 0 ? Math.min(.65, 72 / height) : .35;
+			graphics.fillStyle(725024, .22);
+			graphics.fillCircle(x, floorY + 4, 17);
+			graphics.drawSpriteCentered(this.buddyAppearance, x, floorY - 29, scale);
+			return;
+		}
+		const y = floorY - 28;
 		graphics.fillStyle(16767053, 1);
 		graphics.fillCircle(x, y, 19);
 		graphics.lineStyle(2, 4337455, 1);
@@ -2746,7 +2908,7 @@ var PhaserHomeScene = class extends Scene {
 };
 function mountPhaserHome(parent, options = {}) {
 	if (options.store) store = options.store;
-	const game = mountScene(parent, new PhaserHomeScene(options.onStateChange), "#182033");
+	const game = mountScene$1(parent, new PhaserHomeScene(options), "#182033");
 	return {
 		setMode(mode) {
 			game.events.emit("home:set-mode", mode);
@@ -2774,6 +2936,15 @@ function mountPhaserHome(parent, options = {}) {
 		},
 		interactSelected(action) {
 			game.events.emit("home:interact-selected", action);
+		},
+		setSimulationMode(mode) {
+			game.events.emit("home:set-simulation-mode", mode);
+		},
+		setBuddyPresence(presence) {
+			game.events.emit("home:set-buddy-presence", presence);
+		},
+		setBuddyAppearance(image) {
+			game.events.emit("home:set-buddy-appearance", image);
 		},
 		destroy() {
 			game.destroy();
@@ -2910,139 +3081,175 @@ function isRecord(value) {
 }
 //#endregion
 //#region plugins/official/openpets.home-builder/src/home.ts
+var rootElement = document.getElementById("home-root");
+if (!rootElement) throw new Error("Home panel root is missing");
+var root = rootElement;
 var controller = null;
 var selectedMode = "play";
 var selectedBrush = "floor.wood";
 var selectedAssetId = HOME_ITEM_ASSETS[0] ?? "home.bed.basic";
-var root;
-var bridge = globalThis.openPetsPanel;
+var presentation = "panel";
+var simulation = "play";
+var buddyPresence = null;
+var buddyImage = null;
+var buddyFrameChunks = [];
+var spriteChunks = /* @__PURE__ */ new Map();
+var spriteImages = {};
+var savedValues = {};
+var panelCandidate = globalThis.openPetsPanel;
+if (!panelCandidate) throw new Error("Home panel bridge is unavailable");
+var panel = panelCandidate;
+function renderShell() {
+	root.dataset.presentation = presentation;
+	root.dataset.simulation = simulation;
+	root.innerHTML = `
+    <main class="pb-home-shell">
+      <div class="pb-home-presence-bar" role="toolbar" aria-label="Home presentation">
+        <div class="pb-home-segment" role="group" aria-label="Presentation mode">
+          <button data-home-presentation="panel" class="${presentation === "panel" ? "active" : ""}">Panel</button>
+          <button data-home-presentation="home" class="${presentation === "home" ? "active" : ""}">Home</button>
+          <button data-home-presentation="buddy">Buddy</button>
+        </div>
+        <div class="pb-home-segment" role="group" aria-label="Simulation mode">
+          <button data-home-simulation="play" class="${simulation === "play" ? "active" : ""}">Play</button>
+          <button data-home-simulation="idle" class="${simulation === "idle" ? "active" : ""}">Idle</button>
+        </div>
+        <span class="pb-home-presence-name" data-home-presence-name>${buddyPresence?.displayName ?? "Buddy"}</span>
+      </div>
+      <header class="pb-home-header">
+        <div><p class="pb-home-eyebrow">Pocket Buddy+ · Home</p><h1>Buddy Home</h1><p>Decorate, play as your human, or let the household run itself.</p></div>
+        <button data-home-close aria-label="Close Home">×</button>
+      </header>
+      <section class="pb-home-toolbar" aria-label="Home tools">
+        <div class="pb-home-tool-section"><span>Mode</span><div class="pb-home-mode-buttons">${HOME_MODES.map(modeButton).join("")}</div></div>
+        <div class="pb-home-tool-section" data-home-floor-tools><span>Floor</span><div class="pb-home-brushes">${HOME_BRUSHES.map(brushButton).join("")}</div></div>
+        <div class="pb-home-tool-section pb-home-furniture-section" data-home-furniture-tools><span>Furniture</span><div class="pb-home-items">${HOME_PUBLIC_ASSETS.map(itemButton).join("")}</div></div>
+        <div class="pb-home-actions">
+          <button data-home-pet>Pet Buddy</button><button data-home-use>Use selected</button><button data-home-channel>Next TV channel</button>
+          <button data-home-rotate="-1">↶ Rotate</button><button data-home-rotate="1">Rotate ↷</button>
+          <button data-home-clear-floor>Reset floor</button><button data-home-reset-room>Reset room</button><button data-home-load-pack>Load TinyHouse art</button>
+        </div>
+        <div class="pb-home-movement"><button data-home-move="north">↑</button><button data-home-move="west">←</button><button data-home-move="south">↓</button><button data-home-move="east">→</button></div>
+      </section>
+      <div class="pb-home-stage" data-home-stage tabindex="0" aria-label="Playable Buddy Home"></div>
+      <footer class="pb-home-footer"><span data-home-status>Loading Home…</span><span data-home-thought>Buddy is coming home.</span><span class="pb-home-help">Play: WASD/arrows move your human. Idle: both actors choose their own movement.</span></footer>
+    </main>`;
+	root.addEventListener("click", handleClick);
+	mountScene();
+}
 function modeButton(mode) {
-	return `<button type="button" data-home-mode="${mode}" class="${mode === selectedMode ? "active" : ""}">${{
-		play: "Play",
-		paint: "Paint",
-		place: "Place",
-		remove: "Remove"
-	}[mode]}</button>`;
+	return `<button data-home-mode="${mode}" class="${mode === selectedMode ? "active" : ""}">${mode[0].toUpperCase()}${mode.slice(1)}</button>`;
 }
 function brushButton(brush) {
-	return `<button type="button" data-home-brush="${brush}" class="${brush === selectedBrush ? "active" : ""}">
-    <span class="pb-home-swatch ${brush.replace("floor.", "")}" aria-hidden="true"></span>${{
-		"floor.wood": "Wood",
-		"floor.stone": "Stone",
-		"floor.grass": "Grass",
-		"floor.water": "Water",
-		erase: "Erase"
-	}[brush]}
-  </button>`;
+	const label = brush === "erase" ? "Erase" : brush.replace("floor.", "");
+	return `<button data-home-brush="${brush}" class="${brush === selectedBrush ? "active" : ""}">${label}</button>`;
 }
 function itemButton(asset) {
-	return `<button type="button" data-home-item-asset="${asset.assetId}" class="${asset.assetId === selectedAssetId ? "active" : ""}" title="${asset.label}">
-    <span class="pb-home-item-dot" aria-hidden="true"></span>
-    ${asset.label}
-  </button>`;
+	return `<button data-home-item-asset="${asset.assetId}" class="${asset.assetId === selectedAssetId ? "active" : ""}">${asset.label}</button>`;
 }
-function renderShell() {
-	root.innerHTML = `
-    <header class="pb-home-header">
-      <div>
-        <p class="pb-home-eyebrow">Pocket Buddy+ · Home</p>
-        <h1>Buddy Home</h1>
-        <p>Live with Buddy, decorate the room, use objects, and keep one canonical world state.</p>
-      </div>
-      <button type="button" class="pb-home-close" data-home-close aria-label="Close Home">×</button>
-    </header>
-    <div class="pb-home-toolbar" aria-label="Home tools">
-      <div class="pb-home-tool-section">
-        <span class="pb-home-tool-label">Mode</span>
-        <div class="pb-home-mode-buttons" role="group" aria-label="Home mode">${HOME_MODES.map(modeButton).join("")}</div>
-      </div>
-      <div class="pb-home-tool-section" data-home-floor-tools>
-        <span class="pb-home-tool-label">Floor</span>
-        <div class="pb-home-brushes" role="group" aria-label="Floor brush">${HOME_BRUSHES.map(brushButton).join("")}</div>
-      </div>
-      <div class="pb-home-tool-section pb-home-furniture-section" data-home-furniture-tools>
-        <span class="pb-home-tool-label">Furniture</span>
-        <div class="pb-home-items" role="group" aria-label="Furniture item">${HOME_PUBLIC_ASSETS.map(itemButton).join("")}</div>
-      </div>
-      <div class="pb-home-actions">
-        <button type="button" data-home-pet>Pet Buddy</button>
-        <button type="button" data-home-use>Use selected</button>
-        <button type="button" data-home-channel>Next TV channel</button>
-        <button type="button" data-home-rotate="-1" title="Rotate room left">↶ Rotate</button>
-        <button type="button" data-home-rotate="1" title="Rotate room right">Rotate ↷</button>
-        <button type="button" data-home-clear-floor>Reset floor</button>
-        <button type="button" data-home-reset-room>Reset room</button>
-        <button type="button" data-home-load-pack title="Load sprites from your own TinyHouse pack folder">Load TinyHouse art</button>
-      </div>
-      <div class="pb-home-movement" role="group" aria-label="Move player">
-        <button type="button" data-home-move="north" aria-label="Move north">↑</button>
-        <button type="button" data-home-move="west" aria-label="Move west">←</button>
-        <button type="button" data-home-move="south" aria-label="Move south">↓</button>
-        <button type="button" data-home-move="east" aria-label="Move east">→</button>
-      </div>
-    </div>
-    <div class="pb-home-stage" data-home-stage tabindex="0" aria-label="Playable Buddy Home"></div>
-    <footer class="pb-home-footer">
-      <span data-home-status>Camera SE · Play mode · 0 items</span>
-      <span data-home-thought>Buddy is taking in the new room.</span>
-      <span class="pb-home-help">WASD or arrows move the player. Click Buddy to pet. Click usable furniture to interact.</span>
-    </footer>
-  `;
-	root.addEventListener("click", handleClick);
+function mountScene() {
+	const stage = root.querySelector("[data-home-stage]");
+	if (!stage) return;
+	controller?.destroy();
+	controller = mountPhaserHome(stage, {
+		store: {
+			read: (key) => savedValues[key] ?? null,
+			write: (key, value) => {
+				savedValues[key] = value;
+				panel.postMessage({
+					type: "home-state-write",
+					key,
+					value
+				});
+			}
+		},
+		onStateChange: updateStatus,
+		onBuddyAction: (action) => panel.postMessage({
+			type: "home-buddy-react",
+			action
+		})
+	});
+	controller.setMode(selectedMode);
+	controller.setBrush(selectedBrush);
+	controller.setItemAsset(selectedAssetId);
+	controller.setSimulationMode(simulation);
+	controller.setBuddyPresence(buddyPresence);
+	controller.setBuddyAppearance(buddyImage);
+	setHomeSprites(spriteImages);
+	requestAnimationFrame(() => stage.focus());
 }
-function updateHomeStatus(snapshot) {
+function updateStatus(snapshot) {
 	selectedMode = snapshot.mode;
 	selectedAssetId = snapshot.selectedAssetId;
 	const status = root.querySelector("[data-home-status]");
 	const thought = root.querySelector("[data-home-thought]");
-	if (status) {
-		const brush = snapshot.brush === "erase" ? "Erase" : snapshot.brush.replace("floor.", "").replace(/^./, (letter) => letter.toUpperCase());
-		const selected = snapshot.selectedItemId ? ` · selected ${snapshot.selectedItemId}` : "";
-		status.textContent = `Camera ${snapshot.cameraCorner} · ${capitalize(snapshot.mode)} mode · ${snapshot.itemCount} items · ${snapshot.buddyName} feels ${snapshot.buddyMood}${snapshot.mode === "paint" ? ` · ${brush} brush · ${snapshot.paintedTiles} painted` : ""}${selected}`;
-	}
+	if (status) status.textContent = `${snapshot.buddyName} · ${snapshot.buddyMood} · ${simulation === "idle" ? "Idle household" : "Player control"} · ${snapshot.itemCount} items`;
 	if (thought) thought.textContent = `“${snapshot.thought}”`;
-	syncActiveControls();
+	syncControls();
 }
 function handleClick(event) {
 	const target = event.target;
+	const presentationButton = target.closest("[data-home-presentation]");
+	if (presentationButton) {
+		const mode = presentationButton.dataset.homePresentation;
+		if (mode === "panel" || mode === "home" || mode === "buddy") panel.postMessage({
+			type: "home-presentation",
+			mode
+		});
+		return;
+	}
+	const simulationButton = target.closest("[data-home-simulation]");
+	if (simulationButton) {
+		const mode = simulationButton.dataset.homeSimulation;
+		if (HOME_SIMULATION_MODES.includes(mode)) {
+			simulation = mode;
+			controller?.setSimulationMode(mode);
+			applyPresentation();
+		}
+		return;
+	}
 	if (target.closest("[data-home-close]")) {
-		bridge?.close();
+		panel.postMessage({ type: "home-panel-closing" });
+		panel.close();
 		return;
 	}
-	const mode = target.closest("[data-home-mode]");
-	if (mode) {
-		const value = mode.dataset.homeMode;
-		if (!HOME_MODES.includes(value)) return;
-		selectedMode = value;
-		controller?.setMode(value);
-		syncActiveControls();
+	const modeButton = target.closest("[data-home-mode]");
+	if (modeButton) {
+		const mode = modeButton.dataset.homeMode;
+		if (HOME_MODES.includes(mode)) {
+			selectedMode = mode;
+			controller?.setMode(mode);
+			syncControls();
+		}
 		return;
 	}
-	const brush = target.closest("[data-home-brush]");
-	if (brush) {
-		const value = brush.dataset.homeBrush;
-		if (!HOME_BRUSHES.includes(value)) return;
-		selectedBrush = value;
-		selectedMode = "paint";
-		controller?.setBrush(value);
-		controller?.setMode("paint");
-		syncActiveControls();
+	const brushButton = target.closest("[data-home-brush]");
+	if (brushButton) {
+		const brush = brushButton.dataset.homeBrush;
+		if (HOME_BRUSHES.includes(brush)) {
+			selectedBrush = brush;
+			selectedMode = "paint";
+			controller?.setBrush(brush);
+			controller?.setMode("paint");
+			syncControls();
+		}
 		return;
 	}
-	const item = target.closest("[data-home-item-asset]");
-	if (item) {
-		const assetId = item.dataset.homeItemAsset ?? "";
-		if (!HOME_ITEM_ASSETS.includes(assetId)) return;
-		selectedAssetId = assetId;
-		selectedMode = "place";
-		controller?.setItemAsset(assetId);
-		controller?.setMode("place");
-		syncActiveControls();
+	const itemButton = target.closest("[data-home-item-asset]");
+	if (itemButton) {
+		const assetId = itemButton.dataset.homeItemAsset ?? "";
+		if (HOME_ITEM_ASSETS.includes(assetId)) {
+			selectedAssetId = assetId;
+			selectedMode = "place";
+			controller?.setItemAsset(assetId);
+			controller?.setMode("place");
+			syncControls();
+		}
 		return;
 	}
-	const move = target.closest("[data-home-move]");
-	if (move) {
-		controller?.movePlayer(move.dataset.homeMove);
+	const moveButton = target.closest("[data-home-move]");
+	if (moveButton) {
+		controller?.movePlayer(moveButton.dataset.homeMove);
 		return;
 	}
 	const rotate = target.closest("[data-home-rotate]");
@@ -3051,8 +3258,7 @@ function handleClick(event) {
 		return;
 	}
 	if (target.closest("[data-home-load-pack]")) {
-		setPackStatus("Choose your TinyHouse images…");
-		bridge?.postMessage({ type: "home-pack-pick" });
+		panel.postMessage({ type: "home-pack-pick" });
 		return;
 	}
 	if (target.closest("[data-home-pet]")) controller?.petBuddy();
@@ -3061,113 +3267,107 @@ function handleClick(event) {
 	else if (target.closest("[data-home-clear-floor]")) controller?.clearFloor();
 	else if (target.closest("[data-home-reset-room]")) controller?.resetRoom();
 }
-function syncActiveControls() {
-	for (const entry of root.querySelectorAll("[data-home-mode]")) entry.classList.toggle("active", entry.dataset.homeMode === selectedMode);
-	for (const entry of root.querySelectorAll("[data-home-brush]")) entry.classList.toggle("active", entry.dataset.homeBrush === selectedBrush);
-	for (const entry of root.querySelectorAll("[data-home-item-asset]")) entry.classList.toggle("active", entry.dataset.homeItemAsset === selectedAssetId);
+function syncControls() {
+	root.querySelectorAll("[data-home-mode]").forEach((node) => node.classList.toggle("active", node.dataset.homeMode === selectedMode));
+	root.querySelectorAll("[data-home-brush]").forEach((node) => node.classList.toggle("active", node.dataset.homeBrush === selectedBrush));
+	root.querySelectorAll("[data-home-item-asset]").forEach((node) => node.classList.toggle("active", node.dataset.homeItemAsset === selectedAssetId));
 }
-function setPackStatus(text) {
-	const node = root.querySelector("[data-home-thought]");
-	if (node) node.textContent = text;
+function applyPresentation() {
+	root.dataset.presentation = presentation;
+	root.dataset.simulation = simulation;
+	root.querySelectorAll("[data-home-presentation]").forEach((node) => node.classList.toggle("active", node.dataset.homePresentation === presentation));
+	root.querySelectorAll("[data-home-simulation]").forEach((node) => node.classList.toggle("active", node.dataset.homeSimulation === simulation));
+	const name = root.querySelector("[data-home-presence-name]");
+	if (name) name.textContent = buddyPresence?.displayName ?? "Buddy";
 }
-var spriteChunks = /* @__PURE__ */ new Map();
-var loadedSprites = {};
-function decodeSprite(key, dataUrl) {
-	return new Promise((resolve) => {
+async function decodeImage(dataUrl) {
+	return await new Promise((resolve, reject) => {
 		const image = new Image();
-		image.onload = () => {
-			loadedSprites[key] = image;
-			resolve();
-		};
-		image.onerror = () => resolve();
+		image.onload = () => resolve(image);
+		image.onerror = reject;
 		image.src = dataUrl;
 	});
 }
-async function handlePackMessage(message) {
-	switch (message.type) {
-		case "home-pack-begin":
-			spriteChunks.clear();
-			setPackStatus("Loading TinyHouse art…");
-			return true;
-		case "home-pack-chunk": {
-			const key = String(message.key ?? "");
-			const parts = spriteChunks.get(key) ?? [];
-			parts[Number(message.index)] = String(message.data ?? "");
-			spriteChunks.set(key, parts);
-			if (parts.filter((part) => typeof part === "string").length === Number(message.count)) {
-				await decodeSprite(key, parts.join(""));
-				spriteChunks.delete(key);
-			}
-			return true;
+async function handlePanelMessage(message) {
+	if (message.type === "home-state" && message.values && typeof message.values === "object") {
+		savedValues = { ...message.values };
+		if (!controller) renderShell();
+		return;
+	}
+	if (message.type === "home-presentation" && (message.mode === "panel" || message.mode === "home")) {
+		presentation = message.mode;
+		applyPresentation();
+		return;
+	}
+	if (message.type === "home-buddy-presence" && message.buddy && typeof message.buddy === "object") {
+		const buddy = message.buddy;
+		const profile = buddy.profile && typeof buddy.profile === "object" ? buddy.profile : {};
+		buddyPresence = {
+			displayName: typeof profile.displayName === "string" ? profile.displayName : typeof buddy.name === "string" ? buddy.name : "Buddy",
+			mood: typeof profile.mood === "string" ? profile.mood : "content",
+			activity: typeof profile.activity === "string" ? profile.activity : "idle",
+			dominantNeed: typeof profile.dominantNeed === "string" ? profile.dominantNeed : "social",
+			affection: typeof profile.affection === "number" ? profile.affection : void 0,
+			needs: profile.needs && typeof profile.needs === "object" ? profile.needs : void 0
+		};
+		controller?.setBuddyPresence(buddyPresence);
+		applyPresentation();
+		return;
+	}
+	if (message.type === "home-buddy-frame-begin") {
+		buddyFrameChunks = Array(Math.max(0, Number(message.count) || 0)).fill("");
+		return;
+	}
+	if (message.type === "home-buddy-frame-chunk" && typeof message.data === "string") {
+		buddyFrameChunks[Number(message.index) || 0] = message.data;
+		return;
+	}
+	if (message.type === "home-buddy-frame-end") {
+		try {
+			buddyImage = await decodeImage(buddyFrameChunks.join(""));
+			controller?.setBuddyAppearance(buddyImage);
+		} catch {
+			buddyImage = null;
+			controller?.setBuddyAppearance(null);
 		}
-		case "home-pack-end": {
-			const count = Object.keys(loadedSprites).length;
-			setHomeSprites({ ...loadedSprites });
-			setPackStatus(count ? `TinyHouse art loaded — ${count} sprites.` : "No TinyHouse art loaded.");
-			return true;
-		}
-		case "home-pack-cancelled":
-			setPackStatus("Art loading cancelled.");
-			return true;
-		case "home-pack-error":
-			setPackStatus(String(message.error ?? "Could not load the pack."));
-			return true;
-		default: return false;
+		buddyFrameChunks = [];
+		return;
+	}
+	if (message.type === "home-pack-begin") {
+		spriteChunks = new Map((Array.isArray(message.keys) ? message.keys : []).map((key) => [String(key), []]));
+		return;
+	}
+	if (message.type === "home-pack-chunk" && typeof message.key === "string" && typeof message.data === "string") {
+		const list = spriteChunks.get(message.key) ?? [];
+		list[Number(message.index) || 0] = message.data;
+		spriteChunks.set(message.key, list);
+		return;
+	}
+	if (message.type === "home-pack-end") {
+		const next = {};
+		await Promise.all([...spriteChunks.entries()].map(async ([key, chunks]) => {
+			try {
+				next[key] = await decodeImage(chunks.join(""));
+			} catch {}
+		}));
+		spriteImages = next;
+		setHomeSprites(next);
+		return;
+	}
+	if (message.type === "home-pack-error" && typeof message.error === "string") {
+		const thought = root.querySelector("[data-home-thought]");
+		if (thought) thought.textContent = message.error;
 	}
 }
-function capitalize(value) {
-	return value.replace(/^./, (letter) => letter.toUpperCase());
-}
-/** Ask the host for the saved room, giving up rather than hanging on a silent host. */
-function requestSavedState(timeoutMs = 4e3) {
-	if (!bridge) return Promise.resolve({});
-	return new Promise((resolve) => {
-		const done = (values) => {
-			window.clearTimeout(timer);
-			resolve(values);
-		};
-		const timer = window.setTimeout(() => done({}), timeoutMs);
-		bridge.onMessage((message) => {
-			if (typeof message !== "object" || message === null) return;
-			const record = message;
-			if (record.type === "home-state") {
-				const values = record.values;
-				done(typeof values === "object" && values !== null ? values : {});
-				return;
-			}
-			handlePackMessage(record);
-		});
-		bridge.postMessage({ type: "home-state-request" });
-	});
-}
-async function start() {
-	const container = document.getElementById("home-root");
-	if (!container) return;
-	root = container;
-	renderShell();
-	const stage = root.querySelector("[data-home-stage]");
-	if (!stage) return;
-	const saved = await requestSavedState();
-	controller = mountPhaserHome(stage, {
-		onStateChange: updateHomeStatus,
-		store: {
-			read: (key) => saved[key] ?? null,
-			write: (key, value) => {
-				saved[key] = value;
-				bridge?.postMessage({
-					type: "home-state-write",
-					key,
-					value
-				});
-			}
-		}
-	});
-	controller.setMode(selectedMode);
-	controller.setBrush(selectedBrush);
-	controller.setItemAsset(selectedAssetId);
-	requestAnimationFrame(() => stage.focus());
-}
-start();
+panel.onMessage((message) => {
+	if (message && typeof message === "object") handlePanelMessage(message);
+});
+window.addEventListener("pagehide", () => {
+	panel.postMessage({ type: "home-panel-closing" });
+	controller?.destroy();
+	controller = null;
+}, { once: true });
+panel.postMessage({ type: "home-state-request" });
 //#endregion
 
 </script>

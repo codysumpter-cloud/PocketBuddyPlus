@@ -468,6 +468,13 @@ export function createMockContext(optionsOrConfig: MockContextOptions | Record<s
     physics: async () => { requirePermission("pet:move"); },
     onTick: (handler) => { requirePermission("events"); tickHandlers.add(handler); return () => tickHandlers.delete(handler); },
     getState: async () => { requirePermission("pets:read"); return { ...petState, position: { ...petState.position }, bounds: { ...petState.bounds } }; },
+    getAppearance: async () => {
+      requirePermission("pets:read");
+      return {
+        petHandleId: petId, installedPetId: "builtin:default", displayName: "Default pet",
+        frameDataUrl: "data:image/png;base64,", width: 64, height: 64, animationId: "idle", direction: "south", source: "legacy-sheet" as const,
+      };
+    },
     show: async () => { requirePermission("pets:manage"); },
     hide: async () => { requirePermission("pets:manage"); },
     close: async () => { requirePermission("pets:manage"); },

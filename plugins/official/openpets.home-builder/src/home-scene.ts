@@ -2,6 +2,7 @@ import { Graphics, RESIZE, SHUTDOWN, Scene, Vector2, mountScene, type Pointer } 
 import {
   HOME_PUBLIC_ASSETS,
   PACK_TILE_SIZE,
+  advanceHomePresenceSession,
   advanceHomeSession,
   createHomeFloorTileLayer,
   createHomePlayState,
@@ -28,6 +29,7 @@ import {
   type GridCell,
   type HomeAssetDefinition,
   type HomeBrush as DomainHomeBrush,
+  type HomeBuddyPresenceIntent,
   type HomeDirection,
   type HomeFloorTileLayer,
   type HomeItemAction,
@@ -80,6 +82,9 @@ export type HomeBrush = DomainHomeBrush & (typeof HOME_BRUSHES)[number];
 
 export const HOME_MODES = ["play", "paint", "place", "remove"] as const;
 export type HomeMode = (typeof HOME_MODES)[number];
+export const HOME_SIMULATION_MODES = ["play", "idle"] as const;
+export type HomeSimulationMode = (typeof HOME_SIMULATION_MODES)[number];
+export type HomeBuddyPresence = HomeBuddyPresenceIntent & { readonly affection?: number; readonly needs?: Readonly<Record<string, number>> };
 
 export const HOME_ITEM_ASSETS = HOME_PUBLIC_ASSETS.map((asset) => asset.assetId);
 
@@ -106,6 +111,9 @@ export interface PhaserHomeController {
   movePlayer(direction: HomeDirection): void;
   petBuddy(): void;
   interactSelected(action?: HomeItemAction): void;
+  setSimulationMode(mode: HomeSimulationMode): void;
+  setBuddyPresence(presence: HomeBuddyPresence | null): void;
+  setBuddyAppearance(image: CanvasImageSource | null): void;
   destroy(): void;
 }
 
@@ -124,6 +132,7 @@ interface LegacyPersistedHomeState {
 
 interface MountOptions {
   readonly onStateChange?: (snapshot: PhaserHomeSnapshot) => void;
+  readonly onBuddyAction?: (action: "pet" | HomeItemAction) => void;
   readonly store?: HomeStateStore;
 }
 
@@ -152,10 +161,15 @@ class PhaserHomeScene extends Scene {
   private hoverCell: GridCell | null = null;
   private lastPaintedKey: string | null = null;
   private onStateChange?: (snapshot: PhaserHomeSnapshot) => void;
+  private onBuddyAction?: (action: "pet" | HomeItemAction) => void;
+  private simulationMode: HomeSimulationMode = "play";
+  private buddyPresence: HomeBuddyPresence | null = null;
+  private buddyAppearance: CanvasImageSource | null = null;
 
-  constructor(onStateChange?: (snapshot: PhaserHomeSnapshot) => void) {
+  constructor(options: MountOptions = {}) {
     super();
-    this.onStateChange = onStateChange;
+    this.onStateChange = options.onStateChange;
+    this.onBuddyAction = options.onBuddyAction;
   }
 
   create(): void {
@@ -191,6 +205,9 @@ class PhaserHomeScene extends Scene {
     this.game.events.on("home:move-player", this.handleMovePlayer, this);
     this.game.events.on("home:pet-buddy", this.handlePetBuddy, this);
     this.game.events.on("home:interact-selected", this.handleInteractSelected, this);
+    this.game.events.on("home:set-simulation-mode", this.handleSimulationMode, this);
+    this.game.events.on("home:set-buddy-presence", this.handleBuddyPresence, this);
+    this.game.events.on("home:set-buddy-appearance", this.handleBuddyAppearance, this);
 
     this.time.addEvent({
       delay: 1_000,
@@ -209,6 +226,9 @@ class PhaserHomeScene extends Scene {
       this.game.events.off("home:move-player", this.handleMovePlayer, this);
       this.game.events.off("home:pet-buddy", this.handlePetBuddy, this);
       this.game.events.off("home:interact-selected", this.handleInteractSelected, this);
+      this.game.events.off("home:set-simulation-mode", this.handleSimulationMode, this);
+      this.game.events.off("home:set-buddy-presence", this.handleBuddyPresence, this);
+      this.game.events.off("home:set-buddy-appearance", this.handleBuddyAppearance, this);
     });
 
     onSpritesChanged = () => this.renderRoom();
@@ -267,14 +287,36 @@ class PhaserHomeScene extends Scene {
     this.renderRoom();
   }
 
+  private handleSimulationMode(mode: HomeSimulationMode): void {
+    if (!HOME_SIMULATION_MODES.includes(mode)) return;
+    this.simulationMode = mode;
+    this.emitSnapshot();
+  }
+
+  private handleBuddyPresence(presence: HomeBuddyPresence | null): void {
+    this.buddyPresence = presence;
+    this.emitSnapshot();
+    this.renderRoom();
+  }
+
+  private handleBuddyAppearance(image: CanvasImageSource | null): void {
+    this.buddyAppearance = image;
+    this.renderRoom();
+  }
+
   private handleMovePlayer(direction: HomeDirection): void {
+    if (this.simulationMode !== "play") return;
     this.play = moveHomeActor(this.room, this.play, "player", direction);
     this.persistAndEmit();
     this.renderRoom();
   }
 
   private handlePetBuddy(): void {
-    this.play = petHomeBuddy(this.play, Math.floor(Date.now() / 1000));
+    const now = Math.floor(Date.now() / 1000);
+    this.play = this.buddyPresence
+      ? { ...this.play, revision: this.play.revision + 1, thought: `${this.buddyPresence.displayName} leans into the attention.`, lastAdvancedUnix: Math.max(now, this.play.lastAdvancedUnix) }
+      : petHomeBuddy(this.play, now);
+    this.onBuddyAction?.("pet");
     this.persistAndEmit();
     this.renderRoom();
   }
@@ -288,9 +330,13 @@ class PhaserHomeScene extends Scene {
     const chosen = action && definition.actions.includes(action) ? action : definition.actions[0];
     if (!chosen) return;
     try {
-      const result = interactHomeItem(this.room, this.play, itemId, chosen, Math.floor(Date.now() / 1000));
+      const now = Math.floor(Date.now() / 1000);
+      const result = interactHomeItem(this.room, this.play, itemId, chosen, now);
       this.room = result.room;
-      this.play = result.play;
+      this.play = this.buddyPresence
+        ? { ...this.play, revision: this.play.revision + 1, selectedItemId: itemId, thought: result.play.thought, lastAdvancedUnix: Math.max(now, this.play.lastAdvancedUnix) }
+        : result.play;
+      this.onBuddyAction?.(chosen);
       this.persistAndEmit();
       this.renderRoom();
     } catch (error) {
@@ -299,7 +345,7 @@ class PhaserHomeScene extends Scene {
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
-    if (this.mode !== "play") return;
+    if (this.mode !== "play" || this.simulationMode !== "play") return;
     const direction = directionForKey(event.key);
     if (!direction) return;
     event.preventDefault();
@@ -375,7 +421,10 @@ class PhaserHomeScene extends Scene {
   }
 
   private advanceBuddy(): void {
-    const result = advanceHomeSession(this.room, this.play, Math.floor(Date.now() / 1000));
+    const now = Math.floor(Date.now() / 1000);
+    const result = this.buddyPresence
+      ? advanceHomePresenceSession(this.room, this.play, this.buddyPresence, now, { autonomousPlayer: this.simulationMode === "idle" })
+      : advanceHomeSession(this.room, this.play, now);
     if (result.room === this.room && result.play === this.play) return;
     this.room = result.room;
     this.play = result.play;
@@ -390,10 +439,8 @@ class PhaserHomeScene extends Scene {
 
   private emitSnapshot(): void {
     const creature = this.play.creature;
-    const mood = isRecord(creature.mood) && typeof creature.mood.label === "string"
-      ? creature.mood.label
-      : "content";
-    const name = typeof creature.display_name === "string" ? creature.display_name : "Buddy";
+    const mood = this.buddyPresence?.mood ?? (isRecord(creature.mood) && typeof creature.mood.label === "string" ? creature.mood.label : "content");
+    const name = this.buddyPresence?.displayName ?? (typeof creature.display_name === "string" ? creature.display_name : "Buddy");
     this.onStateChange?.({
       cameraCorner: this.room.cameraCorner,
       mode: this.mode,
@@ -601,8 +648,17 @@ class PhaserHomeScene extends Scene {
   private drawBuddy(graphics: Graphics, origin: Vector2): void {
     const point = projectCanonicalCell(this.play.buddy.cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
     const x = origin.x + point.x;
-    const y = origin.y + point.y - 28;
+    const floorY = origin.y + point.y;
+    if (this.buddyAppearance) {
+      const height = Number((this.buddyAppearance as { height?: number }).height ?? 0);
+      const scale = height > 0 ? Math.min(0.65, 72 / height) : 0.35;
+      graphics.fillStyle(0x0b1020, 0.22);
+      graphics.fillCircle(x, floorY + 4, 17);
+      graphics.drawSpriteCentered(this.buddyAppearance, x, floorY - 29, scale);
+      return;
+    }
 
+    const y = floorY - 28;
     graphics.fillStyle(0xffd84d, 1);
     graphics.fillCircle(x, y, 19);
     graphics.lineStyle(2, 0x422f2f, 1);
@@ -663,7 +719,7 @@ export function mountPhaserHome(
   options: MountOptions = {},
 ): PhaserHomeController {
   if (options.store) store = options.store;
-  const scene = new PhaserHomeScene(options.onStateChange);
+  const scene = new PhaserHomeScene(options);
   const game = mountScene(parent, scene, "#182033");
 
   return {
@@ -693,6 +749,15 @@ export function mountPhaserHome(
     },
     interactSelected(action) {
       game.events.emit("home:interact-selected", action);
+    },
+    setSimulationMode(mode) {
+      game.events.emit("home:set-simulation-mode", mode);
+    },
+    setBuddyPresence(presence) {
+      game.events.emit("home:set-buddy-presence", presence);
+    },
+    setBuddyAppearance(image) {
+      game.events.emit("home:set-buddy-appearance", image);
     },
     destroy() {
       game.destroy();

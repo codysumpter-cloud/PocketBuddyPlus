@@ -266,3 +266,27 @@
     gap: 3px;
   }
 }
+
+
+/* Presence runtime ------------------------------------------------------- */
+.pb-home-presence-bar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 2px solid #29334a;
+  background: rgba(11, 16, 32, .94);
+}
+.pb-home-segment { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #3d4965; border-radius: 8px; background: #151d31; }
+.pb-home-segment button { min-width: 58px; }
+.pb-home-segment button.active { background: #ffd84d; color: #241d12; border-color: #fff1a8; }
+.pb-home-presence-name { margin-left: auto; font-weight: 800; color: #ffd84d; }
+#home-root[data-presentation="home"] .pb-home-header,
+#home-root[data-presentation="home"] .pb-home-toolbar,
+#home-root[data-presentation="home"] .pb-home-footer { display: none; }
+#home-root[data-presentation="home"] .pb-home-shell { height: 100vh; grid-template-rows: auto minmax(0, 1fr); }
+#home-root[data-presentation="home"] .pb-home-stage { min-height: 0; height: 100%; }
+#home-root[data-presentation="home"] .pb-home-presence-bar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); border: 1px solid #3d4965; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.28); }
+#home-root[data-simulation="idle"] .pb-home-movement { opacity: .35; pointer-events: none; }

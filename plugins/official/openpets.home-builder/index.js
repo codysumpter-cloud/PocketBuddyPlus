@@ -429,6 +429,115 @@ function createHomeStateHandler(storage, panel, files) {
 		}
 	};
 }
+var activePanel = null;
+var activePresentation = "panel";
+function isRecord(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+async function sendBuddyPresence(context, panel) {
+	const pets = await context.pets.list();
+	const pet = pets.find((candidate) => candidate.id === "default") ?? pets[0];
+	const profile = pet?.buddyProfile;
+	await panel.postMessage({
+		type: "home-buddy-presence",
+		buddy: {
+			id: "default",
+			name: profile?.displayName ?? pet?.name ?? "Buddy",
+			profile: profile ?? null
+		}
+	});
+	try {
+		const { frameDataUrl, ...metadata } = await context.pet.getAppearance();
+		const chunks = chunkDataUrl(frameDataUrl);
+		await panel.postMessage({
+			type: "home-buddy-frame-begin",
+			count: chunks.length,
+			metadata
+		});
+		for (let index = 0; index < chunks.length; index += 1) await panel.postMessage({
+			type: "home-buddy-frame-chunk",
+			index,
+			count: chunks.length,
+			data: chunks[index]
+		});
+		await panel.postMessage({ type: "home-buddy-frame-end" });
+	} catch (error) {
+		await panel.postMessage({
+			type: "home-buddy-frame-unavailable",
+			error: String(error?.message ?? error).slice(0, 160)
+		});
+	}
+}
+function reactionForHomeAction(action) {
+	if (action === "play") return "celebrating";
+	if (action === "feed") return "success";
+	if (action === "rest" || action === "sit") return "waiting";
+	return "waving";
+}
+async function openHome(context, presentation) {
+	activePresentation = presentation;
+	if (activePanel) {
+		await context.pet.hide();
+		await activePanel.postMessage({
+			type: "home-presentation",
+			mode: presentation
+		});
+		await sendBuddyPresence(context, activePanel);
+		await activePanel.show();
+		return;
+	}
+	const panel = await context.ui.panel({
+		panel: "home",
+		title: "Buddy Home",
+		width: 1180,
+		height: 860
+	});
+	activePanel = panel;
+	const baseHandler = createHomeStateHandler(context.storage, panel, context.files);
+	panel.onMessage(async (message) => {
+		await baseHandler(message);
+		if (!isRecord(message)) return;
+		if (message.type === "home-state-request") {
+			await panel.postMessage({
+				type: "home-presentation",
+				mode: activePresentation
+			});
+			await sendBuddyPresence(context, panel);
+			return;
+		}
+		if (message.type === "home-presentation") {
+			const mode = message.mode;
+			if (mode === "buddy") {
+				activePanel = null;
+				await context.pet.show();
+				await panel.close();
+				return;
+			}
+			if (mode === "panel" || mode === "home") {
+				activePresentation = mode;
+				await context.pet.hide();
+				await panel.postMessage({
+					type: "home-presentation",
+					mode
+				});
+			}
+			return;
+		}
+		if (message.type === "home-panel-closing") {
+			if (activePanel === panel) activePanel = null;
+			await context.pet.show();
+			return;
+		}
+		if (message.type === "home-buddy-react" && typeof message.action === "string") await context.pet.react(reactionForHomeAction(message.action), { showMessage: false });
+	});
+	await context.pet.hide();
+}
+async function buddyOnly(context) {
+	const panel = activePanel;
+	activePanel = null;
+	await context.pet.show();
+	if (panel) await panel.close();
+}
 function register(OpenPetsPlugin) {
 	OpenPetsPlugin.register({ async start(ctx) {
 		const context = ctx;
@@ -436,16 +545,24 @@ function register(OpenPetsPlugin) {
 			id: "open-home",
 			title: "$t:command.open.title",
 			description: "$t:command.open.description",
+			icon: "home",
+			featured: true
+		}, () => openHome(context, "panel"));
+		await context.commands.register({
+			id: "show-home",
+			title: "Show Buddy in Home",
+			description: "Open the playable Home scene without the builder chrome.",
 			icon: "home"
-		}, async () => {
-			const panel = await context.ui.panel({
-				panel: "home",
-				title: "Buddy Home",
-				width: 1180,
-				height: 860
-			});
-			panel.onMessage(createHomeStateHandler(context.storage, panel, context.files));
-			return panel;
+		}, () => openHome(context, "home"));
+		await context.commands.register({
+			id: "buddy-only",
+			title: "Buddy Only",
+			description: "Return Buddy to the normal desktop pet view.",
+			icon: "home"
+		}, () => buddyOnly(context));
+		context.pets.onChange(() => {
+			const panel = activePanel;
+			if (panel) sendBuddyPresence(context, panel).catch(() => void 0);
 		});
 	} });
 }

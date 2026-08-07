@@ -287,3 +287,6 @@ body.pb-home-open {
     gap: 3px;
   }
 }
+
+.pb-home-launcher-message { position: fixed; left: 50%; bottom: 28px; z-index: 10000; max-width: min(520px, calc(100vw - 32px)); padding: 11px 15px; border: 1px solid #475569; border-radius: 10px; background: #0f172a; color: #e2e8f0; box-shadow: 0 12px 38px rgba(0,0,0,.35); opacity: 0; transform: translate(-50%, 10px); pointer-events: none; transition: opacity .16s ease, transform .16s ease; }
+.pb-home-launcher-message.show { opacity: 1; transform: translate(-50%, 0); }

@@ -226,7 +226,14 @@ globalThis.openPetsPanel = {
   postMessage: (msg) => {
     posted.push(msg);
     // Answer the state request the way the host would, with nothing saved.
-    if (msg?.type === "home-state-request") queueMicrotask(() => panelHandler?.({ type: "home-state", values: {} }));
+    if (msg?.type === "home-state-request") queueMicrotask(() => {
+      panelHandler?.({ type: "home-state", values: {} });
+      panelHandler?.({ type: "home-presentation", mode: "panel" });
+      panelHandler?.({ type: "home-buddy-presence", buddy: { id: "default", name: "Pixel Buddy", profile: { displayName: "Pixel Buddy", mood: "happy", activity: "exploring", dominantNeed: "play", affection: 0.8, needs: { play: 0.7 } } } });
+      panelHandler?.({ type: "home-buddy-frame-begin", count: 1, metadata: { width: 64, height: 64 } });
+      panelHandler?.({ type: "home-buddy-frame-chunk", index: 0, count: 1, data: "data:image/png;base64,BBBB" });
+      panelHandler?.({ type: "home-buddy-frame-end" });
+    });
   },
   onMessage: (handler) => { panelHandler = handler; return () => { panelHandler = null; }; },
   close() {},
@@ -244,6 +251,9 @@ try {
 
 assert.ok(root.innerHTML.includes("data-home-stage"), "the panel renders its own shell (no app nav or modal)");
 assert.ok(root.innerHTML.includes('data-home-mode="paint"'), "mode controls render");
+assert.ok(root.innerHTML.includes('data-home-presentation="home"'), "Home presentation control renders");
+assert.ok(root.innerHTML.includes('data-home-presentation="buddy"'), "Buddy-only presentation control renders");
+assert.ok(root.innerHTML.includes('data-home-simulation="idle"'), "Idle household control renders");
 assert.ok(root.innerHTML.includes('data-home-brush="floor.wood"'), "floor brushes render");
 assert.ok(!root.innerHTML.includes("pb-home-nav"), "the app nav tab must not come along into the panel");
 
@@ -252,6 +262,7 @@ assert.deepEqual(posted[0], { type: "home-state-request" }, "the panel asks the 
 assert.ok(draws.length > 50, `the room should draw; got ${draws.length} operations`);
 assert.ok(draws.some(([op]) => op === "fill"), "floor tiles are filled");
 assert.ok(draws.some(([op]) => op === "stroke"), "walls and outlines are stroked");
+assert.ok(draws.some(([op, src]) => op === "drawImage" && src === "data:image/png;base64,BBBB"), "the active host Buddy frame is drawn inside Home");
 
 // Phaser takes 0xRRGGBB plus a separate alpha; the shim must convert, or the
 // whole room would silently draw in the default black.
@@ -291,19 +302,20 @@ await new Promise((resolve) => setTimeout(resolve, 20));
 
 const afterSprites = draws.slice(beforeSprites);
 const blits = afterSprites.filter(([op]) => op === "drawImage");
-assert.ok(blits.length > 0, "loading a pack must repaint the room with sprites");
-assert.ok(blits.every(([, src]) => src === packed), "sprites are drawn from the data URLs the host sent");
+const packBlits = blits.filter(([, src]) => src === packed);
+assert.ok(packBlits.length > 0, "loading a pack must repaint the room with TinyHouse sprites");
+assert.ok(blits.some(([, src]) => src === "data:image/png;base64,BBBB"), "Buddy remains independently rendered while pack art repaints");
 
 // Floor tiles are 64px in the pack and Home draws on a 72px diamond, so the
-// blit must be scaled, not pasted 1:1 - a 64px paste would misalign the grid.
-assert.ok(blits.every(([, , , , w]) => w === 72), `every pack tile scales to the 72px tile; widths were ${[...new Set(blits.map((b) => b[4]))].join(", ")}`);
+// pack blits must be scaled, not pasted 1:1. Buddy has its own authored size.
+assert.ok(packBlits.every(([, , , , w]) => w === 72), `every pack tile scales to the 72px tile; widths were ${[...new Set(packBlits.map((b) => b[4]))].join(", ")}`);
 
 // The bug this pins: furniture was anchored on its bottom edge and floated
 // clear of the floor. Pack art centres the isometric diamond in the image, so
-// every sprite - floor or furniture - must land on the floor lattice. The room
-// is 8x6, so the first 48 blits are its tiles and anything after is furniture.
-const floorBlits = blits.slice(0, 48);
-const itemBlits = blits.slice(48);
+// every pack sprite - floor or furniture - must land on the floor lattice. The
+// room is 8x6, so the first 48 pack blits are tiles and anything after is furniture.
+const floorBlits = packBlits.slice(0, 48);
+const itemBlits = packBlits.slice(48);
 assert.equal(floorBlits.length, 48, "every floor tile should blit once");
 assert.ok(itemBlits.length > 0, "the starter room's furniture should blit too");
 
@@ -323,7 +335,7 @@ for (const blit of itemBlits) {
 // contact shadow, and the two are placed from the same footprint centre, so
 // they must coincide. Anchoring the sprite anywhere else separates them.
 for (let index = beforeSprites; index < draws.length; index += 1) {
-  if (draws[index][0] !== "drawImage") continue;
+  if (draws[index][0] !== "drawImage" || draws[index][1] !== packed) continue;
   const blitCentreY = draws[index][3] + draws[index][5] / 2;
   const shadow = draws[index - 1];
   if (shadow?.[0] !== "fill" || !shadow[3]) continue;  // floor tiles have no shadow
