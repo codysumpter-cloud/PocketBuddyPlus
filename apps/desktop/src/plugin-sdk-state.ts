@@ -35,6 +35,8 @@ export type PluginRuntimeState = {
   deliveries: Map<string, DeliverySlot>;
   panels: Map<string, PluginPanelHostHandle & { onMessage?: (msg: unknown) => void }>;
   spawnedPets: Set<string>;
+  /** Pets this plugin hid while they were visible; restored on plugin teardown. */
+  hiddenPets: Set<string>;
   pickedFiles: Set<string>;
   userCommandDepth: number;
   lastError?: string;

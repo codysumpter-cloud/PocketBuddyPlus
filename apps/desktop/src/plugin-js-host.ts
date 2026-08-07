@@ -167,6 +167,7 @@ export const sdkCallHandlers: Record<PluginSdkRoute, SdkCallHandler> = {
   "pet.onTick": (sdk, args, runCallback) => sdk.pets.forPet(args[0]).onTick(callbackOf(runCallback, args[1])),
   "pet.offTick": (sdk, args) => sdk.pets.forPet("default").offTick(args[0]),
   "pet.getState": (sdk, args) => sdk.pets.forPet(args[0]).getState(),
+  "pet.getAppearance": (sdk, args) => sdk.pets.forPet(args[0]).getAppearance(),
   "pet.show": (sdk, args) => sdk.pets.forPet(args[0]).show(),
   "pet.hide": (sdk, args) => sdk.pets.forPet(args[0]).hide(),
   "pet.close": (sdk, args) => sdk.pets.forPet(args[0]).close(),

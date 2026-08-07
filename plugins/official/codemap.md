@@ -52,3 +52,10 @@ First-party SDK v3 plugin product source. These plugins are the reviewed default
 - **Release validation**: runs from the openpets.dev site repo, not here - `scripts/validate-plugin-release.mjs` needs a `web/` catalog tree this repo does not have. Locally, `pnpm plugins:build:check`, `pnpm plugins:locales` and `pnpm plugins:test` are the gates.
 - **Shared state boundary**: Buddy identity and inventory are host-owned; plugins own only experience-specific progress, pending operations, and presentation state.
 - **Network boundary**: Local Battles and Trading Post do not imply remote PvP or player-to-player settlement. Those require separate authenticated and server-authoritative contracts.
+
+### `openpets.home-builder` presence runtime
+- Canonical Control Center Home entry point is the official plugin, not the legacy renderer modal.
+- Presentation: `panel` / `home` / `buddy`; simulation: `play` / `idle`.
+- Reads the default pet public profile and one bounded host-rendered frame via `pets:read`.
+- Temporarily leases default-pet visibility while Home represents Buddy in-room; host teardown restores leased visibility.
+- Home actor autonomy uses host profile intent and does not advance a second needs clock when that profile is available.

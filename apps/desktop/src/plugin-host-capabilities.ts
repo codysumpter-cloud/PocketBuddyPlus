@@ -31,6 +31,7 @@ import { getAppStateSnapshot } from "./app-state.js";
 import { readSafePluginManifest } from "./plugin-manifest-reader.js";
 import { resolveTrustedPluginSprite } from "./plugin-assets.js";
 import { getPluginService } from "./plugin-service.js";
+import { getPluginPetAppearance } from "./plugin-pet-appearance.js";
 
 /**
  * The Electron implementation of every SDK v3 host capability. Built once at
@@ -174,6 +175,7 @@ export function createElectronPluginHostCapabilities(userDataPath: string): Elec
       followCursor: async (petHandleId, _pluginId, opts) => setPluginPetFollowCursor(petHandleId, opts),
       physics: async (petHandleId, _pluginId, opts) => setPluginPetPhysics(petHandleId, opts),
       getState: async (petHandleId) => getPluginPetState(petHandleId),
+      getAppearance: (petHandleId) => getPluginPetAppearance(petHandleId),
       onTick: (petHandleId, handler) => onPluginPetTick(petHandleId, handler),
       onChange: (handler) => onPluginPetsChange(handler),
     },

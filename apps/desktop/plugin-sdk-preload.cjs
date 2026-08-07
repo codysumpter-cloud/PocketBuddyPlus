@@ -138,6 +138,7 @@ function makePetHandle(petId) {
     physics: (opts) => call("pet.physics", [petId, opts]),
     onTick: (fn) => subscription("pet.onTick", "pet.offTick", [petId], fn),
     getState: () => call("pet.getState", [petId]),
+    getAppearance: () => call("pet.getAppearance", [petId]),
     show: () => call("pet.show", [petId]),
     hide: () => call("pet.hide", [petId]),
     close: () => call("pet.close", [petId]),

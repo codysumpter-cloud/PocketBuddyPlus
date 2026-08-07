@@ -300,6 +300,126 @@ export function advanceHomeSession(
   };
 }
 
+export interface HomeBuddyPresenceIntent {
+  readonly displayName: string;
+  readonly mood: string;
+  readonly activity: string;
+  readonly dominantNeed: "hunger" | "energy" | "social" | "play" | "comfort" | "cleanliness" | string;
+}
+
+export interface HomePresenceAdvanceOptions {
+  readonly autonomousPlayer?: boolean;
+}
+
+/**
+ * Advance only the Home-world poses using the host-owned Buddy profile as the
+ * decision signal. The legacy `creature` payload is deliberately preserved
+ * byte-for-byte: Home is a presentation/simulation surface, not a second Buddy
+ * lifecycle owner.
+ */
+export function advanceHomePresenceSession(
+  room: HomeRoomDocument,
+  state: HomePlayState,
+  presence: HomeBuddyPresenceIntent,
+  nowUnix: number,
+  options: HomePresenceAdvanceOptions = {},
+): HomeSessionResult {
+  const timestamp = Math.max(finiteNonNegative(nowUnix, "nowUnix"), state.lastAdvancedUnix);
+  if (timestamp <= state.lastAdvancedUnix) return { room, play: state };
+
+  const target = preferredPresenceTarget(room, state, presence);
+  let buddy = state.buddy;
+  let player = state.player;
+  let thought = presenceThought(presence);
+
+  if (target?.item) {
+    const interactionCell = nearestInteractionCell(room, target.item.id, state.buddy.cell, state.player.cell);
+    if (interactionCell && sameCell(interactionCell, state.buddy.cell)) {
+      thought = `${presence.displayName} is hanging out by the ${homeAssetDefinition(target.item.assetId)?.label ?? "furniture"}.`;
+    } else if (interactionCell) {
+      buddy = stepToward(room, state, interactionCell);
+      thought = `${presence.displayName} is heading to the ${homeAssetDefinition(target.item.assetId)?.label ?? "furniture"}.`;
+    }
+  } else if (target?.cell) {
+    buddy = stepToward(room, state, target.cell);
+  } else {
+    buddy = deterministicWander(room, state, timestamp);
+  }
+
+  if (options.autonomousPlayer) {
+    const nextState = { ...state, buddy, player };
+    player = autonomousPlayerStep(room, nextState, timestamp);
+  }
+
+  return {
+    room,
+    play: {
+      ...state,
+      revision: state.revision + 1,
+      buddy,
+      player,
+      creature: state.creature,
+      thought,
+      lastAdvancedUnix: timestamp,
+    },
+  };
+}
+
+function preferredPresenceTarget(
+  room: HomeRoomDocument,
+  state: HomePlayState,
+  presence: HomeBuddyPresenceIntent,
+): { item?: HomeRoomItem; cell?: GridCell } | null {
+  const needAction: Readonly<Record<string, HomeItemAction | undefined>> = {
+    hunger: "feed",
+    energy: "rest",
+    play: "play",
+    comfort: "rest",
+  };
+  const activityAction: Readonly<Record<string, HomeItemAction | undefined>> = {
+    eating: "feed",
+    sleeping: "rest",
+    playing: "play",
+  };
+  const action = activityAction[presence.activity] ?? needAction[presence.dominantNeed];
+  if (action) {
+    const item = room.items
+      .filter((candidate) => homeAssetDefinition(candidate.assetId)?.actions.includes(action))
+      .sort((a, b) => manhattan(state.buddy.cell, a.placement.anchor) - manhattan(state.buddy.cell, b.placement.anchor))[0];
+    if (item) return { item };
+  }
+  if (presence.dominantNeed === "social" || presence.activity === "socializing") return { cell: state.player.cell };
+  return null;
+}
+
+function autonomousPlayerStep(room: HomeRoomDocument, state: HomePlayState, nowUnix: number): HomeActorPose {
+  if (manhattan(state.player.cell, state.buddy.cell) > 2) {
+    const directions: HomeDirection[] = [];
+    if (state.buddy.cell.x > state.player.cell.x) directions.push("east");
+    if (state.buddy.cell.x < state.player.cell.x) directions.push("west");
+    if (state.buddy.cell.y > state.player.cell.y) directions.push("south");
+    if (state.buddy.cell.y < state.player.cell.y) directions.push("north");
+    for (const direction of directions) {
+      const moved = moveHomeActor(room, state, "player", direction);
+      if (!sameCell(moved.player.cell, state.player.cell)) return moved.player;
+    }
+  }
+  // Do not jitter every second when the two actors are already together.
+  if ((state.revision + Math.floor(nowUnix)) % 4 !== 0) return state.player;
+  const start = (state.revision + Math.floor(nowUnix / 4)) % HOME_DIRECTIONS.length;
+  for (let offset = 0; offset < HOME_DIRECTIONS.length; offset += 1) {
+    const direction = HOME_DIRECTIONS[(start + offset) % HOME_DIRECTIONS.length];
+    const moved = moveHomeActor(room, state, "player", direction);
+    if (!sameCell(moved.player.cell, state.player.cell)) return moved.player;
+  }
+  return state.player;
+}
+
+function presenceThought(presence: HomeBuddyPresenceIntent): string {
+  const activity = presence.activity === "idle" ? "taking it easy" : presence.activity.replace(/ing$/u, "ing");
+  return `${presence.displayName} is ${activity}. ${presence.dominantNeed} is the strongest need right now.`;
+}
+
 function preferredTarget(
   room: HomeRoomDocument,
   state: HomePlayState,

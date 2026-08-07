@@ -423,6 +423,10 @@ function createTestCapabilities(): TestCapabilities {
       followCursor: async () => undefined,
       physics: async () => undefined,
       getState: async () => ({ position: { x: 0, y: 0 }, bounds: { x: 0, y: 0, width: 0, height: 0 }, currentAnimation: "idle", visible: true, dragging: false }),
+      getAppearance: async (petHandleId) => ({
+        petHandleId, installedPetId: "builtin:default", displayName: "Default pet",
+        frameDataUrl: "data:image/png;base64,", width: 64, height: 64, animationId: "idle", direction: "south", source: "legacy-sheet" as const,
+      }),
       onTick: () => () => undefined,
       onChange: () => () => undefined,
     },

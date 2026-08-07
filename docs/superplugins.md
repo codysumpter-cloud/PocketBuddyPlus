@@ -128,3 +128,7 @@ Official and community plugins are packaged into catalog **v2** artifacts and
 ZIPs on R2 (see [catalog.md](catalog.md)). Current runtime work should not
 optimize for the legacy v1 catalog (kept as an empty compatibility shim). The
 packaging + release gates are in [testing-and-validation.md](testing-and-validation.md).
+
+### Home as a presence superplugin
+
+Home demonstrates the preferred composition pattern for a world-like superplugin: it owns room topology and presentation, but consumes the canonical host Buddy identity/profile instead of forking another pet lifecycle. The plugin can switch among full panel, immersive Home, and desktop Buddy presentation without spawning a duplicate Buddy. Its Idle household simulation is profile-driven: the public dominant need/activity chooses where Buddy walks, while the legacy Home creature payload is preserved only for old-save fallback.
