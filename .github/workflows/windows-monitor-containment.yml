@@ -1,0 +1,95 @@
+name: Windows monitor containment
+
+on:
+  pull_request:
+    paths:
+      - "apps/desktop/src/display.ts"
+      - "apps/desktop/src/monitor-manager.ts"
+      - "apps/desktop/src/confinement-manager.ts"
+      - "apps/desktop/src/main.ts"
+      - "apps/desktop/src/renderer/index.html"
+      - "apps/desktop/src/renderer/src/monitor-settings-ui.ts"
+      - "apps/desktop/control-center-preload.cjs"
+      - "apps/desktop/tests/**"
+      - "apps/desktop/electron-builder.plus.yml"
+      - "apps/desktop/electron-builder.pocket-buddy-plus.yml"
+      - ".github/workflows/windows-monitor-containment.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-package:
+    name: Windows package and monitor contract
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck desktop
+        run: pnpm --filter @open-pets/desktop typecheck
+
+      - name: Run desktop tests
+        run: pnpm --filter @open-pets/desktop test
+
+      - name: Build Windows Pocket Buddy+ installer and unpacked app
+        run: pnpm package:desktop:plus
+
+      - name: Verify Windows packaging outputs
+        shell: pwsh
+        run: |
+          $root = "apps/desktop/dist-electron-plus"
+          $installer = Get-ChildItem -Path $root -Recurse -File -Filter "Pocket-Buddy+-*-win-*-setup.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "Pocket Buddy+ NSIS installer was not produced."
+          }
+
+          $unpackedDirs = Get-ChildItem -Path $root -Directory | Where-Object { $_.Name -match "win.*unpacked" }
+          if (-not $unpackedDirs) {
+            throw "Pocket Buddy+ win-unpacked directory was not produced alongside the installer."
+          }
+
+          $unpackedExe = $unpackedDirs | ForEach-Object {
+            Get-ChildItem -Path $_.FullName -File -Filter "*.exe" | Where-Object { $_.Name -notmatch "^(chrome_crashpad_handler|elevate)\.exe$" }
+          } | Select-Object -First 1
+          if (-not $unpackedExe) {
+            throw "Pocket Buddy+ executable was not found in win-unpacked."
+          }
+
+          Write-Host "Installer: $($installer.FullName)"
+          Write-Host "Unpacked executable: $($unpackedExe.FullName)"
+
+      - name: Verify monitor-aware code is inside packaged app
+        shell: pwsh
+        run: |
+          $asar = Get-ChildItem -Path "apps/desktop/dist-electron-plus" -Recurse -File -Filter "app.asar" | Select-Object -First 1
+          if (-not $asar) {
+            throw "Packaged app.asar not found."
+          }
+          $asarList = pnpm exec asar list $asar.FullName
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not inspect packaged app.asar."
+          }
+          if ($asarList -notmatch "dist[\\/]monitor-manager\.js") {
+            throw "Packaged Windows app is missing dist/monitor-manager.js."
+          }
+          if ($asarList -notmatch "dist[\\/]display\.js") {
+            throw "Packaged Windows app is missing dist/display.js."
+          }
+          Write-Host "Monitor-aware runtime is present in the packaged Windows app."
