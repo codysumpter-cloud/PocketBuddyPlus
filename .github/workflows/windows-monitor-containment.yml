@@ -50,12 +50,13 @@ jobs:
 
       - name: Run Windows monitor containment regressions
         shell: pwsh
+        working-directory: apps/desktop
         run: |
           $tests = @(
-            "apps/desktop/.test-dist/tests/display.test.js",
-            "apps/desktop/.test-dist/tests/monitor-confinement.test.js",
-            "apps/desktop/.test-dist/tests/pet-motion-engine-clamp.test.js",
-            "apps/desktop/.test-dist/tests/monitor-settings-contract.test.js"
+            ".test-dist/tests/display.test.js",
+            ".test-dist/tests/monitor-confinement.test.js",
+            ".test-dist/tests/pet-motion-engine-clamp.test.js",
+            ".test-dist/tests/monitor-settings-contract.test.js"
           )
           foreach ($test in $tests) {
             Write-Host "Running $test"
