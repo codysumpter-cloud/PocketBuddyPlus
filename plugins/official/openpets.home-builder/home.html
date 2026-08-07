@@ -2035,6 +2035,24 @@ var Graphics = class {
 		this.ctx.fill(circle);
 		return this;
 	}
+	/**
+	* Blit a sprite centred on a point. Not a Phaser Graphics method - Home had
+	* no art when it ran on Phaser - but it belongs on the same surface so the
+	* existing z-order still holds.
+	*
+	* Centred, not bottom-anchored, because that is the convention the art is
+	* authored to: measured on the pack's own tiles, the isometric diamond's
+	* centre sits exactly at the image centre (a 64x64 floor tile's opaque
+	* content runs y=16..55, diamond centre 32). Bottom-anchoring instead leaves
+	* furniture floating above the floor.
+	*/
+	drawSpriteCentered(image, cx, cy, scale) {
+		const width = Number(image.width ?? 0) * scale;
+		const height = Number(image.height ?? 0) * scale;
+		if (!(width > 0) || !(height > 0)) return this;
+		this.ctx.drawImage(image, Math.round(cx - width / 2), Math.round(cy - height / 2), Math.round(width), Math.round(height));
+		return this;
+	}
 	strokeCircle(x, y, radius) {
 		const circle = new Path2D();
 		circle.arc(x, y, Math.max(0, radius), 0, Math.PI * 2);
@@ -2201,11 +2219,52 @@ function mountScene(parent, scene, backgroundColor = "#182033") {
 	};
 }
 //#endregion
+//#region plugins/official/openpets.home-builder/src/pack-mapping.ts
+/** Floor material id → pack file. */
+var PACK_FLOORS = {
+	"floor.wood": "Floor_64_WoodHard.png",
+	"floor.stone": "Floor_64_Concrete.png",
+	"floor.grass": "Floor_64_Green.png",
+	"floor.water": "Floor_64_Sea.png"
+};
+/**
+* Home asset id → pack file.
+*
+* `home.toy.ball` has no counterpart in the pack, so it is deliberately absent
+* and keeps its drawn circle. A missing entry is a supported state, not a gap
+* to paper over with a wrong-looking sprite.
+*/
+var PACK_ITEMS = {
+	"home.bed.basic": "Bed_A_4.png",
+	"home.tv.basic": "BigTV_3_Off_Tile.png",
+	"home.chair.basic": "Chair_2_A_Tile.png",
+	"home.table.basic": "Table_10.png",
+	"home.plant.basic": "Plant_1.png",
+	"home.food-bowl.basic": "Dish.png"
+};
+/** Every file the plugin will read, keyed by the id the scene draws it for. */
+var PACK_SPRITES = {
+	...PACK_FLOORS,
+	...PACK_ITEMS
+};
+new Map(Object.entries(PACK_SPRITES).map(([key, file]) => [file.toLowerCase(), key]));
+//#endregion
 //#region plugins/official/openpets.home-builder/src/home-scene.ts
 var store = {
 	read: () => null,
 	write: () => {}
 };
+/**
+* Sprites from the user's TinyHouse pack, keyed by floor material or asset id.
+* Empty until they load their own copy - Home ships no art, so every draw falls
+* back to the shapes it has always drawn.
+*/
+var sprites = {};
+var onSpritesChanged = null;
+function setHomeSprites(next) {
+	sprites = next;
+	onSpritesChanged?.();
+}
 var HOME_STORAGE_KEY = "pocket-buddy-plus:phaser-home:v2";
 var LEGACY_HOME_STORAGE_KEY = "pocket-buddy-plus:phaser-home:v1";
 var TILE_WIDTH = 72;
@@ -2304,6 +2363,7 @@ var PhaserHomeScene = class extends Scene {
 			this.game.events.off("home:pet-buddy", this.handlePetBuddy, this);
 			this.game.events.off("home:interact-selected", this.handleInteractSelected, this);
 		});
+		onSpritesChanged = () => this.renderRoom();
 		this.persistAndEmit();
 		this.renderRoom();
 	}
@@ -2490,7 +2550,20 @@ var PhaserHomeScene = class extends Scene {
 			const centerY = origin.y + point.y;
 			const material = floorMaterialAt(this.floor, cell);
 			const hovered = this.hoverCell?.x === cell.x && this.hoverCell?.y === cell.y;
-			drawDiamond(graphics, centerX, centerY, MATERIAL_COLORS[material] ?? 13212008, hovered ? 16777215 : 2700106, hovered ? 3 : 1);
+			const floorSprite = sprites[material];
+			if (floorSprite) {
+				graphics.drawSpriteCentered(floorSprite, centerX, centerY, TILE_WIDTH / 64);
+				if (hovered) {
+					graphics.lineStyle(3, 16777215, 1);
+					graphics.beginPath();
+					graphics.moveTo(centerX, centerY - TILE_HEIGHT / 2);
+					graphics.lineTo(centerX + TILE_WIDTH / 2, centerY);
+					graphics.lineTo(centerX, centerY + TILE_HEIGHT / 2);
+					graphics.lineTo(centerX - TILE_WIDTH / 2, centerY);
+					graphics.closePath();
+					graphics.strokePath();
+				}
+			} else drawDiamond(graphics, centerX, centerY, MATERIAL_COLORS[material] ?? 13212008, hovered ? 16777215 : 2700106, hovered ? 3 : 1);
 		}
 		const drawables = [
 			...this.room.items.map((item) => ({
@@ -2557,6 +2630,23 @@ var PhaserHomeScene = class extends Scene {
 		const x = origin.x + point.x;
 		const y = origin.y + point.y;
 		const selected = this.play.selectedItemId === item.id;
+		const sprite = sprites[definition.assetId];
+		if (sprite) {
+			const far = projectCanonicalCell({
+				x: item.placement.anchor.x + definition.footprint.width - 1,
+				y: item.placement.anchor.y + definition.footprint.height - 1
+			}, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+			const footprintX = (x + origin.x + far.x) / 2;
+			const footprintY = (y + origin.y + far.y) / 2;
+			graphics.fillStyle(725024, .24);
+			graphics.fillCircle(footprintX, footprintY + 6, TILE_WIDTH * .3);
+			graphics.drawSpriteCentered(sprite, footprintX, footprintY, TILE_WIDTH / 64);
+			if (selected) {
+				graphics.lineStyle(2, 16767053, .9);
+				graphics.strokeCircle(footprintX, footprintY, TILE_WIDTH * .5);
+			}
+			return;
+		}
 		const width = Math.max(22, definition.footprint.width * 25);
 		const height = Math.max(16, definition.footprint.height * 15);
 		graphics.fillStyle(725024, .24);
@@ -2882,6 +2972,7 @@ function renderShell() {
         <button type="button" data-home-rotate="1" title="Rotate room right">Rotate ↷</button>
         <button type="button" data-home-clear-floor>Reset floor</button>
         <button type="button" data-home-reset-room>Reset room</button>
+        <button type="button" data-home-load-pack title="Load sprites from your own TinyHouse pack folder">Load TinyHouse art</button>
       </div>
       <div class="pb-home-movement" role="group" aria-label="Move player">
         <button type="button" data-home-move="north" aria-label="Move north">↑</button>
@@ -2959,6 +3050,11 @@ function handleClick(event) {
 		controller?.rotate(Number(rotate.dataset.homeRotate));
 		return;
 	}
+	if (target.closest("[data-home-load-pack]")) {
+		setPackStatus("Choose your TinyHouse images…");
+		bridge?.postMessage({ type: "home-pack-pick" });
+		return;
+	}
 	if (target.closest("[data-home-pet]")) controller?.petBuddy();
 	else if (target.closest("[data-home-use]")) controller?.interactSelected();
 	else if (target.closest("[data-home-channel]")) controller?.interactSelected("next-channel");
@@ -2969,6 +3065,55 @@ function syncActiveControls() {
 	for (const entry of root.querySelectorAll("[data-home-mode]")) entry.classList.toggle("active", entry.dataset.homeMode === selectedMode);
 	for (const entry of root.querySelectorAll("[data-home-brush]")) entry.classList.toggle("active", entry.dataset.homeBrush === selectedBrush);
 	for (const entry of root.querySelectorAll("[data-home-item-asset]")) entry.classList.toggle("active", entry.dataset.homeItemAsset === selectedAssetId);
+}
+function setPackStatus(text) {
+	const node = root.querySelector("[data-home-thought]");
+	if (node) node.textContent = text;
+}
+var spriteChunks = /* @__PURE__ */ new Map();
+var loadedSprites = {};
+function decodeSprite(key, dataUrl) {
+	return new Promise((resolve) => {
+		const image = new Image();
+		image.onload = () => {
+			loadedSprites[key] = image;
+			resolve();
+		};
+		image.onerror = () => resolve();
+		image.src = dataUrl;
+	});
+}
+async function handlePackMessage(message) {
+	switch (message.type) {
+		case "home-pack-begin":
+			spriteChunks.clear();
+			setPackStatus("Loading TinyHouse art…");
+			return true;
+		case "home-pack-chunk": {
+			const key = String(message.key ?? "");
+			const parts = spriteChunks.get(key) ?? [];
+			parts[Number(message.index)] = String(message.data ?? "");
+			spriteChunks.set(key, parts);
+			if (parts.filter((part) => typeof part === "string").length === Number(message.count)) {
+				await decodeSprite(key, parts.join(""));
+				spriteChunks.delete(key);
+			}
+			return true;
+		}
+		case "home-pack-end": {
+			const count = Object.keys(loadedSprites).length;
+			setHomeSprites({ ...loadedSprites });
+			setPackStatus(count ? `TinyHouse art loaded — ${count} sprites.` : "No TinyHouse art loaded.");
+			return true;
+		}
+		case "home-pack-cancelled":
+			setPackStatus("Art loading cancelled.");
+			return true;
+		case "home-pack-error":
+			setPackStatus(String(message.error ?? "Could not load the pack."));
+			return true;
+		default: return false;
+	}
 }
 function capitalize(value) {
 	return value.replace(/^./, (letter) => letter.toUpperCase());
@@ -2983,10 +3128,14 @@ function requestSavedState(timeoutMs = 4e3) {
 		};
 		const timer = window.setTimeout(() => done({}), timeoutMs);
 		bridge.onMessage((message) => {
-			if (typeof message === "object" && message !== null && message.type === "home-state") {
-				const values = message.values;
+			if (typeof message !== "object" || message === null) return;
+			const record = message;
+			if (record.type === "home-state") {
+				const values = record.values;
 				done(typeof values === "object" && values !== null ? values : {});
+				return;
 			}
+			handlePackMessage(record);
 		});
 		bridge.postMessage({ type: "home-state-request" });
 	});

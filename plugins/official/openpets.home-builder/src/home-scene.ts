@@ -1,4 +1,5 @@
 import { Graphics, RESIZE, SHUTDOWN, Scene, Vector2, mountScene, type Pointer } from "./canvas-engine";
+import { PACK_TILE_SIZE } from "./pack-mapping";
 import {
   HOME_PUBLIC_ASSETS,
   advanceHomeSession,
@@ -47,6 +48,19 @@ export interface HomeStateStore {
 }
 
 let store: HomeStateStore = { read: () => null, write: () => {} };
+
+/**
+ * Sprites from the user's TinyHouse pack, keyed by floor material or asset id.
+ * Empty until they load their own copy - Home ships no art, so every draw falls
+ * back to the shapes it has always drawn.
+ */
+let sprites: Readonly<Record<string, CanvasImageSource>> = {};
+let onSpritesChanged: (() => void) | null = null;
+
+export function setHomeSprites(next: Readonly<Record<string, CanvasImageSource>>): void {
+  sprites = next;
+  onSpritesChanged?.();
+}
 
 const HOME_STORAGE_KEY = "pocket-buddy-plus:phaser-home:v2";
 const LEGACY_HOME_STORAGE_KEY = "pocket-buddy-plus:phaser-home:v1";
@@ -196,6 +210,8 @@ class PhaserHomeScene extends Scene {
       this.game.events.off("home:pet-buddy", this.handlePetBuddy, this);
       this.game.events.off("home:interact-selected", this.handleInteractSelected, this);
     });
+
+    onSpritesChanged = () => this.renderRoom();
 
     this.persistAndEmit();
     this.renderRoom();
@@ -407,14 +423,31 @@ class PhaserHomeScene extends Scene {
       const centerY = origin.y + point.y;
       const material = floorMaterialAt(this.floor, cell);
       const hovered = this.hoverCell?.x === cell.x && this.hoverCell?.y === cell.y;
-      drawDiamond(
-        graphics,
-        centerX,
-        centerY,
-        MATERIAL_COLORS[material] ?? 0xc99968,
-        hovered ? 0xffffff : 0x29334a,
-        hovered ? 3 : 1,
-      );
+      const floorSprite = sprites[material];
+      if (floorSprite) {
+        // Pack tiles carry their own slab depth below the diamond, so anchor on
+        // the diamond's centre rather than its bottom edge.
+        graphics.drawSpriteCentered(floorSprite, centerX, centerY, TILE_WIDTH / PACK_TILE_SIZE);
+        if (hovered) {
+          graphics.lineStyle(3, 0xffffff, 1);
+          graphics.beginPath();
+          graphics.moveTo(centerX, centerY - TILE_HEIGHT / 2);
+          graphics.lineTo(centerX + TILE_WIDTH / 2, centerY);
+          graphics.lineTo(centerX, centerY + TILE_HEIGHT / 2);
+          graphics.lineTo(centerX - TILE_WIDTH / 2, centerY);
+          graphics.closePath();
+          graphics.strokePath();
+        }
+      } else {
+        drawDiamond(
+          graphics,
+          centerX,
+          centerY,
+          MATERIAL_COLORS[material] ?? 0xc99968,
+          hovered ? 0xffffff : 0x29334a,
+          hovered ? 3 : 1,
+        );
+      }
     }
 
     const drawables = [
@@ -489,6 +522,30 @@ class PhaserHomeScene extends Scene {
     const x = origin.x + point.x;
     const y = origin.y + point.y;
     const selected = this.play.selectedItemId === item.id;
+
+    const sprite = sprites[definition.assetId];
+    if (sprite) {
+      // A multi-tile piece is authored for its whole footprint, so centre it on
+      // the footprint rather than on its anchor tile - otherwise a 2x1 bed sits
+      // a tile off and floats clear of the floor. Both corner cells go through
+      // projectCanonicalCell so this stays correct as the camera rotates.
+      const far = projectCanonicalCell(
+        { x: item.placement.anchor.x + definition.footprint.width - 1, y: item.placement.anchor.y + definition.footprint.height - 1 },
+        this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT,
+      );
+      const footprintX = (x + origin.x + far.x) / 2;
+      const footprintY = (y + origin.y + far.y) / 2;
+
+      graphics.fillStyle(0x0b1020, 0.24);
+      graphics.fillCircle(footprintX, footprintY + 6, TILE_WIDTH * 0.3);
+      graphics.drawSpriteCentered(sprite, footprintX, footprintY, TILE_WIDTH / PACK_TILE_SIZE);
+      if (selected) {
+        graphics.lineStyle(2, 0xffd84d, 0.9);
+        graphics.strokeCircle(footprintX, footprintY, TILE_WIDTH * 0.5);
+      }
+      return;
+    }
+
     const width = Math.max(22, definition.footprint.width * 25);
     const height = Math.max(16, definition.footprint.height * 15);
 

@@ -102,6 +102,25 @@ export class Graphics {
     return this;
   }
 
+  /**
+   * Blit a sprite centred on a point. Not a Phaser Graphics method - Home had
+   * no art when it ran on Phaser - but it belongs on the same surface so the
+   * existing z-order still holds.
+   *
+   * Centred, not bottom-anchored, because that is the convention the art is
+   * authored to: measured on the pack's own tiles, the isometric diamond's
+   * centre sits exactly at the image centre (a 64x64 floor tile's opaque
+   * content runs y=16..55, diamond centre 32). Bottom-anchoring instead leaves
+   * furniture floating above the floor.
+   */
+  drawSpriteCentered(image: CanvasImageSource, cx: number, cy: number, scale: number): this {
+    const width = Number((image as { width?: number }).width ?? 0) * scale;
+    const height = Number((image as { height?: number }).height ?? 0) * scale;
+    if (!(width > 0) || !(height > 0)) return this;
+    this.ctx.drawImage(image, Math.round(cx - width / 2), Math.round(cy - height / 2), Math.round(width), Math.round(height));
+    return this;
+  }
+
   strokeCircle(x: number, y: number, radius: number): this {
     const circle = new Path2D();
     circle.arc(x, y, Math.max(0, radius), 0, Math.PI * 2);
