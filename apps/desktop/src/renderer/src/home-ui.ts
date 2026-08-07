@@ -146,6 +146,7 @@ function openHome(): void {
   controller?.destroy();
   restorePackSprites();
   controller = mountPhaserHome(stage, { onStateChange: updateHomeStatus });
+  void autoLoadPackSprites();
   controller.setMode(selectedMode);
   controller.setBrush(selectedBrush);
   controller.setItemAsset(selectedAssetId);
@@ -237,6 +238,15 @@ function handleModalClick(event: MouseEvent): void {
   else if (target.closest("[data-home-reset-room]")) controller?.resetRoom();
 }
 
+interface HomePackApi {
+  pickHomePackSprites?: () => Promise<unknown>;
+  autoLoadHomePackSprites?: () => Promise<unknown>;
+}
+
+function homePackApi(): HomePackApi | undefined {
+  return (window as { openPetsControlCenter?: HomePackApi }).openPetsControlCenter;
+}
+
 /** Where a loaded pack is remembered so the user picks it once. */
 const PACK_STORAGE_KEY = "pocket-buddy-plus:home:pack-sprites:v1";
 
@@ -246,10 +256,10 @@ function setHomeNote(text: string): void {
 }
 
 async function loadTinyHousePack(): Promise<void> {
-  const api = (window as { openPetsControlCenter?: { pickHomePackSprites?: () => Promise<unknown> } }).openPetsControlCenter;
+  const api = homePackApi();
   if (!api?.pickHomePackSprites) { setHomeNote("Loading art is not available in this window."); return; }
 
-  setHomeNote("Choose your TinyHouse images…");
+  setHomeNote("Choose your TinyHouse pack folder…");
   try {
     const result = await api.pickHomePackSprites() as { canceled: boolean; sprites?: Record<string, string>; total?: number };
     if (result.canceled) { setHomeNote("Art loading cancelled."); return; }
@@ -257,7 +267,7 @@ async function loadTinyHousePack(): Promise<void> {
     const sprites = result.sprites ?? {};
     const count = Object.keys(sprites).length;
     if (count === 0) {
-      setHomeNote("No TinyHouse sprites Home uses were in that selection. Open the pack folder and select its images.");
+      setHomeNote("No TinyHouse images were found in that folder. Choose the pack folder itself.");
       return;
     }
     applyPackSprites(sprites);
@@ -282,6 +292,27 @@ function restorePackSprites(): void {
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) applyPackSprites(parsed as Record<string, string>);
   } catch {
     // A corrupt cache just means no art until the user picks the pack again.
+  }
+}
+
+/**
+ * Find and load the pack without asking, when it sits somewhere obvious. The
+ * dialog is the fallback, not the first thing the user has to deal with.
+ */
+async function autoLoadPackSprites(): Promise<void> {
+  if (homePackSpriteCount() > 0) return;
+  const api = homePackApi();
+  if (!api?.autoLoadHomePackSprites) return;
+  try {
+    const result = await api.autoLoadHomePackSprites() as { sprites?: Record<string, string>; total?: number };
+    const sprites = result.sprites ?? {};
+    const count = Object.keys(sprites).length;
+    if (count === 0) return;
+    applyPackSprites(sprites);
+    try { window.localStorage.setItem(PACK_STORAGE_KEY, JSON.stringify(sprites)); } catch { /* re-detected next time */ }
+    setHomeNote(`TinyHouse art loaded — ${count} of ${result.total ?? count} sprites.`);
+  } catch {
+    // Auto-detection is a convenience; the button still works.
   }
 }
 

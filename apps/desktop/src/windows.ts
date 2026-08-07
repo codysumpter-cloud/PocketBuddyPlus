@@ -1,14 +1,14 @@
-import { readFile, realpath, stat } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { join, resolve, relative } from "node:path";
 import sharp from "sharp";
 
-/** A pack tile is a few KB; anything near this is not a tile. */
-const maxHomePackSpriteBytes = 512 * 1024;
+
 
 import { app, BrowserWindow, dialog, ipcMain, protocol, shell, type IpcMainInvokeEvent, type OpenDialogOptions } from "electron";
 
-import { PACK_SPRITES, packSpriteKeyForFile } from "@open-pets/buddy-domain";
+import { PACK_SPRITES } from "@open-pets/buddy-domain";
 
+import { findHomePackDir, homePackSearchRootsFrom, readHomePackSprites } from "./home-pack.js";
 import { getAgentSetupSnapshot, runAgentSetupAction, updateAgentSetupCommandPaths } from "./agent-setup.js";
 import { refreshAgentPetContent } from "./agent-pet-controller.js";
 import { getAppStateSnapshot, normalizePetPoolOrder, petScaleOptions, setPetPoolOrder, setReactionAnimationOverridesForPet, updatePreferences } from "./app-state.js";
@@ -540,27 +540,30 @@ export function installInternalUiHandlers(): void {
    */
   ipcMain.handle("openpets:home-pick-pack-sprites", async (event) => {
     assertAllowedSender(event, ["control-center"]);
+    // A folder, not files. macOS will not let an openFile dialog select a
+    // directory, so asking for the pack's images meant hand-picking them out of
+    // nested subfolders - the pack keeps its art in Bedroom/, Chairs/, Plants/
+    // and so on. Point at the pack root instead and walk it here.
     const picked = await dialog.showOpenDialog({
-      title: "Select your TinyHouse pack images",
-      message: "Select the pack's images — Home keeps only the ones it uses.",
-      properties: ["openFile", "multiSelections"],
-      filters: [{ name: "Pack images", extensions: ["png"] }],
+      title: "Choose your TinyHouse pack folder",
+      message: "Pick the pack folder — Home reads only the images it uses.",
+      properties: ["openDirectory"],
     });
     if (picked.canceled || picked.filePaths.length === 0) return { canceled: true as const };
-
-    const sprites: Record<string, string> = {};
-    for (const filePath of picked.filePaths) {
-      const key = packSpriteKeyForFile(filePath);
-      if (!key || sprites[key]) continue;
-      try {
-        const info = await stat(filePath);
-        if (!info.isFile() || info.size > maxHomePackSpriteBytes) continue;
-        sprites[key] = `data:image/png;base64,${(await readFile(filePath)).toString("base64")}`;
-      } catch {
-        // One unreadable file must not fail the whole selection.
-      }
-    }
+    const sprites = await readHomePackSprites(picked.filePaths[0]!);
     return { canceled: false as const, sprites, total: Object.keys(PACK_SPRITES).length };
+  });
+
+  /** Load the pack with no dialog at all when it sits somewhere obvious. */
+  ipcMain.handle("openpets:home-auto-load-pack-sprites", async (event) => {
+    assertAllowedSender(event, ["control-center"]);
+    for (const root of homePackSearchRootsFrom(app.getPath("home"), app.getPath("desktop"))) {
+      const packDir = await findHomePackDir(root);
+      if (!packDir) continue;
+      const sprites = await readHomePackSprites(packDir);
+      if (Object.keys(sprites).length > 0) return { sprites, total: Object.keys(PACK_SPRITES).length, source: packDir };
+    }
+    return { sprites: {}, total: Object.keys(PACK_SPRITES).length };
   });
 
   ipcMain.handle("openpets:agent-setup-snapshot", async (event, selectedPetId: unknown, commandMode: unknown) => {
