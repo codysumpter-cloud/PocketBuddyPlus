@@ -103,7 +103,8 @@ export function installMonitorSelectionIpc(): void {
 /**
  * Enforce the selected monitor for every user-facing BrowserWindow, regardless
  * of whether the executable came from an installed or portable Windows build.
- * Hidden plugin hosts are not touched because they never emit `show`.
+ * Windows preparing to become visible are clamped at ready-to-show so the user
+ * never sees a first frame on the wrong monitor or beneath reserved OS chrome.
  */
 export function installMonitorWindowGuard(): void {
   if (windowGuardInstalled) return;
@@ -136,11 +137,16 @@ function attachWindowGuard(window: BrowserWindow): void {
   originalMinimumSizes.set(window, window.getMinimumSize());
 
   const clamp = (reason: string): void => clampWindowToSelectedMonitor(window, reason);
+  window.on("ready-to-show", () => clamp("ready-to-show"));
   window.on("show", () => clamp("show"));
   window.on("restore", () => clamp("restore"));
   window.on("move", () => clamp("move"));
   window.on("resize", () => clamp("resize"));
   window.on("maximize", () => clamp("maximize"));
+
+  // BrowserWindows created with show:true may already be visible by the time
+  // Electron emits browser-window-created. Clamp them immediately as well.
+  if (window.isVisible()) clamp("created-visible");
 }
 
 function clampWindowToSelectedMonitor(window: BrowserWindow, reason: string): void {
