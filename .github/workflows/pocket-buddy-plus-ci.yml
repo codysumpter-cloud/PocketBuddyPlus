@@ -44,7 +44,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Apply staged Home transform
-        run: python .github/scripts/home_presence_patch.py
+        run: |
+          python .github/scripts/home_presence_patch.py
+          python .github/scripts/home_presence_fixups.py
 
       - name: Build plugin artifacts
         run: pnpm plugins:build
