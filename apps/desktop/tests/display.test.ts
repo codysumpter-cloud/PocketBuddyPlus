@@ -56,7 +56,7 @@ const PH = 420;
 const primaryBounds = { x: 0, y: 0, width: 1920, height: 1080 };
 const primaryWorkArea = { x: 0, y: 0, width: 1920, height: 1040 }; // 40 px bottom taskbar
 const secondaryBounds = { x: 1920, y: 0, width: 2560, height: 1440 };
-const secondaryWorkArea = { x: 1920, y: 0, width: 2560, height: 1392 }; // 48 px taskbar
+const secondaryWorkArea = { x: 1920, y: 0, width: 2560, height: 1392 }; // 48 px bottom taskbar
 const DUAL = makeScreen([
   { bounds: primaryBounds, workArea: primaryWorkArea },
   { bounds: secondaryBounds, workArea: secondaryWorkArea },
@@ -117,6 +117,33 @@ const DUAL = makeScreen([
   const safe = clampWindowBoundsToSelectedWorkArea({ x: 1800, y: 900, width: 1180, height: 820 });
   assert.deepEqual(safe, { x: 740, y: 220, width: 1180, height: 820 });
   assert.equal(safe.y + safe.height, primaryWorkArea.y + primaryWorkArea.height);
+}
+
+// Top and left taskbars reserve positive x/y offsets; windows may not cover them.
+{
+  const topLeftTaskbars = makeScreen([{
+    bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+    workArea: { x: 48, y: 32, width: 1872, height: 1048 },
+  }]);
+  _setScreenForTesting(topLeftTaskbars);
+  setSelectedDisplay("primary");
+  invalidateDisplayCache();
+  const safe = clampWindowBoundsToSelectedWorkArea({ x: 0, y: 0, width: 1180, height: 820 });
+  assert.deepEqual(safe, { x: 48, y: 32, width: 1180, height: 820 });
+}
+
+// A right-edge taskbar reduces workArea width; pet and menus stop before it.
+{
+  const rightTaskbar = makeScreen([{
+    bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+    workArea: { x: 0, y: 0, width: 1872, height: 1080 },
+  }]);
+  _setScreenForTesting(rightTaskbar);
+  setSelectedDisplay("primary");
+  invalidateDisplayCache();
+  assert.deepEqual(clampToVisibleWorkArea({ x: 1800, y: 200 }, { width: PW, height: PH }), { x: 1532, y: 200 });
+  const safeMenu = clampWindowBoundsToSelectedWorkArea({ x: 1700, y: 100, width: 400, height: 500 });
+  assert.equal(safeMenu.x + safeMenu.width, 1872);
 }
 
 // Center helper uses selected monitor, not virtual-desktop/nearest-display geometry.
