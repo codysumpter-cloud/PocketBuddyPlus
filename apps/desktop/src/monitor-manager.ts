@@ -7,6 +7,7 @@ import { setConfinementOuterBounds } from "./confinement-manager.js";
 import {
   clampWindowBoundsToSelectedWorkArea,
   getDisplayChoices,
+  getDisplayKey,
   getEffectiveSelectedDisplayKey,
   getSelectedDisplayPreference,
   getSelectedWorkArea,
@@ -139,6 +140,7 @@ function attachWindowGuard(window: BrowserWindow): void {
   window.on("restore", () => clamp("restore"));
   window.on("move", () => clamp("move"));
   window.on("resize", () => clamp("resize"));
+  window.on("maximize", () => clamp("maximize"));
 }
 
 function clampWindowToSelectedMonitor(window: BrowserWindow, reason: string): void {
@@ -156,6 +158,31 @@ function clampWindowToSelectedMonitor(window: BrowserWindow, reason: string): vo
     }
 
     const current = window.getBounds();
+    const effectiveDisplayKey = getEffectiveSelectedDisplayKey();
+    const currentDisplayKey = getDisplayKey(screen.getDisplayMatching(current).bounds);
+
+    // Windows can move a maximized window between monitors with Win+Shift+Arrow.
+    // setBounds() is not reliable while maximized, so if that move escapes the
+    // selected monitor we restore the normal bounds, relocate them safely, and
+    // maximize again on the selected monitor. The operation is guarded against
+    // recursive move/resize/maximize events above.
+    if (window.isMaximized() && currentDisplayKey !== effectiveDisplayKey) {
+      const normal = window.getNormalBounds();
+      const safeNormal = clampWindowBoundsToSelectedWorkArea(normal);
+      debug("ui", "maximized window returned to selected monitor", {
+        reason,
+        windowId: window.id,
+        currentDisplayKey,
+        selectedDisplayKey: effectiveDisplayKey,
+        normal,
+        safeNormal,
+      });
+      window.unmaximize();
+      window.setBounds(safeNormal, false);
+      window.maximize();
+      return;
+    }
+
     const safe = clampWindowBoundsToSelectedWorkArea(current);
     if (
       safe.x !== current.x || safe.y !== current.y ||
@@ -167,7 +194,7 @@ function clampWindowToSelectedMonitor(window: BrowserWindow, reason: string): vo
         from: current,
         to: safe,
         selected: getSelectedDisplayPreference(),
-        effective: getEffectiveSelectedDisplayKey(),
+        effective: effectiveDisplayKey,
       });
       window.setBounds(safe, false);
     }
