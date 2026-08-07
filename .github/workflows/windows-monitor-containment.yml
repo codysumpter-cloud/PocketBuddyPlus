@@ -45,8 +45,25 @@ jobs:
       - name: Typecheck desktop
         run: pnpm --filter @open-pets/desktop typecheck
 
-      - name: Run desktop tests
-        run: pnpm --filter @open-pets/desktop test
+      - name: Build desktop test output
+        run: pnpm --filter @open-pets/desktop test:build
+
+      - name: Run Windows monitor containment regressions
+        shell: pwsh
+        run: |
+          $tests = @(
+            "apps/desktop/.test-dist/tests/display.test.js",
+            "apps/desktop/.test-dist/tests/monitor-confinement.test.js",
+            "apps/desktop/.test-dist/tests/pet-motion-engine-clamp.test.js",
+            "apps/desktop/.test-dist/tests/monitor-settings-contract.test.js"
+          )
+          foreach ($test in $tests) {
+            Write-Host "Running $test"
+            node $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Monitor regression failed: $test"
+            }
+          }
 
       - name: Build Windows Pocket Buddy+ installer and unpacked app
         run: pnpm package:desktop:plus
