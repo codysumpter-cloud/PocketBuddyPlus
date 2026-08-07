@@ -24,12 +24,18 @@ concurrency:
 
 jobs:
   home-presence-build:
-    name: Build staged Home presence runtime
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat/home-presence-runtime'
+    name: Build and commit verified Home presence runtime
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
+      - name: Checkout feature branch
         uses: actions/checkout@v4
+        with:
+          ref: feat/home-presence-runtime
+          fetch-depth: 0
 
       - name: Enable Corepack
         run: corepack enable
@@ -66,29 +72,24 @@ jobs:
       - name: Run desktop tests
         run: pnpm --filter @open-pets/desktop test
 
-      - name: Package exact changed files
+      - name: Replace staging machinery with normal CI
         shell: bash
         run: |
           set -euo pipefail
-          git add -N .
-          mkdir -p "$RUNNER_TEMP/home-presence-files"
-          git diff --name-only --diff-filter=ACMRT \
-            | grep -v '^\.github/' \
-            | while IFS= read -r file; do
-                test -f "$file" || continue
-                mkdir -p "$RUNNER_TEMP/home-presence-files/$(dirname "$file")"
-                cp "$file" "$RUNNER_TEMP/home-presence-files/$file"
-              done
-          tar -czf "$RUNNER_TEMP/home-presence-files.tgz" -C "$RUNNER_TEMP/home-presence-files" .
-          git diff --stat
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/pocket-buddy-plus-ci.yml
+          rm -f .github/scripts/home_presence_patch.py .github/scripts/home_presence_fixups.py
 
-      - name: Upload exact changed files
-        uses: actions/upload-artifact@v4
-        with:
-          name: home-presence-verified-files
-          path: ${{ runner.temp }}/home-presence-files.tgz
-          if-no-files-found: error
-          retention-days: 7
+      - name: Commit exact verified working tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --stat
+          git commit -m "feat(home): add canonical Buddy presence runtime"
+          git push origin HEAD:feat/home-presence-runtime
 
   verify:
     name: Build, typecheck, test, and package
