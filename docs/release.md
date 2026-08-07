@@ -93,7 +93,14 @@ Web release includes:
 - Removal or hiding of legacy sample plugin manifests from current public discovery.
 - Updated `web/docs/plugin-publishing.md`.
 
-Required validation from the repository root:
+> **Runs from the openpets.dev site checkout, not from this repo.** Every step
+> below reads or writes a `web/` tree — `catalog.v2.json`, the staged plugin
+> ZIPs, `provenance.json`, `submissions.json` — which has never existed here.
+> The matching npm scripts were removed from this repo's `package.json`
+> because they failed with ENOENT/MODULE_NOT_FOUND. Run them where `web/` is.
+
+Required validation (`plugins:locales` and `plugins:test` run from this repo;
+the rest need the site checkout):
 
 ```bash
 pnpm plugins:locales

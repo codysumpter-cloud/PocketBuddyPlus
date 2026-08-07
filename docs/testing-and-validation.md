@@ -91,14 +91,24 @@ Each package runs its own `check`/`test`. Notable contract/boundary coverage:
 
 ## Plugin release validation (production gate)
 
-`plugins:check` alone is **not** release-readiness. The dedicated validators are
-the production gate (`scripts/validate-plugin-release.mjs`):
+**This gate does not run from this repo.** `scripts/validate-plugin-release.mjs`
+is the production validator, but every path it reads - `catalog.v2.json`, the
+built plugin ZIPs, `provenance.json`, `submissions.json` - lives under a `web/`
+tree in the openpets.dev site repo, which has never existed here. The npm
+scripts that invoked it (and `web/scripts/sync-plugins.js`, also absent) failed
+with ENOENT/MODULE_NOT_FOUND and were removed. Run the release gate from the
+site checkout, where it catches unresolved `$t:` names/descriptions in catalog
+cards, missing plugin ZIPs, SHA mismatches, missing `locales/en.json`, missing
+declared assets/entry files (including courier sprites), catalog/package drift,
+and community plugin sidecar validation.
+
+What this repo gates on instead:
 
 | Command | When | Catches |
 |---------|------|---------|
-| `pnpm plugins:package` | build artifacts | (produces catalog + ZIP staging) |
-| `pnpm plugins:validate-release` | **before deploy** | unresolved `$t:` names/descriptions in catalog cards, missing plugin ZIPs, SHA mismatches, missing `locales/en.json`, missing declared assets/entry files (including courier sprites), catalog/package drift, and **community plugin sidecar validation** (`provenance.json`, `submissions.json`) |
-| `pnpm plugins:validate-live` | **after deploy/R2 upload** | the same, against the live catalog + live ZIPs & live sidecars |
+| `pnpm plugins:build:check` | every change | built plugin artifacts that are stale against their `src/` |
+| `pnpm plugins:locales` | every change | a locale missing any key that `en.json` has |
+| `pnpm plugins:test` | every change | the per-plugin `test.js` behaviour suites |
 
 ### Plugin sidecar validation
 
@@ -109,13 +119,10 @@ and `web/public/plugins/submissions.json` and asserts:
 3. Update policy is strictly limited to either `safe-auto` or `manual-review`.
 4. Pending submissions are well-formed and are not also present in the installable catalog.
 
-The full pre-ship sequence (from `AGENTS.md`):
-`pnpm plugins:package` → `pnpm plugins:validate-release` → deploy/upload →
-`pnpm plugins:validate-live`. Treat a failing validator as a hard stop — these
-are exactly the mistakes that 404 a plugin or render a raw `$t:...` to users.
-For the full plugin catalog release path in one command, run
-`pnpm plugins:release`; it packages, validates, publishes ZIPs, deploys the web
-catalog, then validates the live catalog.
+The full pre-ship sequence — package → validate → deploy/upload → validate live —
+runs from the openpets.dev site checkout, which is where the `web/` tree and the
+publishing scripts live. Treat a failing validator as a hard stop: these are
+exactly the mistakes that 404 a plugin or render a raw `$t:...` to users.
 
 ## Catalog verification (production gate for pets)
 

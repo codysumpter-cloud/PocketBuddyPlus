@@ -277,7 +277,13 @@ Its manifest requests only `ui:delivery`, `auth`, `network`, `schedule`,
 
 The release path is documented operationally in `web/docs/plugin-publishing.md`
 and gated by the validators in [testing-and-validation.md](testing-and-validation.md).
-The command surface (run from repo root):
+The command surface:
+
+> **Runs from the openpets.dev site checkout, not from this repo.** Every step
+> below reads or writes a `web/` tree — `catalog.v2.json`, the staged plugin
+> ZIPs, `provenance.json`, `submissions.json` — which has never existed here.
+> The matching npm scripts were removed from this repo's `package.json`
+> because they failed with ENOENT/MODULE_NOT_FOUND. Run them where `web/` is.
 
 | Command | Purpose |
 |---------|---------|
@@ -294,7 +300,7 @@ The release validator exists to catch exactly the production-breakers
 `plugins:check` alone misses: unresolved `$t:` names/descriptions in catalog
 cards, missing ZIPs, SHA mismatches, missing `locales/en.json`, missing declared
 assets/entry files, and catalog/package drift. **Always run it before shipping a
-plugin release.**
+plugin release** — from the site checkout.
 
 `plugins:package` and `plugins:publish` read both `plugins/official/` and
 `plugins/community/`. Catalog v2 entries include `publisherType` so the app and

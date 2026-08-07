@@ -1,5 +1,17 @@
 #!/usr/bin/env node
 
+// NOT WIRED TO AN npm SCRIPT, AND CANNOT RUN FROM THIS REPO AS-IS.
+//
+// This validates a published plugin catalog, and every path below points into a
+// `web/` tree - catalog.v2.json, provenance.json, submissions.json, and the
+// built plugin zips - that lives in the openpets.dev site repo, not here. It
+// has never existed in this repo on any branch.
+//
+// The package.json entries that used to invoke this (and web/scripts/sync-plugins.js,
+// which is also absent) failed with ENOENT/MODULE_NOT_FOUND, so they were
+// removed. The logic is kept because it is the real validator: run it from a
+// checkout that has the `web/` tree, or point the paths at one.
+
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";

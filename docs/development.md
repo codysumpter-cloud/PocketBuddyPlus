@@ -45,12 +45,12 @@ All from the repo root unless noted (full list in root `package.json`):
 | `openpets plugin new <name> --template <t>` | Scaffold an SDK v3 plugin |
 | `openpets plugin validate <dir>` | Validate a plugin locally |
 | `pnpm plugins:test` | Locale checks + official-plugin harness tests |
-| `pnpm plugins:check` | Dry-run the catalog package plan |
-| `pnpm plugins:package` | Build catalog + ZIP staging (no upload) |
-| `pnpm plugins:validate-release` | Pre-ship release gate |
-| `pnpm plugins:publish` | Upload ZIPs to R2 |
-| `pnpm plugins:validate-live` | Post-deploy live check |
-| `pnpm plugins:deploy` | Deploy the web catalog |
+| `pnpm plugins:locales` | Every locale has every `en.json` key |
+| `pnpm plugins:build` | Rebuild plugins that are compiled from `src/` |
+| `pnpm plugins:build:check` | Fail if a built plugin artifact is stale |
+
+Catalog packaging, publishing and release validation run from the openpets.dev
+site checkout, not from here — they need a `web/` tree this repo does not have.
 
 See [plugins.md](plugins.md) for the authoring workflow and
 [testing-and-validation.md](testing-and-validation.md) for what the validators
@@ -108,9 +108,10 @@ the packaging contract — see [testing-and-validation.md](testing-and-validatio
 
 ### Web catalog
 
-Pet and plugin catalog deploys run from `web/` with Bun (`bun run deploy`,
-`pnpm plugins:deploy`). Catalog generation/verification is in [catalog.md](catalog.md)
-and the runbooks under `web/docs/`.
+Pet and plugin catalog deploys run from the openpets.dev site checkout with Bun
+(`bun run deploy`) — that repo owns the `web/` tree, not this one. Catalog
+generation/verification is in [catalog.md](catalog.md) and the runbooks under
+that repo's `web/docs/`.
 
 ## Cross-platform & Linux testing
 

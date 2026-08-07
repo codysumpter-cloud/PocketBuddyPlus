@@ -49,6 +49,6 @@ First-party SDK v3 plugin product source. These plugins are the reviewed default
 
 - **Desktop dev mode**: `OPENPETS_DEV_PLUGIN_ROOTS=plugins/official` lets the app hot-load these packages through the local loader.
 - **Bundled product lineup**: Pocket Buddy+-specific plugins are registered in `apps/desktop/src/product-bundled-plugins.ts` and remain disabled until the normal user permission flow enables them.
-- **Release validation**: `pnpm plugins:package` and `pnpm plugins:validate-release` package manifests, entries, assets, panels, and locales while checking catalog/package drift.
+- **Release validation**: runs from the openpets.dev site repo, not here - `scripts/validate-plugin-release.mjs` needs a `web/` catalog tree this repo does not have. Locally, `pnpm plugins:build:check`, `pnpm plugins:locales` and `pnpm plugins:test` are the gates.
 - **Shared state boundary**: Buddy identity and inventory are host-owned; plugins own only experience-specific progress, pending operations, and presentation state.
 - **Network boundary**: Local Battles and Trading Post do not imply remote PvP or player-to-player settlement. Those require separate authenticated and server-authoritative contracts.

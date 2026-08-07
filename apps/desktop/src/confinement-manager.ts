@@ -116,9 +116,12 @@ export function clampToTerminalBounds(position: Point, petSize: WindowSize, boun
   const minY = bounds.y;
   const maxY = bounds.y + Math.max(0, bounds.height - petSize.height);
 
+  // Round AFTER clamping: terminal bounds are read from the window server and
+  // are fractional on scaled displays, so clamping against them would otherwise
+  // return a fractional coordinate that Electron's setPosition cannot convert.
   return {
-    x: clampInRange(Math.round(position.x), minX, maxX),
-    y: clampInRange(Math.round(position.y), minY, maxY),
+    x: Math.round(clampInRange(Math.round(position.x), minX, maxX)),
+    y: Math.round(clampInRange(Math.round(position.y), minY, maxY)),
   };
 }
 
