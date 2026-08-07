@@ -20,6 +20,15 @@ export interface WindowSize {
   readonly height: number;
 }
 
+export interface DisplayChoice {
+  readonly key: string;
+  readonly primary: boolean;
+  readonly bounds: Rectangle;
+  readonly workArea: Rectangle;
+}
+
+export type DisplaySelection = "primary" | string;
+
 /**
  * Derive a stable string key for a display from its bounds.
  * Display IDs can change across reboots on some platforms, so we key on
@@ -56,23 +65,16 @@ export const defaultPetWindowMargin = 24;
 
 /**
  * Minimum overlap (in pixels) along each axis for a pet to be considered
- * "on" a display.  Rejects hair-thin slivers without requiring full coverage.
- * Based on ~33% of the smallest pet dimension (420*0.33 ≈ 138).  The value
- * is intentionally modest so that deliberate cross-seam transit is allowed
- * as soon as a meaningful portion of the pet has crossed.
+ * "on" a display. Rejects hair-thin slivers without requiring full coverage.
  */
 const MIN_VISIBLE_PX = 100;
 
 // ---------------------------------------------------------------------------
 // Testability seam — allows unit tests to inject a mock screen implementation
 // without requiring a running Electron process.
-// Same pattern as setConfinementEnabled() in confinement-manager.ts.
 // ---------------------------------------------------------------------------
 
-/**
- * Minimal screen interface.  Typed explicitly so that unit tests can provide
- * plain objects without depending on the full Electron types package.
- */
+/** Minimal subset of Electron's screen interface used by this module. */
 export interface ScreenImpl {
   getAllDisplays(): DisplayInfo[];
   getPrimaryDisplay(): DisplayInfo;
@@ -97,20 +99,15 @@ function getScreen(): ScreenImpl {
   return _screen;
 }
 
-/**
- * Replace the screen implementation used by this module.
- * ONLY call this from unit tests.  Pass `null` to restore the real electron screen.
- */
+/** Replace the screen implementation used by this module. Tests only. */
 export function _setScreenForTesting(impl: ScreenImpl | null): void {
   _screen = impl;
-  _cachedDisplays = null; // bust the cache when the impl changes
+  _cachedDisplays = null;
 }
 
 /**
- * Cached list of displays.  Invalidated by `invalidateDisplayCache()` which
- * should be called whenever a display topology event fires (added / removed /
- * metrics-changed).  Caching avoids N×getAllDisplays() calls inside the 50 ms
- * motion tick when multiple pets are active.
+ * Cached list of displays. Invalidated whenever Electron reports a topology or
+ * work-area change so a moved taskbar/dock is reflected immediately.
  */
 let _cachedDisplays: DisplayInfo[] | null = null;
 
@@ -126,8 +123,88 @@ function getAllDisplaysCached(): DisplayInfo[] {
   return _cachedDisplays;
 }
 
+// ---------------------------------------------------------------------------
+// Selected-monitor policy
+// ---------------------------------------------------------------------------
+
+let _selectedDisplay: DisplaySelection = "primary";
+
+export function isDisplaySelection(value: unknown): value is DisplaySelection {
+  return value === "primary" || (typeof value === "string" && /^-?\d+,-?\d+,\d+x\d+$/.test(value));
+}
+
+/** Apply the persisted monitor preference. Invalid values fail safely to primary. */
+export function setSelectedDisplay(selection: unknown): void {
+  _selectedDisplay = isDisplaySelection(selection) ? selection : "primary";
+}
+
+export function getSelectedDisplayPreference(): DisplaySelection {
+  return _selectedDisplay;
+}
+
+/**
+ * Resolve the selected monitor. If an explicitly selected monitor is detached,
+ * keep the preference but use the current primary monitor until it returns.
+ */
+export function getSelectedDisplayInfo(): DisplayInfo {
+  if (_selectedDisplay !== "primary") {
+    const selected = getAllDisplaysCached().find((display) => getDisplayKey(display.bounds) === _selectedDisplay);
+    if (selected) return selected;
+  }
+  return getScreen().getPrimaryDisplay();
+}
+
+export function getEffectiveSelectedDisplayKey(): string {
+  return getDisplayKey(getSelectedDisplayInfo().bounds);
+}
+
+export function getDisplayChoices(): DisplayChoice[] {
+  const primaryKey = getDisplayKey(getScreen().getPrimaryDisplay().bounds);
+  return getAllDisplaysCached().map((display) => ({
+    key: getDisplayKey(display.bounds),
+    primary: getDisplayKey(display.bounds) === primaryKey,
+    bounds: { ...display.bounds },
+    workArea: { ...display.workArea },
+  }));
+}
+
+export function getSelectedWorkArea(): Rectangle {
+  return { ...getSelectedDisplayInfo().workArea };
+}
+
+/**
+ * Clamp a normal application window to the selected monitor's usable work
+ * area. The usable work area excludes the Windows taskbar and macOS dock/menu
+ * reservations. Windows larger than the work area are shrunk to fit.
+ */
+export function clampWindowBoundsToSelectedWorkArea(bounds: Rectangle): Rectangle {
+  const area = toIntegerWorkArea(getSelectedDisplayInfo().workArea);
+  const width = Math.max(1, Math.min(Math.round(bounds.width), area.width));
+  const height = Math.max(1, Math.min(Math.round(bounds.height), area.height));
+  const maxX = area.x + area.width - width;
+  const maxY = area.y + area.height - height;
+  return {
+    x: clamp(Math.round(bounds.x), area.x, maxX),
+    y: clamp(Math.round(bounds.y), area.y, maxY),
+    width,
+    height,
+  };
+}
+
+export function centerWindowBoundsOnSelectedWorkArea(size: WindowSize): Rectangle {
+  const area = toIntegerWorkArea(getSelectedDisplayInfo().workArea);
+  const width = Math.max(1, Math.min(Math.round(size.width), area.width));
+  const height = Math.max(1, Math.min(Math.round(size.height), area.height));
+  return {
+    x: Math.round(area.x + (area.width - width) / 2),
+    y: Math.round(area.y + (area.height - height) / 2),
+    width,
+    height,
+  };
+}
+
 export function getDefaultPetInitialPosition(size: WindowSize = defaultPetWindowSize): Point {
-  const { workArea } = getScreen().getPrimaryDisplay();
+  const workArea = toIntegerWorkArea(getSelectedDisplayInfo().workArea);
 
   return {
     x: Math.round(workArea.x + workArea.width - size.width - defaultPetWindowMargin),
@@ -137,17 +214,8 @@ export function getDefaultPetInitialPosition(size: WindowSize = defaultPetWindow
 
 /**
  * Returns true when the pet rect overlaps at least one display work area by
- * at least `minOverlap` pixels on BOTH axes.
- *
- * This is the "is the pet still visible somewhere?" test used by the permissive-
- * containment policy.  Using bottom-center as the primary anchor is accurate
- * because the visible sprite/hit-box sits at the bottom of the transparent
- * 340×420 window (petBottom ≈ 22 px from the window bottom edge).
- *
- * @param position   Top-left corner of the pet window (global virtual-desktop coords).
- * @param width      Pet window width.
- * @param height     Pet window height.
- * @param minOverlap Minimum pixel overlap on each axis (default: MIN_VISIBLE_PX).
+ * at least `minOverlap` pixels on BOTH axes. Retained for diagnostics and old
+ * tests; production placement is now always selected-monitor constrained.
  */
 export function isOnAnyDisplay(
   position: Point,
@@ -155,13 +223,11 @@ export function isOnAnyDisplay(
   height: number,
   minOverlap: number = MIN_VISIBLE_PX,
 ): boolean {
-  // Bottom-center anchor: the visible sprite lives at the bottom of the window.
   const anchorX = position.x + width / 2;
   const anchorY = position.y + height;
 
   for (const display of getAllDisplaysCached()) {
     const wa = display.workArea;
-    // Does the anchor point lie inside this display's work area?
     if (
       anchorX >= wa.x &&
       anchorX <= wa.x + wa.width &&
@@ -170,7 +236,6 @@ export function isOnAnyDisplay(
     ) {
       return true;
     }
-    // Fallback: is there sufficient rect overlap on both axes?
     const overlapX = Math.min(position.x + width, wa.x + wa.width) - Math.max(position.x, wa.x);
     const overlapY = Math.min(position.y + height, wa.y + wa.height) - Math.max(position.y, wa.y);
     if (overlapX >= minOverlap && overlapY >= minOverlap) {
@@ -181,62 +246,24 @@ export function isOnAnyDisplay(
 }
 
 /**
- * Permissive containment clamp.
- *
- * If the pet is still visible on at least one display (anchor or overlap test),
- * the position is returned verbatim (rounded to integers).  This allows free
- * transit across shared display seams.
- *
- * If the pet has moved fully off all displays, it snaps to the work area of the
- * display nearest to its bottom-center anchor — the same logic as today but
- * triggered only when the pet is genuinely off-screen.
- *
- * Wide physical gaps between displays (where no display work area exists) act
- * as walls: the pet sticks at the last edge it reached and cannot teleport
- * across.  This is the accepted limitation; it is documented in docs/pets.md.
+ * Compatibility entry point for older cross-display callers. Pocket Buddy+
+ * now has a hard selected-monitor boundary, so even callers that request the
+ * historical permissive roaming policy are clamped to the selected work area.
  */
 export function clampToNearestDisplayIfOffscreen(
   position: Point,
   size: WindowSize = defaultPetWindowSize,
 ): Point {
-  if (isOnAnyDisplay(position, size.width, size.height)) {
-    // Pet is visible — leave it alone.
-    return { x: Math.round(position.x), y: Math.round(position.y) };
-  }
-
-  // Pet is fully off-screen.  Snap to nearest display using bottom-center anchor.
-  const anchor = {
-    x: Math.round(position.x + size.width / 2),
-    y: Math.round(position.y + size.height),
-  };
-  const { workArea } = getScreen().getDisplayNearestPoint(anchor);
-  return clampIntoWorkArea(position, size, workArea);
+  return clampIntoWorkArea(position, size, getSelectedDisplayInfo().workArea);
 }
 
 /**
- * Clamps a position into a given work area rectangle.
- * Shared primitive used by both clampToVisibleWorkArea and
- * clampToNearestDisplayIfOffscreen.
- */
-/**
  * Electron's window coordinate setters take a C++ `int`. Anything else aborts
- * the call with "Error processing argument at index 0, conversion failure" -
- * an uncaught exception that kills the main process, not a recoverable error.
- *
- * Measured against Electron 42 rather than assumed. Every one of these is
- * rejected: a fraction, a value past int32, NaN, Infinity, and - the one that
- * is easy to miss - NEGATIVE ZERO, which `Number.isSafeInteger` reports as a
- * valid integer. `Math.round` produces -0 for any value in (-0.5, 0], so a pet
- * drifting across the origin of a display whose work area starts at or below 0
- * hits it.
- *
- * Returns null when the coordinate cannot be represented, so callers skip the
- * write instead of crashing.
+ * the call with "Error processing argument at index 0, conversion failure".
  */
 export function toWindowCoordinate(value: number): number | null {
   const rounded = Math.round(value);
   if (!Number.isFinite(rounded) || Math.abs(rounded) > 2147483647) return null;
-  // `rounded === 0` is true for -0; returning the literal normalizes it to +0.
   return rounded === 0 ? 0 : rounded;
 }
 
@@ -245,53 +272,53 @@ function clampIntoWorkArea(
   size: WindowSize,
   workArea: { x: number; y: number; width: number; height: number },
 ): Point {
-  const minX = workArea.x;
-  const minY = workArea.y;
-  const maxX = workArea.x + Math.max(0, workArea.width - size.width);
-  const maxY = workArea.y + Math.max(0, workArea.height - size.height);
+  const area = toIntegerWorkArea(workArea);
+  const width = Math.min(Math.max(1, Math.round(size.width)), area.width);
+  const height = Math.min(Math.max(1, Math.round(size.height)), area.height);
+  const maxX = area.x + area.width - width;
+  const maxY = area.y + area.height - height;
 
-  // Round AFTER clamping, not just the input. A display at a fractional scale
-  // factor (150%, 175%) reports a fractional workArea, so clamping an integer
-  // against it returns the bound verbatim and yields a fractional coordinate.
-  // That reaches window.setPosition, which takes an int, and Electron kills the
-  // process with "conversion failure" - Number.isFinite does not catch it.
   return {
-    x: Math.round(clamp(Math.round(position.x), minX, maxX)),
-    y: Math.round(clamp(Math.round(position.y), minY, maxY)),
+    x: clamp(Math.round(position.x), area.x, maxX),
+    y: clamp(Math.round(position.y), area.y, maxY),
   };
 }
 
+/**
+ * Legacy name retained for callers, but the policy is no longer "nearest
+ * display": every pet/window is constrained to the monitor selected in
+ * Settings, and the selected monitor's work area excludes the taskbar/dock.
+ */
 export function clampToVisibleWorkArea(position: Point, size: WindowSize = defaultPetWindowSize): Point {
-  // Clamp to the display the pet currently lives on (the one nearest its centre).
-  // Note: this function is the LEGACY single-display clamp, kept for when
-  // cross-display roaming is disabled via the petCrossDisplayEnabled flag.
-  // When cross-display roaming is ON, call clampToNearestDisplayIfOffscreen instead.
-  const centre = { x: position.x + size.width / 2, y: position.y + size.height / 2 };
-  const { workArea } = getScreen().getDisplayNearestPoint(centre);
-  return clampIntoWorkArea(position, size, workArea);
+  return clampIntoWorkArea(position, size, getSelectedDisplayInfo().workArea);
 }
 
 // ---------------------------------------------------------------------------
-// Cross-display roaming flag — mirrors petConfinementEnabled/setConfinementEnabled
-// pattern in confinement-manager.ts.  Default false (dormant/off by default;
-// enabled explicitly via the petCrossDisplayEnabled preference).
+// Legacy cross-display preference
 // ---------------------------------------------------------------------------
 
 let _crossDisplayRoamingEnabled = false;
 
 /**
- * Called by windows.ts when the petCrossDisplayEnabled preference changes.
- * Same injected-setter pattern as confinement-manager.ts to avoid import cycles.
+ * Kept so old persisted state and plugin code remain readable. The selected
+ * monitor boundary is authoritative, so enabling this no longer permits a
+ * window to leave that monitor.
  */
 export function setCrossDisplayRoamingEnabled(enabled: boolean): void {
   _crossDisplayRoamingEnabled = enabled;
 }
 
-/** Returns whether cross-display roaming is currently enabled. */
 export function isCrossDisplayRoamingEnabled(): boolean {
   return _crossDisplayRoamingEnabled;
 }
 
+function toIntegerWorkArea(workArea: { x: number; y: number; width: number; height: number }): Rectangle {
+  const left = Math.ceil(workArea.x);
+  const top = Math.ceil(workArea.y);
+  const right = Math.max(left + 1, Math.floor(workArea.x + workArea.width));
+  const bottom = Math.max(top + 1, Math.floor(workArea.y + workArea.height));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
