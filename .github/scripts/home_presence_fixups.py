@@ -11,7 +11,7 @@ text = text.replace(
 )
 text = text.replace(
     'const panel = window.openPetsPanel;\nif (!panel) throw new Error("Home panel bridge is unavailable");\n',
-    'interface PanelBridge {\n  postMessage(message: unknown): void;\n  onMessage(handler: (message: unknown) => void): () => void;\n  close(): void;\n}\n\nconst panel = (globalThis as { openPetsPanel?: PanelBridge }).openPetsPanel;\nif (!panel) throw new Error("Home panel bridge is unavailable");\n',
+    'interface PanelBridge {\n  postMessage(message: unknown): void;\n  onMessage(handler: (message: unknown) => void): () => void;\n  close(): void;\n}\n\nconst panelCandidate = (globalThis as { openPetsPanel?: PanelBridge }).openPetsPanel;\nif (!panelCandidate) throw new Error("Home panel bridge is unavailable");\nconst panel: PanelBridge = panelCandidate;\n',
 )
 
 path.write_text(text)
