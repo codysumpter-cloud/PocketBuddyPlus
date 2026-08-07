@@ -26,6 +26,23 @@
     }
   }
 
+  // Optional developer path: ?pack=<base-url> loads the pack over HTTP from a
+  // local server (see serve-local.mjs) instead of prompting for the folder on
+  // every reload. The folder picker below stays the default, and the licence
+  // position is unchanged either way - the files are read from wherever the
+  // user keeps them and are never copied into this repository.
+  const packBase = new URLSearchParams(location.search).get("pack");
+  if (packBase) {
+    attachFromBaseUrl(packBase)
+      .then(() => resolveReady())
+      .catch((error) => {
+        console.error("TinyHouse pack load failed", error);
+        document.body.insertAdjacentHTML("afterbegin",
+          `<pre id="pack-load-error" style="padding:1rem;color:#b00">TinyHouse pack failed to load from ${packBase}\n${String(error && error.message || error)}</pre>`);
+      });
+    return;
+  }
+
   const overlay = document.createElement("section");
   overlay.id = "local-asset-gate";
   overlay.setAttribute("role", "dialog");
@@ -70,6 +87,34 @@
       status.textContent = error instanceof Error ? error.message : String(error);
     }
   });
+
+  async function attachFromBaseUrl(base) {
+    const root = base.endsWith("/") ? base : `${base}/`;
+    const urlByPath = new Map();
+    const missing = [];
+    for (const required of originalPaths) {
+      const path = normalizePath(required);
+      const response = await fetch(root + path.split("/").map(encodeURIComponent).join("/"));
+      if (!response.ok) { missing.push(path); continue; }
+      urlByPath.set(path, URL.createObjectURL(await response.blob()));
+    }
+    if (missing.length) {
+      throw new Error(`${missing.length} required PNGs are missing under ${root} (${missing.slice(0, 4).join(", ")}${missing.length > 4 ? ", …" : ""}).`);
+    }
+    for (const [generatedPath, recipe] of Object.entries(recipes)) {
+      urlByPath.set(normalizePath(generatedPath), await renderRecipe(recipe, urlByPath));
+    }
+    for (const asset of manifest.assets) {
+      const path = stripManifestPrefix(asset.path);
+      asset.dataUrl = urlByPath.get(path);
+      if (Array.isArray(asset.frames)) {
+        asset.frameDataUrls = asset.frames.map((frame) => urlByPath.get(stripManifestPrefix(frame)));
+      }
+    }
+    window.addEventListener("pagehide", () => {
+      for (const url of urlByPath.values()) URL.revokeObjectURL(url);
+    }, { once: true });
+  }
 
   async function attachFiles(files) {
     if (!files.length) throw new Error("No files selected.");
