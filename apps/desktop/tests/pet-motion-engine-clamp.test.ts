@@ -1,38 +1,43 @@
 /**
- * Unit tests for cross-display clamp policy in pet-motion-engine.
+ * Unit tests for pet-motion-engine's selected-monitor clamp policy.
  *
- * Guards the 3-way clampPosition dispatch:
- *   1. Confined pets always use clampToTerminalBounds (confinement is HIGHEST priority).
- *   2. Free-roam + flag ON  → clampToNearestDisplayIfOffscreen (permissive).
- *   3. Free-roam + flag OFF → clampToVisibleWorkArea (legacy single-display).
- *
- * Since clampPosition is a private helper, we test its observable effects by
- * combining the testability seams (_setScreenForTesting, _setIsPetWindowDraggingForTesting)
- * with the confinement seam (setConfinementEnabled / setConfinedPetTerminalBounds) and
- * the flag setter (setCrossDisplayRoamingEnabled) from display.ts.
- *
- * We also verify the isCrossDisplayRoamingEnabled() flag default (false) and toggle.
+ * The historical petCrossDisplayEnabled preference remains readable for
+ * backward compatibility, but it no longer weakens the selected-monitor hard
+ * boundary. Confinement can narrow the allowed area; it can never expand it.
  */
 
 import assert from "node:assert/strict";
 
-// Set testability seams BEFORE importing the modules that contain lazy electron
-// requires, so that the lazy getters return our mocks instead of trying to load
-// the real Electron binary.
-import { _setScreenForTesting as setMotionScreen, _setIsPetWindowDraggingForTesting, _clampPositionForTesting } from "../src/pet-motion-engine.js";
-import { _setScreenForTesting as setDisplayScreen, invalidateDisplayCache, isCrossDisplayRoamingEnabled, setCrossDisplayRoamingEnabled } from "../src/display.js";
-import { setConfinementEnabled, setConfinementState, clearConfinementState } from "../src/confinement-manager.js";
+import {
+  _setScreenForTesting as setMotionScreen,
+  _setIsPetWindowDraggingForTesting,
+  _clampPositionForTesting,
+} from "../src/pet-motion-engine.js";
+import {
+  _setScreenForTesting as setDisplayScreen,
+  clampToNearestDisplayIfOffscreen,
+  invalidateDisplayCache,
+  isCrossDisplayRoamingEnabled,
+  setCrossDisplayRoamingEnabled,
+  setSelectedDisplay,
+} from "../src/display.js";
+import {
+  clearConfinementState,
+  setConfinementEnabled,
+  setConfinementOuterBounds,
+  setConfinementState,
+} from "../src/confinement-manager.js";
 
-// ---------------------------------------------------------------------------
-// Shared mock screen: two 1920×1080 displays side-by-side (total 3840 wide).
-// Display 1: x=0,    y=0, w=1920, h=1080 (workArea same, no OS chrome for simplicity)
-// Display 2: x=1920, y=0, w=1920, h=1080
-// ---------------------------------------------------------------------------
-const display1 = { bounds: { x: 0, y: 0, width: 1920, height: 1080 }, workArea: { x: 0, y: 0, width: 1920, height: 1080 } };
-const display2 = { bounds: { x: 1920, y: 0, width: 1920, height: 1080 }, workArea: { x: 1920, y: 0, width: 1920, height: 1080 } };
+const display1 = {
+  bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+  workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+};
+const display2 = {
+  bounds: { x: 1920, y: 0, width: 1920, height: 1080 },
+  workArea: { x: 1920, y: 0, width: 1920, height: 1040 },
+};
 
 function nearestPoint(point: { x: number; y: number }) {
-  // Simple nearest-display logic: pick whichever display centre is closest.
   const c1x = display1.bounds.x + display1.bounds.width / 2;
   const c2x = display2.bounds.x + display2.bounds.width / 2;
   return Math.abs(point.x - c1x) <= Math.abs(point.x - c2x) ? display1 : display2;
@@ -48,62 +53,38 @@ setDisplayScreen(mockScreen as any);
 invalidateDisplayCache();
 setMotionScreen({ getCursorScreenPoint: () => ({ x: 0, y: 0 }), getDisplayNearestPoint: nearestPoint } as any);
 _setIsPetWindowDraggingForTesting(() => false);
+setSelectedDisplay("primary");
+setConfinementOuterBounds(display1.workArea);
 
-// ---------------------------------------------------------------------------
-// 1. isCrossDisplayRoamingEnabled defaults to false (dormant by default)
-// ---------------------------------------------------------------------------
-assert.equal(isCrossDisplayRoamingEnabled(), false, "flag defaults to false");
+const petSize = { width: 340, height: 420 };
 
-// ---------------------------------------------------------------------------
-// 2. Flag can be toggled via setCrossDisplayRoamingEnabled
-// ---------------------------------------------------------------------------
-setCrossDisplayRoamingEnabled(false);
-assert.equal(isCrossDisplayRoamingEnabled(), false, "flag can be set to false");
-
+// The old preference still round-trips for persisted-state compatibility.
+assert.equal(isCrossDisplayRoamingEnabled(), false, "legacy cross-display flag defaults false");
 setCrossDisplayRoamingEnabled(true);
-assert.equal(isCrossDisplayRoamingEnabled(), true, "flag can be restored to true");
+assert.equal(isCrossDisplayRoamingEnabled(), true, "legacy flag remains readable");
 
-// ---------------------------------------------------------------------------
-// 3. clampToNearestDisplayIfOffscreen: straddling seam (flag ON) — position unchanged
-// Straddling: pet at x=1860 straddles both displays with width=340; overlaps both.
-// ---------------------------------------------------------------------------
-import { clampToNearestDisplayIfOffscreen } from "../src/display.js";
-const { width: petW, height: petH } = { width: 340, height: 420 };
-
+// A pet may not straddle the seam. Its whole rect is pulled back into monitor 1.
 {
-  const pos = { x: 1860, y: 100 };
-  const result = clampToNearestDisplayIfOffscreen(pos, { width: petW, height: petH });
-  assert.deepEqual(result, pos, "straddling: clampToNearestDisplayIfOffscreen leaves position unchanged");
+  const result = clampToNearestDisplayIfOffscreen({ x: 1860, y: 100 }, petSize);
+  assert.deepEqual(result, { x: 1580, y: 100 });
+  assert.equal(result.x + petSize.width, display1.workArea.x + display1.workArea.width);
 }
 
-// ---------------------------------------------------------------------------
-// 4. clampToNearestDisplayIfOffscreen: fully offscreen right (flag ON) — snaps to display 2
-// ---------------------------------------------------------------------------
+// A target deep on monitor 2 is still clamped to the selected primary monitor.
 {
-  const pos = { x: 4000, y: 100 };
-  const result = clampToNearestDisplayIfOffscreen(pos, { width: petW, height: petH });
-  // Must be clamped into display 2 workArea (x=1920..3840-petW)
-  assert.ok(result.x >= display2.workArea.x, "offscreen right: clamped x >= display2.x");
-  assert.ok(result.x + petW <= display2.workArea.x + display2.workArea.width, "offscreen right: clamped x+w <= display2.right");
-  assert.notDeepEqual(result, pos, "offscreen right: position was changed");
+  const result = clampToNearestDisplayIfOffscreen({ x: 2500, y: 100 }, petSize);
+  assert.deepEqual(result, { x: 1580, y: 100 });
 }
 
-// ---------------------------------------------------------------------------
-// 5. clampToNearestDisplayIfOffscreen: fully offscreen left (flag ON) — snaps to display 1
-// ---------------------------------------------------------------------------
+// Bottom edge respects workArea, not full display bounds/taskbar pixels.
 {
-  const pos = { x: -500, y: 100 };
-  const result = clampToNearestDisplayIfOffscreen(pos, { width: petW, height: petH });
-  assert.ok(result.x >= display1.workArea.x, "offscreen left: clamped x >= display1.x");
-  assert.notDeepEqual(result, pos, "offscreen left: position was changed");
+  const result = clampToNearestDisplayIfOffscreen({ x: 200, y: 1000 }, petSize);
+  assert.deepEqual(result, { x: 200, y: 620 });
+  assert.equal(result.y + petSize.height, display1.workArea.y + display1.workArea.height);
 }
 
-// ---------------------------------------------------------------------------
-// 6. CONFINEMENT REGRESSION: confined pet NEVER goes cross-display (flag ON or OFF)
-// A pet confined to a terminal on display 1 must stay inside that terminal
-// regardless of the cross-display roaming flag. This is the HIGHEST-priority
-// invariant: confinement is strictly first in the 3-way dispatch.
-// ---------------------------------------------------------------------------
+// A terminal/session confinement on the selected monitor remains the narrower
+// highest-priority area, regardless of the obsolete cross-display flag value.
 {
   const petId = "confined-regression-pet";
   const terminalBounds = { x: 100, y: 100, width: 800, height: 600 };
@@ -116,74 +97,55 @@ const { width: petW, height: petH } = { width: 340, height: 420 };
     appName: "TestTerminal",
   });
 
-  // Target position is deep into display 2 — WAY outside terminal bounds.
-  const crossDisplayTarget = { x: 2500, y: 300 };
-
-  // Flag ON: cross-display should NOT apply to confined pet
+  const outside = { x: 2500, y: 900 };
   setCrossDisplayRoamingEnabled(true);
-  const resultFlagOn = _clampPositionForTesting(petId, crossDisplayTarget);
-  assert.ok(resultFlagOn.x >= terminalBounds.x, "confined+flag-on: x >= terminal.x");
-  assert.ok(resultFlagOn.x + 340 <= terminalBounds.x + terminalBounds.width, "confined+flag-on: x+petW <= terminal.right");
-  assert.ok(resultFlagOn.y >= terminalBounds.y, "confined+flag-on: y >= terminal.y");
-  assert.ok(resultFlagOn.y + 420 <= terminalBounds.y + terminalBounds.height, "confined+flag-on: y+petH <= terminal.bottom");
-  assert.notDeepEqual(resultFlagOn, crossDisplayTarget, "confined+flag-on: position was clamped");
-
-  // Flag OFF: same — confinement still applies
+  const flagOn = _clampPositionForTesting(petId, outside);
   setCrossDisplayRoamingEnabled(false);
-  const resultFlagOff = _clampPositionForTesting(petId, crossDisplayTarget);
-  assert.ok(resultFlagOff.x >= terminalBounds.x, "confined+flag-off: x >= terminal.x");
-  assert.ok(resultFlagOff.x + 340 <= terminalBounds.x + terminalBounds.width, "confined+flag-off: x+petW <= terminal.right");
-  assert.notDeepEqual(resultFlagOff, crossDisplayTarget, "confined+flag-off: position was clamped");
+  const flagOff = _clampPositionForTesting(petId, outside);
 
-  // Both results match: confinement is deterministic regardless of flag
-  assert.deepEqual(resultFlagOn, resultFlagOff, "confined: result is same regardless of cross-display flag");
-
-  // Cleanup this test's confinement state
+  assert.deepEqual(flagOn, flagOff, "legacy roaming flag cannot weaken confinement");
+  assert.ok(flagOn.x >= terminalBounds.x);
+  assert.ok(flagOn.x + petSize.width <= terminalBounds.x + terminalBounds.width);
+  assert.ok(flagOn.y >= terminalBounds.y);
+  assert.ok(flagOn.y + petSize.height <= terminalBounds.y + terminalBounds.height);
   clearConfinementState(petId);
-  setCrossDisplayRoamingEnabled(true);
 }
 
-// ---------------------------------------------------------------------------
-// 7. Free-roam pet with flag ON: position on display 1 is unchanged
-// ---------------------------------------------------------------------------
+// Free-roam behavior is identical whether the legacy cross-display flag is on
+// or off: selected-monitor containment is authoritative.
 {
   const petId = "free-roam-pet";
+  const target = { x: 2500, y: 900 };
   setConfinementEnabled(true);
-  // Not calling setConfinementState → pet is untracked → getEffectiveConfinementBounds returns null
 
   setCrossDisplayRoamingEnabled(true);
-  // Position firmly on display 1 (x=200, y=200) — should be untouched
-  const onDisplay1 = { x: 200, y: 200 };
-  const result = _clampPositionForTesting(petId, onDisplay1);
-  assert.deepEqual(result, onDisplay1, "free-roam+flag-on: on-display position unchanged");
-}
-
-// ---------------------------------------------------------------------------
-// 8. Free-roam pet with flag OFF: falls back to legacy clampToVisibleWorkArea
-//    (snaps offscreen position to nearest single display work-area)
-// ---------------------------------------------------------------------------
-{
-  const petId = "free-roam-pet-legacy";
-  setConfinementEnabled(true);
-
+  const flagOn = _clampPositionForTesting(petId, target);
   setCrossDisplayRoamingEnabled(false);
-  // Position off the right edge of display 2 — legacy clamp brings it back
-  const offscreen = { x: 4000, y: 100 };
-  const result = _clampPositionForTesting(petId, offscreen);
-  assert.notDeepEqual(result, offscreen, "free-roam+flag-off: offscreen position was clamped");
-  // Should be within display 2 workArea (legacy nearest-display clamp)
-  assert.ok(result.x + 340 <= display2.workArea.x + display2.workArea.width, "free-roam+flag-off: right edge within display 2");
+  const flagOff = _clampPositionForTesting(petId, target);
 
-  setCrossDisplayRoamingEnabled(true);
+  assert.deepEqual(flagOn, { x: 1580, y: 620 });
+  assert.deepEqual(flagOff, flagOn);
 }
 
-// ---------------------------------------------------------------------------
-// Cleanup seams
-// ---------------------------------------------------------------------------
+// Explicitly choosing monitor 2 moves the same target into monitor 2 and keeps
+// the whole pet above that monitor's taskbar.
+{
+  setSelectedDisplay("1920,0,1920x1080");
+  setConfinementOuterBounds(display2.workArea);
+  const result = _clampPositionForTesting("free-roam-secondary", { x: 200, y: 1000 });
+  assert.deepEqual(result, { x: 1920, y: 620 });
+  assert.ok(result.x >= display2.workArea.x);
+  assert.ok(result.x + petSize.width <= display2.workArea.x + display2.workArea.width);
+  assert.ok(result.y + petSize.height <= display2.workArea.y + display2.workArea.height);
+}
+
+// Cleanup test seams and compatibility state.
+setSelectedDisplay("primary");
+setConfinementOuterBounds(null);
+setConfinementEnabled(true);
+setCrossDisplayRoamingEnabled(false);
 setDisplayScreen(null);
 setMotionScreen(null);
 _setIsPetWindowDraggingForTesting(null);
-// Restore flag to default (true) for any subsequent test files
-setCrossDisplayRoamingEnabled(true);
 
 console.log("pet-motion-engine-clamp tests passed.");

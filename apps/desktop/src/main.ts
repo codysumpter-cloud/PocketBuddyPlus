@@ -16,6 +16,7 @@ import { debug, error as logError, getLogFilePath, info, initializeLogger, warn 
 import { startLocalIpcServer } from "./local-ipc.js";
 import { createInventoryAwarePluginJsHost, installBuddyInventorySdkCallHandlers } from "./inventory/buddy-inventory-plugin-sdk.js";
 import { BuddyInventoryStore } from "./inventory/buddy-inventory-store.js";
+import { initializeMonitorSelection, installMonitorSelectionIpc, installMonitorWindowGuard } from "./monitor-manager.js";
 import { startDevPluginWatcher } from "./plugin-dev-watcher.js";
 import { createElectronPluginHostCapabilities } from "./plugin-host-capabilities.js";
 import { defaultPluginPetApi } from "./plugin-pet-api.js";
@@ -101,6 +102,13 @@ if (!gotSingleInstanceLock) {
 
     initializeAppState();
     const userDataPath = app.getPath("userData");
+    // The monitor policy is loaded before any user-facing window can be shown.
+    // Every window is subsequently kept inside that monitor's work area, which
+    // excludes the Windows taskbar/macOS dock and applies equally to installed
+    // and portable builds because both execute this same main-process runtime.
+    initializeMonitorSelection(userDataPath);
+    installMonitorWindowGuard();
+    installMonitorSelectionIpc();
     const buddyProfileStore = new BuddyProfileStore(userDataPath);
     const buddyInventoryStore = new BuddyInventoryStore(userDataPath);
     buddyInventoryStore.initialize();

@@ -4,91 +4,54 @@
  * Tracks which agent pets should be confined to their terminal window and
  * provides the clamping logic used by the motion systems.
  *
- * Decision D2: Only explicit-lease (session-bound) agent pets are confined.
- * Default pet always uses full work-area free-roam.
- *
- * Decision D1: The pet roams the full interior of the terminal window.
- * When the terminal is minimized or occluded the pet uses full work-area
- * free-roam (same as the default pet).
+ * Terminal confinement may narrow the allowed area, but the selected monitor
+ * work area is always the outer boundary. This prevents a terminal on another
+ * monitor from pulling a Buddy across the user's selected-monitor boundary.
  */
 
 import type { WindowBounds } from "./window-tracker.js";
 import type { Point, WindowSize } from "./display.js";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface ConfinementState {
-  /** Terminal window bounds in screen coordinates, or null for free-roam. */
   readonly terminalBounds: WindowBounds | null;
-  /** True when free-roaming because terminal is minimized/off-screen. */
   readonly terminalMinimized: boolean;
-  /** True when free-roaming because terminal is occluded by other windows. */
   readonly terminalOccluded: boolean;
-  /** PID of the terminal (for focus action). */
   readonly terminalOwnerPid: number;
-  /** Human-readable app name. */
   readonly appName: string;
 }
 
-// ---------------------------------------------------------------------------
-// Singleton state: petId → latest ConfinementState
-// ---------------------------------------------------------------------------
-
 const confinementStates = new Map<string, ConfinementState>();
-
-// ---------------------------------------------------------------------------
-// Global confinement enable/disable toggle
-// ---------------------------------------------------------------------------
-
-/** Module-level flag: when false, getEffectiveConfinementBounds always returns
- *  null so all pets free-roam. Injected via setConfinementEnabled(); never read
- *  from app-state directly (avoids an import cycle). Default true = confined. */
 let confinementEnabled = true;
+let outerMonitorBounds: WindowBounds | null = null;
 
-/**
- * Set the global confinement toggle. Call this on startup (from the initial
- * app-state load) and whenever the petConfinementEnabled preference changes.
- * The single chokepoint is getEffectiveConfinementBounds which checks this flag.
- */
 export function setConfinementEnabled(enabled: boolean): void {
   confinementEnabled = enabled;
 }
 
-/**
- * Returns whether confinement is currently enabled.
- */
 export function isConfinementEnabled(): boolean {
   return confinementEnabled;
 }
 
 /**
- * Update (or create) the confinement state for a pet.
- * Called by the window-tracker polling callback.
+ * Set the selected monitor's usable work area as the absolute outer boundary.
+ * Pass null only in tests/early startup before monitor selection is initialized.
  */
+export function setConfinementOuterBounds(bounds: WindowBounds | null): void {
+  outerMonitorBounds = bounds ? normalizeBounds(bounds) : null;
+}
+
 export function setConfinementState(petId: string, state: ConfinementState): void {
   confinementStates.set(petId, state);
 }
 
-/**
- * Remove confinement state when a pet's lease is released.
- */
 export function clearConfinementState(petId: string): void {
   confinementStates.delete(petId);
 }
 
-/**
- * Retrieve the current confinement state for a pet, or null if not tracked.
- */
 export function getConfinementState(petId: string): ConfinementState | null {
   return confinementStates.get(petId) ?? null;
 }
 
-/**
- * Returns true if any pet is currently in confined mode (terminal visible &
- * unoccluded). Used to gate the window-tracker polling.
- */
 export function hasActiveConfinement(): boolean {
   for (const state of confinementStates.values()) {
     if (state.terminalBounds !== null) return true;
@@ -96,45 +59,65 @@ export function hasActiveConfinement(): boolean {
   return false;
 }
 
-// ---------------------------------------------------------------------------
-// Clamp helper
-// ---------------------------------------------------------------------------
-
 function clampInRange(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
 /**
- * Clamp a pet window position to the given terminal bounds.
- *
- * The pet may wander anywhere inside the terminal window. The bottom edge
- * acts as a resting ledge (pet bottom aligns with terminal bottom).
+ * Clamp a pet window to terminal bounds and then apply the selected monitor as
+ * a final outer clamp. The second clamp matters when the terminal only barely
+ * overlaps the selected display: the whole pet rect, not merely its top-left
+ * corner, remains inside the selected work area.
  */
 export function clampToTerminalBounds(position: Point, petSize: WindowSize, bounds: WindowBounds): Point {
-  const minX = bounds.x;
-  const maxX = bounds.x + Math.max(0, bounds.width - petSize.width);
-  const minY = bounds.y;
-  const maxY = bounds.y + Math.max(0, bounds.height - petSize.height);
+  const terminal = normalizeBounds(bounds);
+  const effectiveTerminal = outerMonitorBounds ? intersectBounds(terminal, outerMonitorBounds) ?? outerMonitorBounds : terminal;
+  const terminalClamped = clampWindowPosition(position, petSize, effectiveTerminal);
+  return outerMonitorBounds ? clampWindowPosition(terminalClamped, petSize, outerMonitorBounds) : terminalClamped;
+}
 
-  // Round AFTER clamping: terminal bounds are read from the window server and
-  // are fractional on scaled displays, so clamping against them would otherwise
-  // return a fractional coordinate that Electron's setPosition cannot convert.
+/**
+ * Return effective terminal confinement. The returned bounds can never extend
+ * outside the selected monitor's work area. If the terminal is entirely on a
+ * different monitor, the selected monitor work area wins rather than allowing
+ * the pet to leave the selected screen.
+ */
+export function getEffectiveConfinementBounds(petId: string): WindowBounds | null {
+  if (!confinementEnabled) return null;
+  const state = confinementStates.get(petId);
+  if (!state) return null;
+  if (state.terminalMinimized || state.terminalOccluded) return null;
+  if (!state.terminalBounds) return null;
+
+  const terminal = normalizeBounds(state.terminalBounds);
+  if (!outerMonitorBounds) return terminal;
+  return intersectBounds(terminal, outerMonitorBounds) ?? outerMonitorBounds;
+}
+
+function clampWindowPosition(position: Point, size: WindowSize, bounds: WindowBounds): Point {
+  const minX = bounds.x;
+  const maxX = bounds.x + Math.max(0, bounds.width - size.width);
+  const minY = bounds.y;
+  const maxY = bounds.y + Math.max(0, bounds.height - size.height);
   return {
     x: Math.round(clampInRange(Math.round(position.x), minX, maxX)),
     y: Math.round(clampInRange(Math.round(position.y), minY, maxY)),
   };
 }
 
-/**
- * Return the effective confinement bounds for a pet at the current moment:
- * - terminal bounds when terminal is visible and not occluded
- * - null (free-roam) otherwise
- */
-export function getEffectiveConfinementBounds(petId: string): WindowBounds | null {
-  // Global disable: free-roam for all pets regardless of tracked terminal state.
-  if (!confinementEnabled) return null;
-  const state = confinementStates.get(petId);
-  if (!state) return null; // not a confined pet
-  if (state.terminalMinimized || state.terminalOccluded) return null; // free-roam
-  return state.terminalBounds; // may still be null if unresolved
+function normalizeBounds(bounds: WindowBounds): WindowBounds {
+  const left = Math.ceil(bounds.x);
+  const top = Math.ceil(bounds.y);
+  const right = Math.max(left + 1, Math.floor(bounds.x + bounds.width));
+  const bottom = Math.max(top + 1, Math.floor(bounds.y + bounds.height));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+function intersectBounds(a: WindowBounds, b: WindowBounds): WindowBounds | null {
+  const left = Math.max(a.x, b.x);
+  const top = Math.max(a.y, b.y);
+  const right = Math.min(a.x + a.width, b.x + b.width);
+  const bottom = Math.min(a.y + a.height, b.y + b.height);
+  if (right <= left || bottom <= top) return null;
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
