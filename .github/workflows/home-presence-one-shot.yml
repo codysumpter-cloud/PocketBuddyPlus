@@ -69,3 +69,5 @@ jobs:
             git commit -m "feat(home): add canonical Buddy presence runtime"
             git push origin HEAD:feat/home-presence-runtime
           fi
+
+# retrigger: 2026-08-07
