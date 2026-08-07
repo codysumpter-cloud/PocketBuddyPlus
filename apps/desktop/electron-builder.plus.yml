@@ -25,6 +25,12 @@ files:
 extraResources:
   - from: ../../plugins/official
     to: plugins/official
+    # Compiled plugins keep their TypeScript sources in the repo, but the app
+    # loads only the built entry and panel, so build inputs stay out of the app.
+    filter:
+      - "**/*"
+      - "!**/src/**"
+      - "!**/tsconfig.json"
 
 asar: true
 asarUnpack:

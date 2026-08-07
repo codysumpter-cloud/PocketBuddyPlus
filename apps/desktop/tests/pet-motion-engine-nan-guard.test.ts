@@ -56,6 +56,17 @@ const nanWorkAreaScreen = {
   getDisplayNearestPoint: () => ({ workArea: { x: NaN, y: NaN, width: NaN, height: NaN } }),
 };
 
+// Screen whose workArea is fractional. Real displays do this: a monitor at a
+// fractional scale factor (150%, 175%) reports a work area that is not on whole
+// pixels, and terminal bounds read for confinement are fractional for the same
+// reason.
+const fractionalWorkAreaScreen = {
+  getCursorScreenPoint: () => ({ x: 0, y: 0 }),
+  getAllDisplays: () => [{ workArea: { x: 0.5, y: 0.5, width: 1706.6667, height: 959.3333 } }],
+  getPrimaryDisplay: () => ({ workArea: { x: 0.5, y: 0.5, width: 1706.6667, height: 959.3333 } }),
+  getDisplayNearestPoint: () => ({ workArea: { x: 0.5, y: 0.5, width: 1706.6667, height: 959.3333 } }),
+};
+
 // Loop interval used by the shared ticker (mirrors production constant)
 const loopIntervalMs = 16;
 
@@ -165,6 +176,34 @@ describe("pet-motion-engine NaN coordinate guards", () => {
       assert.ok(
         Number.isFinite(x) && Number.isFinite(y),
         `setPosition called with non-finite coords: (${x}, ${y})`,
+      );
+    }
+  });
+
+  // Same crash as bug #72, different cause. The NaN guard uses Number.isFinite,
+  // which 0.5 passes - but Electron's setPosition takes an int, so a fractional
+  // coordinate still dies with "conversion failure". A pet clamped against a
+  // fractional work area (or fractional terminal bounds) hits this on every tick
+  // that pushes it against an edge.
+  it("tick only ever passes integers to setPosition, even against a fractional work area", async () => {
+    _setScreenForTesting(fractionalWorkAreaScreen as any);
+    setDisplayScreen(fractionalWorkAreaScreen as any);
+    invalidateDisplayCache();
+
+    const setPositionCalls: Array<[number, number]> = [];
+    // Start far off-screen so the clamp is forced to return a bound verbatim.
+    const accessor = makeWindowMock(-5000, -5000, (x, y) => setPositionCalls.push([x, y]));
+
+    registerPet("fractional-clamp-test", accessor);
+    motionSetPhysics("fractional-clamp-test", accessor, { gravity: true, bounce: 0.4 });
+
+    await new Promise<void>((resolve) => setTimeout(resolve, loopIntervalMs * 5));
+
+    assert.ok(setPositionCalls.length > 0, "the pet should have moved at least once");
+    for (const [x, y] of setPositionCalls) {
+      assert.ok(
+        Number.isInteger(x) && Number.isInteger(y),
+        `setPosition must receive integers; Electron cannot convert ${x}, ${y}`,
       );
     }
   });

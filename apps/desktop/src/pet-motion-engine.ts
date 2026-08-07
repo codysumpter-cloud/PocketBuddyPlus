@@ -362,8 +362,14 @@ function tickPet(petHandleId: string, accessor: WindowAccessor, state: MotionSta
 
   if (nextX !== x || nextY !== y) {
     const clamped = clampPosition(petHandleId, { x: nextX, y: nextY });
-    if (!Number.isFinite(clamped.x) || !Number.isFinite(clamped.y)) return;  // skip write when clamp produces NaN (e.g. from NaN workArea on monitor disconnect)
-    window.setPosition(clamped.x, clamped.y, false);
+    // setPosition takes an int. Anything else - NaN from a NaN workArea on
+    // monitor disconnect, or a fraction from a scaled display's workArea -
+    // crashes the process with "conversion failure", so round and verify here
+    // rather than trusting every clamp to have done it.
+    const px = Math.round(clamped.x);
+    const py = Math.round(clamped.y);
+    if (!Number.isSafeInteger(px) || !Number.isSafeInteger(py)) return;
+    window.setPosition(px, py, false);
   }
 }
 

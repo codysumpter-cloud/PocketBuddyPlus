@@ -85,15 +85,23 @@ Before changing plugin platform code, official plugins, plugin catalog generatio
 
 When plugin work is finished, update these docs if behavior, commands, manifests, plugin IDs, default bundled/enabled status, catalog workflow, permissions, or the planned plugin lineup changed. Do not leave plugin docs stale after implementation.
 
-For plugin release/catalog work, run the release validator before shipping:
-- `pnpm plugins:package`
-- `pnpm plugins:validate-release`
-- after deploy/R2 upload, `pnpm plugins:validate-live`
+Plugin release/catalog work does not happen in this repo. The packaging,
+publishing and validation steps all read a `web/` catalog tree - `catalog.v2.json`,
+the built plugin ZIPs, `provenance.json`, `submissions.json` - that lives in the
+openpets.dev site repo and has never existed here. The `plugins:package`,
+`plugins:publish`, `plugins:deploy`, `plugins:check`, `plugins:release` and
+`plugins:validate-*` commands were removed because they failed with
+ENOENT/MODULE_NOT_FOUND; run the release gate from the site checkout instead.
 
-The validator exists to catch production-breaking plugin mistakes: unresolved
-`$t:` names/descriptions in catalog cards, missing plugin ZIPs, SHA mismatches,
-missing `locales/en.json`, missing declared assets/entry files, and catalog/package
-drift. Do not rely on `plugins:check` alone for release readiness.
+`scripts/validate-plugin-release.mjs` is still here and is still the real
+validator - it catches unresolved `$t:` names/descriptions in catalog cards,
+missing plugin ZIPs, SHA mismatches, missing `locales/en.json`, missing declared
+assets/entry files, and catalog/package drift. It just needs the `web/` tree.
+
+What this repo *can* gate on before shipping a plugin change:
+- `pnpm plugins:build:check` - fails on stale built plugin artifacts
+- `pnpm plugins:locales` - every locale has every `en.json` key
+- `pnpm plugins:test` - the per-plugin `test.js` suites
 
 See `docs/testing-and-validation.md` for the full quality ladder and what "production-valid" means per change type.
 

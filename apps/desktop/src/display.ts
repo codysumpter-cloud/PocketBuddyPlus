@@ -228,9 +228,14 @@ function clampIntoWorkArea(
   const maxX = workArea.x + Math.max(0, workArea.width - size.width);
   const maxY = workArea.y + Math.max(0, workArea.height - size.height);
 
+  // Round AFTER clamping, not just the input. A display at a fractional scale
+  // factor (150%, 175%) reports a fractional workArea, so clamping an integer
+  // against it returns the bound verbatim and yields a fractional coordinate.
+  // That reaches window.setPosition, which takes an int, and Electron kills the
+  // process with "conversion failure" - Number.isFinite does not catch it.
   return {
-    x: clamp(Math.round(position.x), minX, maxX),
-    y: clamp(Math.round(position.y), minY, maxY),
+    x: Math.round(clamp(Math.round(position.x), minX, maxX)),
+    y: Math.round(clamp(Math.round(position.y), minY, maxY)),
   };
 }
 
