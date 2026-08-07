@@ -64,20 +64,16 @@ function clampInRange(value: number, min: number, max: number): number {
 }
 
 /**
- * Clamp a pet window to terminal bounds. When a selected-monitor outer bound is
- * active, terminal confinement is intersected with that work area first.
+ * Clamp a pet window to terminal bounds and then apply the selected monitor as
+ * a final outer clamp. The second clamp matters when the terminal only barely
+ * overlaps the selected display: the whole pet rect, not merely its top-left
+ * corner, remains inside the selected work area.
  */
 export function clampToTerminalBounds(position: Point, petSize: WindowSize, bounds: WindowBounds): Point {
-  const effectiveBounds = outerMonitorBounds ? intersectBounds(normalizeBounds(bounds), outerMonitorBounds) ?? outerMonitorBounds : normalizeBounds(bounds);
-  const minX = effectiveBounds.x;
-  const maxX = effectiveBounds.x + Math.max(0, effectiveBounds.width - petSize.width);
-  const minY = effectiveBounds.y;
-  const maxY = effectiveBounds.y + Math.max(0, effectiveBounds.height - petSize.height);
-
-  return {
-    x: Math.round(clampInRange(Math.round(position.x), minX, maxX)),
-    y: Math.round(clampInRange(Math.round(position.y), minY, maxY)),
-  };
+  const terminal = normalizeBounds(bounds);
+  const effectiveTerminal = outerMonitorBounds ? intersectBounds(terminal, outerMonitorBounds) ?? outerMonitorBounds : terminal;
+  const terminalClamped = clampWindowPosition(position, petSize, effectiveTerminal);
+  return outerMonitorBounds ? clampWindowPosition(terminalClamped, petSize, outerMonitorBounds) : terminalClamped;
 }
 
 /**
@@ -96,6 +92,17 @@ export function getEffectiveConfinementBounds(petId: string): WindowBounds | nul
   const terminal = normalizeBounds(state.terminalBounds);
   if (!outerMonitorBounds) return terminal;
   return intersectBounds(terminal, outerMonitorBounds) ?? outerMonitorBounds;
+}
+
+function clampWindowPosition(position: Point, size: WindowSize, bounds: WindowBounds): Point {
+  const minX = bounds.x;
+  const maxX = bounds.x + Math.max(0, bounds.width - size.width);
+  const minY = bounds.y;
+  const maxY = bounds.y + Math.max(0, bounds.height - size.height);
+  return {
+    x: Math.round(clampInRange(Math.round(position.x), minX, maxX)),
+    y: Math.round(clampInRange(Math.round(position.y), minY, maxY)),
+  };
 }
 
 function normalizeBounds(bounds: WindowBounds): WindowBounds {
