@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import type { BrowserWindow } from "electron";
 
 import { clampToTerminalBounds, getEffectiveConfinementBounds } from "./confinement-manager.js";
-import { clampToNearestDisplayIfOffscreen, clampToVisibleWorkArea, defaultPetWindowSize, isCrossDisplayRoamingEnabled, type Point } from "./display.js";
+import { clampToNearestDisplayIfOffscreen, clampToVisibleWorkArea, defaultPetWindowSize, isCrossDisplayRoamingEnabled, toWindowCoordinate, type Point } from "./display.js";
 import { resolvePetMotionState, type PetMotionState } from "./reaction-animation-mapping.js";
 // isPetWindowDragging is lazily loaded via _setIsPetWindowDraggingForTesting seam
 
@@ -223,8 +223,10 @@ export async function motionMoveTo(petHandleId: string, accessor: WindowAccessor
     const t = easeProgress(step / steps, easing);
     const nextX = Math.round(startX + (clamped.x - startX) * t);
     const nextY = Math.round(startY + (clamped.y - startY) * t);
-    if (!Number.isFinite(nextX) || !Number.isFinite(nextY)) return;  // abort move if NaN (e.g. startX was NaN from mid-destroy getPosition)
-    live.setPosition(nextX, nextY, false);
+    const safeX = toWindowCoordinate(nextX);
+    const safeY = toWindowCoordinate(nextY);
+    if (safeX === null || safeY === null) return;  // abort move (e.g. startX was NaN from mid-destroy getPosition)
+    live.setPosition(safeX, safeY, false);
     await delay(durationMs / steps);
   }
 }
@@ -362,13 +364,9 @@ function tickPet(petHandleId: string, accessor: WindowAccessor, state: MotionSta
 
   if (nextX !== x || nextY !== y) {
     const clamped = clampPosition(petHandleId, { x: nextX, y: nextY });
-    // setPosition takes an int. Anything else - NaN from a NaN workArea on
-    // monitor disconnect, or a fraction from a scaled display's workArea -
-    // crashes the process with "conversion failure", so round and verify here
-    // rather than trusting every clamp to have done it.
-    const px = Math.round(clamped.x);
-    const py = Math.round(clamped.y);
-    if (!Number.isSafeInteger(px) || !Number.isSafeInteger(py)) return;
+    const px = toWindowCoordinate(clamped.x);
+    const py = toWindowCoordinate(clamped.y);
+    if (px === null || py === null) return;
     window.setPosition(px, py, false);
   }
 }

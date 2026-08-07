@@ -2,7 +2,7 @@ import { BrowserWindow } from "electron";
 
 import { getAppStateSnapshot, type PetScaleValue } from "./app-state.js";
 import { applyExternalPetReaction, applyExternalPetStatusReaction, getDefaultPetPaused, getDefaultPetWindowForPlugins, defaultPetBubbleArbiter } from "./default-pet-controller.js";
-import { clampToNearestDisplayIfOffscreen, clampToVisibleWorkArea, defaultPetWindowSize, getDefaultPetInitialPosition, isCrossDisplayRoamingEnabled, type Point } from "./display.js";
+import { clampToNearestDisplayIfOffscreen, clampToVisibleWorkArea, defaultPetWindowSize, getDefaultPetInitialPosition, isCrossDisplayRoamingEnabled, type Point, toWindowCoordinate } from "./display.js";
 import { builtInPet } from "./built-in-pet.js";
 import { debug, info } from "./logger.js";
 import type { OpenPetsReaction } from "./local-ipc-protocol.js";
@@ -332,7 +332,9 @@ export function reclampPluginPetWindows(): void {
     if (!window || window.isDestroyed()) continue;
     const [cx, cy] = window.getPosition();
     const safe = readWindowPosition(window);
-    if (safe.x !== cx || safe.y !== cy) window.setPosition(safe.x, safe.y, false);
+    const petX = toWindowCoordinate(safe.x);
+    const petY = toWindowCoordinate(safe.y);
+    if (petX !== null && petY !== null && (petX !== cx || petY !== cy)) window.setPosition(petX, petY, false);
   }
 }
 

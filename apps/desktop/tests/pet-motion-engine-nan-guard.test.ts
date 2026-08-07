@@ -15,6 +15,7 @@
 import assert from "node:assert/strict";
 import { describe, it, before, after, beforeEach, afterEach } from "node:test";
 
+import { toWindowCoordinate } from "../src/display.js";
 import {
   _setScreenForTesting,
   _setIsPetWindowDraggingForTesting,
@@ -205,6 +206,57 @@ describe("pet-motion-engine NaN coordinate guards", () => {
         Number.isInteger(x) && Number.isInteger(y),
         `setPosition must receive integers; Electron cannot convert ${x}, ${y}`,
       );
+    }
+  });
+
+  // Every value here was confirmed rejected by a real Electron 42 setPosition
+  // call, all with the same "conversion failure" that kills the main process.
+  // -0 is the dangerous one: Number.isSafeInteger(-0) is true, so an
+  // integer-looking guard passes it straight through to the crash, and
+  // Math.round returns -0 for anything in (-0.5, 0].
+  it("toWindowCoordinate rejects or normalizes every value Electron cannot convert", () => {
+    assert.equal(toWindowCoordinate(100), 100);
+    assert.equal(toWindowCoordinate(0.5), 1);           // rounds, does not pass a fraction through
+    assert.equal(toWindowCoordinate(2147483647), 2147483647);
+
+    // -0 must come back as +0, and must not merely be "equal" to it: assert.equal
+    // would accept -0, so compare with Object.is.
+    assert.ok(Object.is(toWindowCoordinate(-0), 0), "-0 must be normalized to +0");
+    assert.ok(Object.is(toWindowCoordinate(-0.4), 0), "a value rounding to -0 must be normalized");
+
+    assert.equal(toWindowCoordinate(2147483648), null); // past int32
+    assert.equal(toWindowCoordinate(1e15), null);       // safe integer, still unconvertible
+    assert.equal(toWindowCoordinate(NaN), null);
+    assert.equal(toWindowCoordinate(Infinity), null);
+    assert.equal(toWindowCoordinate(-Infinity), null);
+  });
+
+  it("tick never passes a negative zero to setPosition", async () => {
+    // A display whose work area starts at a negative origin - a second monitor
+    // placed left of the primary - lets a pet drift through (-0.5, 0], where
+    // Math.round yields -0.
+    const negativeOriginScreen = {
+      getCursorScreenPoint: () => ({ x: 0, y: 0 }),
+      getAllDisplays: () => [{ workArea: { x: -1920, y: -200, width: 1920, height: 1080 } }],
+      getPrimaryDisplay: () => ({ workArea: { x: -1920, y: -200, width: 1920, height: 1080 } }),
+      getDisplayNearestPoint: () => ({ workArea: { x: -1920, y: -200, width: 1920, height: 1080 } }),
+    };
+    _setScreenForTesting(negativeOriginScreen as any);
+    setDisplayScreen(negativeOriginScreen as any);
+    invalidateDisplayCache();
+
+    const setPositionCalls: Array<[number, number]> = [];
+    const accessor = makeWindowMock(0, -1, (x, y) => setPositionCalls.push([x, y]));
+
+    registerPet("negative-zero-test", accessor);
+    motionSetPhysics("negative-zero-test", accessor, { gravity: true, bounce: 0.4 });
+    void motionMoveTo("negative-zero-test", accessor, { x: 0, y: 0 }, { durationMs: 60, easing: "linear" });
+
+    await new Promise<void>((resolve) => setTimeout(resolve, loopIntervalMs * 8));
+
+    for (const [x, y] of setPositionCalls) {
+      assert.ok(!Object.is(x, -0) && !Object.is(y, -0), `setPosition received -0: (${x}, ${y})`);
+      assert.ok(Number.isInteger(x) && Number.isInteger(y), `setPosition received a non-integer: (${x}, ${y})`);
     }
   });
 });

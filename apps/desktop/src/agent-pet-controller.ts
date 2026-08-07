@@ -3,7 +3,7 @@ import { BrowserWindow } from "electron";
 import { getAppStateSnapshot, type PetScaleValue } from "./app-state.js";
 import { registerRoamingPet, unregisterRoamingPet } from "./pet-roaming-controller.js";
 import { clampToTerminalBounds, getConfinementState, getEffectiveConfinementBounds } from "./confinement-manager.js";
-import { defaultPetWindowSize, clampToVisibleWorkArea, getDefaultPetInitialPosition } from "./display.js";
+import { defaultPetWindowSize, clampToVisibleWorkArea, getDefaultPetInitialPosition, toWindowCoordinate } from "./display.js";
 import { debug, info } from "./logger.js";
 import { transientDisplayMs, type OpenPetsReaction } from "./local-ipc-protocol.js";
 import { clearTransientReaction, createAgentPetWindow, getTransientDisplayDurationMs, getTransientReactionAnimationMs, loadExplicitPetContent, mergePetTransientDisplay, readWindowPosition, setPetReactionState, type PetShowMediaOptions, type PetStatusBadgeReaction, type PetTransientDisplay } from "./pet-window.js";
@@ -51,7 +51,10 @@ export function repositionConfinedPet(petId: string, win?: BrowserWindow): void 
   const clamped = clampToTerminalBounds({ x: cx, y: cy }, defaultPetWindowSize, confinementBounds);
   if (clamped.x !== cx || clamped.y !== cy) {
     debug("pet.agent", "reposition confined", { petId, from: { x: cx, y: cy }, to: clamped });
-    window.setPosition(clamped.x, clamped.y, false);
+    const agentX = toWindowCoordinate(clamped.x);
+    const agentY = toWindowCoordinate(clamped.y);
+    if (agentX === null || agentY === null) return;
+    window.setPosition(agentX, agentY, false);
   }
 }
 
@@ -142,7 +145,10 @@ export function reclampAgentPetWindows(): void {
     const [currentX, currentY] = window.getPosition();
     if (safePosition.x !== currentX || safePosition.y !== currentY) {
       info("pet.agent", "reclamp position", { petId, windowId: window.id, from: { x: currentX, y: currentY }, to: safePosition });
-      window.setPosition(safePosition.x, safePosition.y, false);
+      const safeX = toWindowCoordinate(safePosition.x);
+      const safeY = toWindowCoordinate(safePosition.y);
+      if (safeX === null || safeY === null) return;
+      window.setPosition(safeX, safeY, false);
     }
   }
 }
