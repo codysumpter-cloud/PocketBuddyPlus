@@ -25,6 +25,15 @@ assert.match(plusBuilderConfig, /output: dist-electron-plus/, "Plus output must 
 // Guards the workspace manifest against being clobbered by a packaging run.
 assert.equal(rootPackageJson.name, "pocket-buddy-plus-workspace", "the workspace-root package.json must remain the workspace manifest.");
 const workspaceConfig = readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8");
+
+// The unified Buddy surface retires the old Buddy+ nav tab by setting
+// `el.hidden = true`. Component classes here set `display` (`.nav-tab` is
+// `flex`), and an author rule beats the UA `[hidden] { display: none }`
+// whatever its specificity - so without an explicit override the retired tab
+// stays on screen next to Buddy Brain, which is exactly what shipped.
+const rendererStyles = readFileSync(join(appDir, "src", "renderer", "src", "styles.css"), "utf8");
+assert.match(rendererStyles, /\[hidden\]\s*\{[^}]*display:\s*none\s*!important/,
+  "styles.css must force [hidden] to display:none, or hiding a .nav-tab does nothing.");
 const builderConfigPath = join(appDir, "electron-builder.yml");
 const builderConfig = readFileSync(builderConfigPath, "utf8");
 
