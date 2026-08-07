@@ -35,4 +35,12 @@ sdk_testing = sdk_testing.replace(
 )
 sdk_testing_path.write_text(sdk_testing)
 
-print("Home panel, sprite-test, and SDK mock fixups applied")
+desktop_test_path = ROOT / "apps/desktop/tests/plugin-sdk-bridge.test.ts"
+desktop_test = desktop_test_path.read_text()
+desktop_test = desktop_test.replace(
+    '      getState: async () => ({ position: { x: 0, y: 0 }, bounds: { x: 0, y: 0, width: 0, height: 0 }, currentAnimation: "idle", visible: true, dragging: false }),\n',
+    '      getState: async () => ({ position: { x: 0, y: 0 }, bounds: { x: 0, y: 0, width: 0, height: 0 }, currentAnimation: "idle", visible: true, dragging: false }),\n      getAppearance: async (petHandleId) => ({\n        petHandleId, installedPetId: "builtin:default", displayName: "Default pet",\n        frameDataUrl: "data:image/png;base64,", width: 64, height: 64, animationId: "idle", direction: "south", source: "legacy-sheet" as const,\n      }),\n',
+)
+desktop_test_path.write_text(desktop_test)
+
+print("Home panel, sprite-test, SDK mock, and desktop host fixture fixups applied")
