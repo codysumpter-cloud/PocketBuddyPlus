@@ -1,5 +1,8 @@
 // Mapping from Home's own asset ids to sprite files in the TinyHouse pack.
 //
+// Shared: the in-app Home and the Home plugin both render from this, so the
+// filename mapping cannot drift between the two.
+//
 // The pack is paid art. It is NOT redistributed with this plugin and nothing
 // from it is committed: the user points at their own copy, the host reads the
 // handful of files named here, and the bytes stay on their machine. That is the

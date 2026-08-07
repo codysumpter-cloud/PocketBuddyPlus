@@ -12,7 +12,7 @@
 //     cannot reach the filesystem itself - its CSP allows `data:` images and
 //     nothing else - so the transfer runs over the message channel.
 
-import { PACK_SPRITES, packCoverage, packSpriteKeyForFile } from "./pack-mapping";
+import { PACK_SPRITES, packCoverage, packSpriteKeyForFile } from "@open-pets/buddy-domain";
 
 /** The two keys the scene reads and writes. Anything else is refused. */
 export const HOME_STATE_KEYS = [

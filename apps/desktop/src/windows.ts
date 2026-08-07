@@ -2,7 +2,12 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import { join, resolve, relative } from "node:path";
 import sharp from "sharp";
 
+/** A pack tile is a few KB; anything near this is not a tile. */
+const maxHomePackSpriteBytes = 512 * 1024;
+
 import { app, BrowserWindow, dialog, ipcMain, protocol, shell, type IpcMainInvokeEvent, type OpenDialogOptions } from "electron";
+
+import { PACK_SPRITES, packSpriteKeyForFile } from "@open-pets/buddy-domain";
 
 import { getAgentSetupSnapshot, runAgentSetupAction, updateAgentSetupCommandPaths } from "./agent-setup.js";
 import { refreshAgentPetContent } from "./agent-pet-controller.js";
@@ -522,6 +527,40 @@ export function installInternalUiHandlers(): void {
     assertAllowedSender(event, ["control-center"]);
     resetDefaultPetToInitialPosition();
     return getInternalUiWindowKindForWebContents(event.sender.id) === "control-center" ? getSettingsStateSnapshot() : getAppStateSnapshot();
+  });
+
+  /**
+   * Load sprites for Home from the user's own TinyHouse pack.
+   *
+   * The pack is paid art the user owns. Nothing from it is bundled or copied
+   * into the app: this reads from wherever they point the dialog, keeps only
+   * the handful of files Home maps by name, and hands back data URLs. The
+   * expected gesture is selecting the whole 1,097-file pack, so the selection
+   * is filtered by name BEFORE anything is read.
+   */
+  ipcMain.handle("openpets:home-pick-pack-sprites", async (event) => {
+    assertAllowedSender(event, ["control-center"]);
+    const picked = await dialog.showOpenDialog({
+      title: "Select your TinyHouse pack images",
+      message: "Select the pack's images — Home keeps only the ones it uses.",
+      properties: ["openFile", "multiSelections"],
+      filters: [{ name: "Pack images", extensions: ["png"] }],
+    });
+    if (picked.canceled || picked.filePaths.length === 0) return { canceled: true as const };
+
+    const sprites: Record<string, string> = {};
+    for (const filePath of picked.filePaths) {
+      const key = packSpriteKeyForFile(filePath);
+      if (!key || sprites[key]) continue;
+      try {
+        const info = await stat(filePath);
+        if (!info.isFile() || info.size > maxHomePackSpriteBytes) continue;
+        sprites[key] = `data:image/png;base64,${(await readFile(filePath)).toString("base64")}`;
+      } catch {
+        // One unreadable file must not fail the whole selection.
+      }
+    }
+    return { canceled: false as const, sprites, total: Object.keys(PACK_SPRITES).length };
   });
 
   ipcMain.handle("openpets:agent-setup-snapshot", async (event, selectedPetId: unknown, commandMode: unknown) => {

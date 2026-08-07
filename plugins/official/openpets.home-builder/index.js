@@ -1,4 +1,257 @@
-//#region plugins/official/openpets.home-builder/src/pack-mapping.ts
+Object.freeze({
+	hunger: .15,
+	energy: .1,
+	comfort: .1,
+	safety: .05,
+	boredom: .2,
+	curiosity: .25,
+	affection: .15,
+	social: .15,
+	accomplishment: .2,
+	cleanliness: .05,
+	focus: .15
+});
+Object.freeze({
+	hunger: 8e-4,
+	energy: 6e-4,
+	comfort: 2e-4,
+	safety: -1e-4,
+	boredom: .001,
+	curiosity: 5e-4,
+	affection: 3e-4,
+	social: 4e-4,
+	accomplishment: 3e-4,
+	cleanliness: 2e-4,
+	focus: 4e-4
+});
+Object.freeze({
+	sociability: .55,
+	curiosity: .65,
+	playfulness: .6,
+	diligence: .55,
+	bravery: .45,
+	affection: .65,
+	independence: .45,
+	patience: .55,
+	aggression: .2,
+	creativity: .6,
+	neatness: .5
+});
+Object.freeze({
+	affection: .5,
+	trust: .5,
+	familiarity: .1,
+	respect: .4
+});
+Object.freeze({
+	level: 1,
+	experience: 0,
+	skill_points: 0,
+	rerolls: 1,
+	health: 10,
+	max_health: 10,
+	stamina: 10,
+	max_stamina: 10,
+	strength: 1,
+	defense: 1,
+	speed: 1,
+	focus: 1
+});
+//#endregion
+//#region packages/buddy-domain/src/home/room-document.ts
+var CAMERA_CORNERS = [
+	"SE",
+	"SW",
+	"NW",
+	"NE"
+];
+//#endregion
+//#region packages/buddy-domain/src/home/content-catalog.ts
+/**
+* Public, generated-placeholder catalog used by the open repository.
+*
+* Private release builds may replace only the presentation metadata through a
+* licensed manifest. Canonical ids, footprints, affordances and state keys stay
+* here so a room behaves the same with placeholder or purchased art.
+*/
+var HOME_PUBLIC_ASSETS = Object.freeze([
+	{
+		assetId: "home.bed.basic",
+		label: "Buddy Bed",
+		category: "comfort",
+		color: 9203634,
+		accentColor: 13088232,
+		footprint: {
+			width: 2,
+			height: 1
+		},
+		actions: ["rest"],
+		blocksMovement: true,
+		defaultState: { occupied: false }
+	},
+	{
+		assetId: "home.food-bowl.basic",
+		label: "Food Bowl",
+		category: "food",
+		color: 14254667,
+		accentColor: 16761462,
+		footprint: {
+			width: 1,
+			height: 1
+		},
+		actions: ["feed"],
+		blocksMovement: true,
+		defaultState: { servings: 5 }
+	},
+	{
+		assetId: "home.toy.ball",
+		label: "Play Ball",
+		category: "fun",
+		color: 5217512,
+		accentColor: 12180735,
+		footprint: {
+			width: 1,
+			height: 1
+		},
+		actions: ["play"],
+		blocksMovement: false,
+		defaultState: { bounces: 0 }
+	},
+	{
+		assetId: "home.tv.basic",
+		label: "Television",
+		category: "media",
+		color: 2700106,
+		accentColor: 7397832,
+		footprint: {
+			width: 1,
+			height: 1
+		},
+		actions: ["toggle", "next-channel"],
+		blocksMovement: true,
+		defaultState: {
+			powered: false,
+			channel: "nature"
+		}
+	},
+	{
+		assetId: "home.chair.basic",
+		label: "Chair",
+		category: "comfort",
+		color: 10448973,
+		accentColor: 14264188,
+		footprint: {
+			width: 1,
+			height: 1
+		},
+		actions: ["sit"],
+		blocksMovement: true,
+		defaultState: { occupied: false }
+	},
+	{
+		assetId: "home.table.basic",
+		label: "Table",
+		category: "surface",
+		color: 8345403,
+		accentColor: 12683868,
+		footprint: {
+			width: 2,
+			height: 2
+		},
+		actions: [],
+		blocksMovement: true,
+		defaultState: {}
+	},
+	{
+		assetId: "home.plant.basic",
+		label: "House Plant",
+		category: "decor",
+		color: 4951893,
+		accentColor: 10802799,
+		footprint: {
+			width: 1,
+			height: 1
+		},
+		actions: ["water"],
+		blocksMovement: true,
+		defaultState: { watered: false }
+	}
+]);
+new Map(HOME_PUBLIC_ASSETS.map((asset) => [asset.assetId, asset]));
+Object.freeze({
+	SE: ["east", "south"],
+	SW: ["south", "west"],
+	NW: ["west", "north"],
+	NE: ["north", "east"]
+});
+//#endregion
+//#region packages/buddy-domain/src/home/parity-scenarios.ts
+/**
+* Canonical Home parity scenarios.
+*
+* This is the TypeScript half of the golden Godot -> TypeScript harness for
+* four-wall room geometry and placement. It emits `prismtek-parity-trace-v1`
+* traces from `@open-pets/buddy-domain` so a Godot emitter can produce the same
+* scenario ids and step inputs, and `compareParityTraces` can diff them.
+*
+* Two rules make these traces comparable across runtimes:
+*
+*  - scenarios are DECLARATIVE. Each step is an input the Godot side can replay
+*    verbatim, not a sequence of TypeScript calls, so neither runtime has to
+*    reimplement the other's control flow.
+*  - snapshots contain only OBSERVABLE canonical state. Nothing renderer-owned
+*    (pixel settling, sprite depth, animation) appears here, because those are
+*    legitimately allowed to differ.
+*/
+function cell(x, y) {
+	return {
+		x,
+		y
+	};
+}
+function item(id, anchor, footprint = {
+	width: 1,
+	height: 1
+}, supportItemId = null) {
+	return {
+		id,
+		assetId: `asset.${id}`,
+		placement: {
+			surface: "floor",
+			anchor,
+			offset: {
+				x: 0,
+				y: 0
+			},
+			rotationQuarter: 0,
+			scale: 1,
+			footprint,
+			supportItemId
+		},
+		state: {}
+	};
+}
+[...CAMERA_CORNERS.map((cameraCorner) => ({
+	op: "setCameraCorner",
+	cameraCorner
+}))], item("rug", cell(0, 0), {
+	width: 2,
+	height: 2
+}), item("lamp", cell(3, 2)), item("table", cell(0, 0), {
+	width: 2,
+	height: 2
+}), item("chair", cell(1, 1)), item("outside", cell(9, 9)), item("table", cell(2, 2)), item("vase", cell(2, 2), {
+	width: 1,
+	height: 1
+}, "ghost"), item("table", cell(1, 1), {
+	width: 2,
+	height: 1
+}), item("plate", cell(1, 1), {
+	width: 1,
+	height: 1
+}, "table");
+//#endregion
+//#region packages/buddy-domain/src/home/pack-mapping.ts
 /** Floor material id → pack file. */
 var PACK_FLOORS = {
 	"floor.wood": "Floor_64_WoodHard.png",

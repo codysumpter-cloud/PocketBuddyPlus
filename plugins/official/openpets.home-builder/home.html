@@ -1966,6 +1966,36 @@ function stringify(value) {
 	return String(value);
 }
 //#endregion
+//#region packages/buddy-domain/src/home/pack-mapping.ts
+/** Floor material id → pack file. */
+var PACK_FLOORS = {
+	"floor.wood": "Floor_64_WoodHard.png",
+	"floor.stone": "Floor_64_Concrete.png",
+	"floor.grass": "Floor_64_Green.png",
+	"floor.water": "Floor_64_Sea.png"
+};
+/**
+* Home asset id → pack file.
+*
+* `home.toy.ball` has no counterpart in the pack, so it is deliberately absent
+* and keeps its drawn circle. A missing entry is a supported state, not a gap
+* to paper over with a wrong-looking sprite.
+*/
+var PACK_ITEMS = {
+	"home.bed.basic": "Bed_A_4.png",
+	"home.tv.basic": "BigTV_3_Off_Tile.png",
+	"home.chair.basic": "Chair_2_A_Tile.png",
+	"home.table.basic": "Table_10.png",
+	"home.plant.basic": "Plant_1.png",
+	"home.food-bowl.basic": "Dish.png"
+};
+/** Every file the plugin will read, keyed by the id the scene draws it for. */
+var PACK_SPRITES = {
+	...PACK_FLOORS,
+	...PACK_ITEMS
+};
+new Map(Object.entries(PACK_SPRITES).map(([key, file]) => [file.toLowerCase(), key]));
+//#endregion
 //#region plugins/official/openpets.home-builder/src/canvas-engine.ts
 function css(color, alpha) {
 	const value = Math.max(0, Math.min(16777215, Math.trunc(color)));
@@ -2218,36 +2248,6 @@ function mountScene(parent, scene, backgroundColor = "#182033") {
 		}
 	};
 }
-//#endregion
-//#region plugins/official/openpets.home-builder/src/pack-mapping.ts
-/** Floor material id → pack file. */
-var PACK_FLOORS = {
-	"floor.wood": "Floor_64_WoodHard.png",
-	"floor.stone": "Floor_64_Concrete.png",
-	"floor.grass": "Floor_64_Green.png",
-	"floor.water": "Floor_64_Sea.png"
-};
-/**
-* Home asset id → pack file.
-*
-* `home.toy.ball` has no counterpart in the pack, so it is deliberately absent
-* and keeps its drawn circle. A missing entry is a supported state, not a gap
-* to paper over with a wrong-looking sprite.
-*/
-var PACK_ITEMS = {
-	"home.bed.basic": "Bed_A_4.png",
-	"home.tv.basic": "BigTV_3_Off_Tile.png",
-	"home.chair.basic": "Chair_2_A_Tile.png",
-	"home.table.basic": "Table_10.png",
-	"home.plant.basic": "Plant_1.png",
-	"home.food-bowl.basic": "Dish.png"
-};
-/** Every file the plugin will read, keyed by the id the scene draws it for. */
-var PACK_SPRITES = {
-	...PACK_FLOORS,
-	...PACK_ITEMS
-};
-new Map(Object.entries(PACK_SPRITES).map(([key, file]) => [file.toLowerCase(), key]));
 //#endregion
 //#region plugins/official/openpets.home-builder/src/home-scene.ts
 var store = {

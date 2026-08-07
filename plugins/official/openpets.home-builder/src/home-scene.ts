@@ -1,7 +1,7 @@
 import { Graphics, RESIZE, SHUTDOWN, Scene, Vector2, mountScene, type Pointer } from "./canvas-engine";
-import { PACK_TILE_SIZE } from "./pack-mapping";
 import {
   HOME_PUBLIC_ASSETS,
+  PACK_TILE_SIZE,
   advanceHomeSession,
   createHomeFloorTileLayer,
   createHomePlayState,
