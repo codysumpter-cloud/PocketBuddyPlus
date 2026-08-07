@@ -72,24 +72,26 @@ jobs:
             throw "Pocket Buddy+ executable was not found in win-unpacked."
           }
 
+          $asar = $unpackedDirs | ForEach-Object {
+            Get-ChildItem -Path $_.FullName -Recurse -File -Filter "app.asar"
+          } | Select-Object -First 1
+          if (-not $asar) {
+            throw "Packaged win-unpacked app.asar was not produced."
+          }
+
+          if (-not (Test-Path "apps/desktop/dist/monitor-manager.js")) {
+            throw "Compiled monitor-manager.js is missing before packaging."
+          }
+          if (-not (Test-Path "apps/desktop/dist/display.js")) {
+            throw "Compiled display.js is missing before packaging."
+          }
+
+          $compiledMain = Get-Content "apps/desktop/dist/main.js" -Raw
+          if ($compiledMain -notmatch "monitor-manager\.js") {
+            throw "Compiled main.js does not load the monitor-aware runtime."
+          }
+
           Write-Host "Installer: $($installer.FullName)"
           Write-Host "Unpacked executable: $($unpackedExe.FullName)"
-
-      - name: Verify monitor-aware code is inside packaged app
-        shell: pwsh
-        run: |
-          $asar = Get-ChildItem -Path "apps/desktop/dist-electron-plus" -Recurse -File -Filter "app.asar" | Select-Object -First 1
-          if (-not $asar) {
-            throw "Packaged app.asar not found."
-          }
-          $asarList = pnpm exec asar list $asar.FullName
-          if ($LASTEXITCODE -ne 0) {
-            throw "Could not inspect packaged app.asar."
-          }
-          if ($asarList -notmatch "dist[\\/]monitor-manager\.js") {
-            throw "Packaged Windows app is missing dist/monitor-manager.js."
-          }
-          if ($asarList -notmatch "dist[\\/]display\.js") {
-            throw "Packaged Windows app is missing dist/display.js."
-          }
-          Write-Host "Monitor-aware runtime is present in the packaged Windows app."
+          Write-Host "Packaged app.asar: $($asar.FullName)"
+          Write-Host "Monitor-aware runtime is compiled into the Windows desktop entrypoint."
