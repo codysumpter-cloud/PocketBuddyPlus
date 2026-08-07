@@ -1,9 +1,18 @@
 // Home Builder — host side.
 //
-// The panel draws and plays the room; this side owns the save. Panel storage is
-// wiped when the panel closes (the host calls clearStorageData on the panel
-// session), so the room has to live in plugin storage or it would not survive
-// closing the window.
+// Two jobs, both of which exist because the panel is sandboxed:
+//
+//  1. The save. Panel storage is wiped when the panel closes (the host calls
+//     clearStorageData on the panel session), so the room lives here.
+//
+//  2. The art. Home ships no sprites. The TinyHouse pack is paid art the user
+//     owns, so nothing from it is committed or redistributed: the user points
+//     the file picker at their own copy, this side reads only the handful of
+//     files Home maps, and hands the bytes to the panel as data URLs. The panel
+//     cannot reach the filesystem itself - its CSP allows `data:` images and
+//     nothing else - so the transfer runs over the message channel.
+
+import { PACK_SPRITES, packCoverage, packSpriteKeyForFile } from "./pack-mapping";
 
 /** The two keys the scene reads and writes. Anything else is refused. */
 export const HOME_STATE_KEYS = [
@@ -11,12 +20,20 @@ export const HOME_STATE_KEYS = [
   "pocket-buddy-plus:phaser-home:v1",
 ] as const;
 
+/** Where the decoded pack sprites are cached so the user picks their pack once. */
+export const PACK_CACHE_KEY = "pocket-buddy-plus:home:pack-sprites:v1";
+
 /** A save big enough to be a bug rather than a room. */
 export const MAX_HOME_STATE_CHARS = 512 * 1024;
 
-export function isHomeStateKey(value: unknown): boolean {
-  return typeof value === "string" && (HOME_STATE_KEYS as readonly string[]).includes(value);
-}
+/** Per sprite. Pack tiles are a few KB; anything near this is not a tile. */
+export const MAX_SPRITE_BYTES = 512 * 1024;
+
+/**
+ * Panel messages are capped at 64 KiB by the host, so sprites are streamed in
+ * pieces. Kept well under the cap to leave room for the envelope.
+ */
+export const CHUNK_CHARS = 32 * 1024;
 
 interface PanelLike {
   postMessage(message: unknown): Promise<void> | void;
@@ -28,11 +45,65 @@ interface StorageLike {
   set(key: string, value: unknown): Promise<void>;
 }
 
+interface PickedFile {
+  readonly name: string;
+  readonly sizeBytes: number;
+  readBytes(): Promise<Uint8Array>;
+}
+
+interface FilesLike {
+  pick(opts?: { accept?: string[]; multiple?: boolean }): Promise<PickedFile[]>;
+}
+
+export function isHomeStateKey(value: unknown): boolean {
+  return typeof value === "string" && (HOME_STATE_KEYS as readonly string[]).includes(value);
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 1) binary += String.fromCharCode(bytes[index]!);
+  return btoa(binary);
+}
+
+/** Split a data URL into message-sized pieces. */
+export function chunkDataUrl(dataUrl: string, chunkChars = CHUNK_CHARS): string[] {
+  const chunks: string[] = [];
+  for (let index = 0; index < dataUrl.length; index += chunkChars) chunks.push(dataUrl.slice(index, index + chunkChars));
+  return chunks;
+}
+
 /**
- * Wire one panel to plugin storage. Exported so the tests can drive it without
- * an Electron window.
+ * Read the pack files Home can use out of whatever the user selected.
+ *
+ * The user is expected to select the whole pack - 1,097 files - so this filters
+ * by name first and only reads the matches. Reading everything would pull
+ * hundreds of megabytes through the plugin for no reason.
  */
-export function createHomeStateHandler(storage: StorageLike, panel: PanelLike): (message: unknown) => Promise<void> {
+export async function collectPackSprites(files: readonly PickedFile[]): Promise<Record<string, string>> {
+  const sprites: Record<string, string> = {};
+  for (const file of files) {
+    const key = packSpriteKeyForFile(file.name);
+    if (!key || sprites[key] || file.sizeBytes > MAX_SPRITE_BYTES) continue;
+    const bytes = await file.readBytes();
+    if (bytes.byteLength > MAX_SPRITE_BYTES) continue;
+    sprites[key] = `data:image/png;base64,${toBase64(bytes)}`;
+  }
+  return sprites;
+}
+
+/** Stream one sprite set to the panel within the message size cap. */
+async function sendSprites(panel: PanelLike, sprites: Record<string, string>): Promise<void> {
+  await panel.postMessage({ type: "home-pack-begin", keys: Object.keys(sprites), total: Object.keys(PACK_SPRITES).length });
+  for (const [key, dataUrl] of Object.entries(sprites)) {
+    const chunks = chunkDataUrl(dataUrl);
+    for (let index = 0; index < chunks.length; index += 1) {
+      await panel.postMessage({ type: "home-pack-chunk", key, index, count: chunks.length, data: chunks[index] });
+    }
+  }
+  await panel.postMessage({ type: "home-pack-end" });
+}
+
+export function createHomeStateHandler(storage: StorageLike, panel: PanelLike, files?: FilesLike): (message: unknown) => Promise<void> {
   return async function handle(message: unknown): Promise<void> {
     if (typeof message !== "object" || message === null) return;
     const { type, key, value } = message as { type?: unknown; key?: unknown; value?: unknown };
@@ -44,6 +115,12 @@ export function createHomeStateHandler(storage: StorageLike, panel: PanelLike): 
         if (typeof stored === "string") values[stateKey] = stored;
       }
       await panel.postMessage({ type: "home-state", values });
+
+      // Replay a previously loaded pack so the room is not bare on reopen.
+      const cached = await storage.get(PACK_CACHE_KEY);
+      if (typeof cached === "string") {
+        try { await sendSprites(panel, JSON.parse(cached) as Record<string, string>); } catch { /* a corrupt cache just means no art */ }
+      }
       return;
     }
 
@@ -52,6 +129,26 @@ export function createHomeStateHandler(storage: StorageLike, panel: PanelLike): 
       // key is checked against the known set and the size is bounded.
       if (!isHomeStateKey(key) || typeof value !== "string" || value.length > MAX_HOME_STATE_CHARS) return;
       await storage.set(key as string, value);
+      return;
+    }
+
+    if (type === "home-pack-pick") {
+      if (!files) { await panel.postMessage({ type: "home-pack-error", error: "File access is unavailable." }); return; }
+      try {
+        const picked = await files.pick({ accept: [".png"], multiple: true });
+        if (!picked.length) { await panel.postMessage({ type: "home-pack-cancelled" }); return; }
+
+        const coverage = packCoverage(picked.map((file) => file.name));
+        if (coverage.found === 0) {
+          await panel.postMessage({ type: "home-pack-error", error: "No TinyHouse sprites Home uses were in that selection. Open the pack folder and select its images." });
+          return;
+        }
+        const sprites = await collectPackSprites(picked);
+        await storage.set(PACK_CACHE_KEY, JSON.stringify(sprites));
+        await sendSprites(panel, sprites);
+      } catch (error) {
+        await panel.postMessage({ type: "home-pack-error", error: String((error as Error)?.message ?? error).slice(0, 200) });
+      }
     }
   };
 }
@@ -64,6 +161,7 @@ export function register(OpenPetsPlugin: {
       const context = ctx as {
         commands: { register(descriptor: unknown, run: () => unknown): Promise<void> };
         storage: StorageLike;
+        files?: FilesLike;
         ui: { panel(options: unknown): Promise<PanelLike> };
       };
       await context.commands.register(
@@ -75,7 +173,7 @@ export function register(OpenPetsPlugin: {
         },
         async () => {
           const panel = await context.ui.panel({ panel: "home", title: "Buddy Home", width: 1180, height: 860 });
-          panel.onMessage(createHomeStateHandler(context.storage, panel));
+          panel.onMessage(createHomeStateHandler(context.storage, panel, context.files));
           return panel;
         },
       );

@@ -10,6 +10,7 @@
 // not survive reinstalls, so the host owns the save: it is requested once
 // before the scene mounts, then written back through the message channel.
 import { HOME_PUBLIC_ASSETS, type HomeDirection, type HomeItemAction } from "@open-pets/buddy-domain";
+import { setHomeSprites } from "./home-scene";
 import {
   HOME_BRUSHES,
   HOME_ITEM_ASSETS,
@@ -88,6 +89,7 @@ function renderShell(): void {
         <button type="button" data-home-rotate="1" title="Rotate room right">Rotate ↷</button>
         <button type="button" data-home-clear-floor>Reset floor</button>
         <button type="button" data-home-reset-room>Reset room</button>
+        <button type="button" data-home-load-pack title="Load sprites from your own TinyHouse pack folder">Load TinyHouse art</button>
       </div>
       <div class="pb-home-movement" role="group" aria-label="Move player">
         <button type="button" data-home-move="north" aria-label="Move north">↑</button>
@@ -166,6 +168,8 @@ function handleClick(event: MouseEvent): void {
   const rotate = target.closest<HTMLButtonElement>("[data-home-rotate]");
   if (rotate) { controller?.rotate(Number(rotate.dataset.homeRotate)); return; }
 
+  if (target.closest("[data-home-load-pack]")) { setPackStatus("Choose your TinyHouse images…"); bridge?.postMessage({ type: "home-pack-pick" }); return; }
+
   if (target.closest("[data-home-pet]")) controller?.petBuddy();
   else if (target.closest("[data-home-use]")) controller?.interactSelected();
   else if (target.closest("[data-home-channel]")) controller?.interactSelected("next-channel" as HomeItemAction);
@@ -179,6 +183,58 @@ function syncActiveControls(): void {
   for (const entry of root.querySelectorAll<HTMLElement>("[data-home-item-asset]")) entry.classList.toggle("active", entry.dataset.homeItemAsset === selectedAssetId);
 }
 
+function setPackStatus(text: string): void {
+  const node = root.querySelector<HTMLElement>("[data-home-thought]");
+  if (node) node.textContent = text;
+}
+
+// Sprites arrive in pieces because a panel message is capped at 64 KiB.
+const spriteChunks = new Map<string, string[]>();
+const loadedSprites: Record<string, CanvasImageSource> = {};
+
+function decodeSprite(key: string, dataUrl: string): Promise<void> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => { loadedSprites[key] = image; resolve(); };
+    image.onerror = () => resolve();  // one bad file must not stall the rest
+    image.src = dataUrl;
+  });
+}
+
+async function handlePackMessage(message: Record<string, unknown>): Promise<boolean> {
+  switch (message.type) {
+    case "home-pack-begin":
+      spriteChunks.clear();
+      setPackStatus("Loading TinyHouse art…");
+      return true;
+    case "home-pack-chunk": {
+      const key = String(message.key ?? "");
+      const parts = spriteChunks.get(key) ?? [];
+      parts[Number(message.index)] = String(message.data ?? "");
+      spriteChunks.set(key, parts);
+      if (parts.filter((part) => typeof part === "string").length === Number(message.count)) {
+        await decodeSprite(key, parts.join(""));
+        spriteChunks.delete(key);
+      }
+      return true;
+    }
+    case "home-pack-end": {
+      const count = Object.keys(loadedSprites).length;
+      setHomeSprites({ ...loadedSprites });
+      setPackStatus(count ? `TinyHouse art loaded — ${count} sprites.` : "No TinyHouse art loaded.");
+      return true;
+    }
+    case "home-pack-cancelled":
+      setPackStatus("Art loading cancelled.");
+      return true;
+    case "home-pack-error":
+      setPackStatus(String(message.error ?? "Could not load the pack."));
+      return true;
+    default:
+      return false;
+  }
+}
+
 function capitalize(value: string): string {
   return value.replace(/^./, (letter) => letter.toUpperCase());
 }
@@ -190,10 +246,14 @@ function requestSavedState(timeoutMs = 4_000): Promise<Record<string, string>> {
     const done = (values: Record<string, string>) => { window.clearTimeout(timer); resolve(values); };
     const timer = window.setTimeout(() => done({}), timeoutMs);
     bridge.onMessage((message) => {
-      if (typeof message === "object" && message !== null && (message as { type?: unknown }).type === "home-state") {
-        const values = (message as { values?: unknown }).values;
+      if (typeof message !== "object" || message === null) return;
+      const record = message as Record<string, unknown>;
+      if (record.type === "home-state") {
+        const values = record.values;
         done(typeof values === "object" && values !== null ? values as Record<string, string> : {});
+        return;
       }
+      void handlePackMessage(record);
     });
     bridge.postMessage({ type: "home-state-request" });
   });
