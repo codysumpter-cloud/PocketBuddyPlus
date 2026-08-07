@@ -1,0 +1,6 @@
+{
+  "plugin.name": "Home Builder",
+  "plugin.description": "Live with Buddy in a decorated isometric room: paint floors, place furniture, and use objects.",
+  "command.open.title": "Open Buddy Home",
+  "command.open.description": "Open the playable Home room."
+}

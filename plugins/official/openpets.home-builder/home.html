@@ -1,0 +1,3026 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Buddy Home</title>
+<!--
+  Template for the shipped home.html. The style and script are substituted in
+  by scripts/build-plugins.mjs - the panel sandbox has no script asset kind, so
+  everything the page needs has to end up inline in this one file.
+-->
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; padding: 0; }
+  body { font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+</style>
+<style>
+#home-root {
+  position: relative;
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto minmax(280px, 1fr) auto;
+  overflow: hidden;
+  background: #121827;
+  color: #f7f8ff;
+}
+
+.pb-home-header,
+.pb-home-toolbar,
+.pb-home-footer {
+  position: relative;
+  z-index: 2;
+}
+
+.pb-home-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 16px 10px;
+  background: linear-gradient(180deg, #222c45, #182033);
+}
+
+.pb-home-header h2 {
+  margin: 1px 0 3px;
+  font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+}
+
+.pb-home-header p {
+  margin: 0;
+  color: #b9c2d9;
+  font-size: 0.86rem;
+}
+
+.pb-home-eyebrow {
+  color: #efb84a !important;
+  font-size: 0.68rem !important;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pb-home-close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+
+.pb-home-toolbar {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(320px, 1fr);
+  grid-template-rows: auto auto;
+  align-items: end;
+  gap: 7px 12px;
+  padding: 7px 12px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  background: #192238;
+}
+
+.pb-home-tool-section {
+  display: grid;
+  gap: 3px;
+  min-width: max-content;
+}
+
+.pb-home-furniture-section {
+  min-width: 320px;
+  overflow: hidden;
+}
+
+.pb-home-tool-label {
+  color: #95a2bf;
+  font-size: 0.61rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pb-home-mode-buttons,
+.pb-home-brushes,
+.pb-home-items,
+.pb-home-actions,
+.pb-home-movement {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.pb-home-items,
+.pb-home-actions {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.pb-home-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 31px;
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #edf1ff;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.pb-home-toolbar button:hover,
+.pb-home-toolbar button:focus-visible {
+  border-color: rgba(255, 216, 77, 0.7);
+  background: rgba(255, 216, 77, 0.11);
+}
+
+.pb-home-toolbar button.active {
+  border-color: #ffd84d;
+  background: rgba(255, 216, 77, 0.17);
+  box-shadow: 0 0 0 2px rgba(255, 216, 77, 0.15);
+}
+
+.pb-home-swatch,
+.pb-home-item-dot {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 4px;
+  background: #c99968;
+}
+
+.pb-home-swatch.stone { background: #8b94a5; }
+
+.pb-home-swatch.grass { background: #77ad68; }
+
+.pb-home-swatch.water { background: #55a9d8; }
+
+.pb-home-swatch.erase {
+  background: repeating-linear-gradient(45deg, #5a6377 0 3px, #252d41 3px 6px);
+}
+
+[data-home-item-asset="home.bed.basic"] .pb-home-item-dot { background: #8c6fb2; }
+
+[data-home-item-asset="home.food-bowl.basic"] .pb-home-item-dot { background: #d9824b; }
+
+[data-home-item-asset="home.toy.ball"] .pb-home-item-dot { background: #4f9ce8; border-radius: 50%; }
+
+[data-home-item-asset="home.tv.basic"] .pb-home-item-dot { background: #29334a; box-shadow: inset 0 0 0 3px #70e1c8; }
+
+[data-home-item-asset="home.chair.basic"] .pb-home-item-dot { background: #9f704d; }
+
+[data-home-item-asset="home.table.basic"] .pb-home-item-dot { background: #7f573b; }
+
+[data-home-item-asset="home.plant.basic"] .pb-home-item-dot { background: #4b8f55; border-radius: 50% 50% 45% 45%; }
+
+.pb-home-actions {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  padding-top: 6px;
+  padding-right: 156px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pb-home-movement {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+}
+
+.pb-home-movement button {
+  width: 31px;
+  padding: 0;
+}
+
+.pb-home-stage {
+  position: relative;
+  min-height: 280px;
+  outline: none;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(89, 112, 167, 0.22), transparent 42%),
+    #182033;
+}
+
+.pb-home-stage:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(255, 216, 77, 0.65);
+}
+
+.pb-home-stage canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  image-rendering: pixelated;
+}
+
+.pb-home-footer {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.25fr) minmax(220px, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 42px;
+  padding: 7px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  background: #101625;
+  color: #aeb8d0;
+  font-size: 0.72rem;
+}
+
+.pb-home-footer [data-home-status] {
+  color: #ffd84d;
+  font-weight: 800;
+}
+
+.pb-home-footer [data-home-thought] {
+  color: #e8ecfa;
+  font-style: italic;
+}
+
+.pb-home-help {
+  display: none;
+}
+
+@media (max-height: 760px) {
+  .pb-home-modal { padding: 0; }
+  .pb-home-panel {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+  .pb-home-header { padding: 8px 12px 7px; }
+  .pb-home-header p { display: none; }
+  .pb-home-header h2 { font-size: 1.35rem; }
+  .pb-home-toolbar { padding: 5px 10px 6px; }
+  .pb-home-footer { min-height: 38px; padding: 5px 10px; }
+}
+
+@media (max-width: 900px) {
+  .pb-home-modal { padding: 0; }
+  .pb-home-panel {
+    width: 100vw;
+    height: 100vh;
+    border: 0;
+    border-radius: 0;
+  }
+  .pb-home-toolbar {
+    grid-template-columns: max-content max-content minmax(280px, 1fr);
+    overflow-x: auto;
+  }
+  .pb-home-footer {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}
+</style>
+</head>
+<body>
+<div id="home-root"></div>
+<script type="module">
+//#region packages/buddy-domain/src/drive-set.ts
+/**
+* Parity port of BuddyDriveSet.
+*
+* Donor: codysumpter-cloud/prismtek-apps
+*        packages/godot/prismtek-buddy-core/addons/prismtek_buddy_core/
+*        creature/buddy_drive_set.gd
+* Licence: Prismtek Source Available (first-party; reuse authorised by the owner).
+*
+* Sign convention is preserved exactly from the donor: every value is an UNMET
+* NEED PRESSURE where 0.0 is satisfied and 1.0 is urgent. `energy` therefore
+* means "needs to recover energy", not "has energy remaining". Keeping the donor's
+* single sign convention is what makes utility scoring and learned outcomes
+* comparable across the two runtimes.
+*
+* Constants below are transcribed verbatim from the donor and are covered by
+* parity tests; changing one is a behavioural change, not a refactor.
+*/
+var DRIVE_KEYS = [
+	"hunger",
+	"energy",
+	"comfort",
+	"safety",
+	"boredom",
+	"curiosity",
+	"affection",
+	"social",
+	"accomplishment",
+	"cleanliness",
+	"focus"
+];
+var DEFAULT_PRESSURES = Object.freeze({
+	hunger: .15,
+	energy: .1,
+	comfort: .1,
+	safety: .05,
+	boredom: .2,
+	curiosity: .25,
+	affection: .15,
+	social: .15,
+	accomplishment: .2,
+	cleanliness: .05,
+	focus: .15
+});
+var DEFAULT_DRIFT_PER_SECOND = Object.freeze({
+	hunger: 8e-4,
+	energy: 6e-4,
+	comfort: 2e-4,
+	safety: -1e-4,
+	boredom: .001,
+	curiosity: 5e-4,
+	affection: 3e-4,
+	social: 4e-4,
+	accomplishment: 3e-4,
+	cleanliness: 2e-4,
+	focus: 4e-4
+});
+function clamp01$2(value) {
+	if (!Number.isFinite(value)) return 0;
+	return Math.min(1, Math.max(0, value));
+}
+function isDriveKey(key) {
+	return DRIVE_KEYS.includes(key);
+}
+/** Mirrors the donor Resource, including its mutation semantics. */
+var BuddyDriveSet = class BuddyDriveSet {
+	pressures = /* @__PURE__ */ new Map();
+	driftPerSecond = /* @__PURE__ */ new Map();
+	constructor() {
+		this.ensureDefaults();
+	}
+	/** Donor `ensure_defaults`: fill missing keys, then clamp pressures to [0,1]. */
+	ensureDefaults() {
+		for (const key of DRIVE_KEYS) {
+			if (!this.pressures.has(key)) this.pressures.set(key, DEFAULT_PRESSURES[key]);
+			if (!this.driftPerSecond.has(key)) this.driftPerSecond.set(key, DEFAULT_DRIFT_PER_SECOND[key]);
+			this.pressures.set(key, clamp01$2(this.pressures.get(key)));
+		}
+	}
+	pressure(key) {
+		this.ensureDefaults();
+		return isDriveKey(key) ? this.pressures.get(key) : 0;
+	}
+	drift(key) {
+		this.ensureDefaults();
+		return isDriveKey(key) ? this.driftPerSecond.get(key) : 0;
+	}
+	/** Donor `set_pressure`: unknown keys are ignored rather than throwing. */
+	setPressure(key, value) {
+		if (!isDriveKey(key)) return;
+		this.pressures.set(key, clamp01$2(value));
+	}
+	adjust(key, delta) {
+		this.setPressure(key, this.pressure(key) + delta);
+	}
+	/**
+	* Donor `apply_relief`: POSITIVE values satisfy a need (subtracted from the
+	* pressure); negative values represent an action cost.
+	*/
+	applyRelief(relief) {
+		for (const [key, amount] of Object.entries(relief)) if (isDriveKey(key)) this.adjust(key, -amount);
+	}
+	/**
+	* Donor `apply_drift`: elapsed seconds are floored at zero, so a backwards
+	* clock can never rewind the simulation.
+	*/
+	applyDrift(deltaSeconds, overrides = {}) {
+		this.ensureDefaults();
+		const elapsed = Math.max(Number.isFinite(deltaSeconds) ? deltaSeconds : 0, 0);
+		for (const key of DRIVE_KEYS) {
+			const rate = Object.prototype.hasOwnProperty.call(overrides, key) ? Number(overrides[key]) : this.driftPerSecond.get(key);
+			this.adjust(key, rate * elapsed);
+		}
+	}
+	urgencyAverage() {
+		this.ensureDefaults();
+		let total = 0;
+		for (const key of DRIVE_KEYS) total += this.pressure(key);
+		return total / DRIVE_KEYS.length;
+	}
+	/**
+	* Donor `most_urgent`: descending by pressure, ties broken by ascending drive
+	* name so the ordering is deterministic across runtimes.
+	*/
+	mostUrgent(limit = 3) {
+		this.ensureDefaults();
+		const rows = DRIVE_KEYS.map((drive) => ({
+			drive,
+			pressure: this.pressure(drive)
+		}));
+		rows.sort((a, b) => a.pressure === b.pressure ? a.drive < b.drive ? -1 : 1 : b.pressure - a.pressure);
+		return rows.slice(0, Math.min(Math.max(limit, 0), rows.length));
+	}
+	toData() {
+		this.ensureDefaults();
+		return {
+			pressures: Object.fromEntries(DRIVE_KEYS.map((key) => [key, this.pressure(key)])),
+			drift_per_second: Object.fromEntries(DRIVE_KEYS.map((key) => [key, this.drift(key)]))
+		};
+	}
+	/**
+	* Donor `from_dict`, including its legacy fallback: when there is no
+	* `pressures` member the payload itself is treated as the pressure map, so
+	* older saves keep loading.
+	*/
+	static fromData(data) {
+		const result = new BuddyDriveSet();
+		if (typeof data !== "object" || data === null) return result;
+		const record = data;
+		const rawPressures = Object.prototype.hasOwnProperty.call(record, "pressures") ? record.pressures : record;
+		if (typeof rawPressures === "object" && rawPressures !== null) {
+			for (const [key, value] of Object.entries(rawPressures)) if (isDriveKey(key) && typeof value === "number") result.pressures.set(key, value);
+		}
+		const rawDrift = record.drift_per_second;
+		if (typeof rawDrift === "object" && rawDrift !== null) {
+			for (const [key, value] of Object.entries(rawDrift)) if (isDriveKey(key) && typeof value === "number") result.driftPerSecond.set(key, value);
+		}
+		result.ensureDefaults();
+		return result;
+	}
+};
+//#endregion
+//#region packages/buddy-domain/src/personality.ts
+/**
+* Parity port of BuddyPersonalityProfile.
+*
+* Donor: codysumpter-cloud/prismtek-apps
+*        packages/godot/prismtek-buddy-core/addons/prismtek_buddy_core/
+*        creature/buddy_personality_profile.gd
+* Licence: Prismtek Source Available (first-party; reuse authorised by the owner).
+*
+* Stable behavioural biases. Per the donor's own note: a model may *describe* the
+* personality, but it does not own it. Nothing here may be written by a provider
+* response; personality changes only through domain commands.
+*/
+var TRAIT_KEYS = [
+	"sociability",
+	"curiosity",
+	"playfulness",
+	"diligence",
+	"bravery",
+	"affection",
+	"independence",
+	"patience",
+	"aggression",
+	"creativity",
+	"neatness"
+];
+var DEFAULT_TRAITS = Object.freeze({
+	sociability: .55,
+	curiosity: .65,
+	playfulness: .6,
+	diligence: .55,
+	bravery: .45,
+	affection: .65,
+	independence: .45,
+	patience: .55,
+	aggression: .2,
+	creativity: .6,
+	neatness: .5
+});
+function clamp01$1(value) {
+	if (!Number.isFinite(value)) return 0;
+	return Math.min(1, Math.max(0, value));
+}
+function isTraitKey(key) {
+	return TRAIT_KEYS.includes(key);
+}
+var BuddyPersonalityProfile = class BuddyPersonalityProfile {
+	traits = /* @__PURE__ */ new Map();
+	constructor() {
+		this.ensureDefaults();
+	}
+	ensureDefaults() {
+		for (const key of TRAIT_KEYS) {
+			if (!this.traits.has(key)) this.traits.set(key, DEFAULT_TRAITS[key]);
+			this.traits.set(key, clamp01$1(this.traits.get(key)));
+		}
+	}
+	/** Donor `value`: unknown traits read as the neutral 0.5, not 0. */
+	value(key) {
+		this.ensureDefaults();
+		return isTraitKey(key) ? this.traits.get(key) : .5;
+	}
+	/** Donor `set_value`: unknown traits are ignored rather than created. */
+	setValue(key, next) {
+		if (!isTraitKey(key)) return;
+		this.traits.set(key, clamp01$1(next));
+	}
+	toData() {
+		this.ensureDefaults();
+		return Object.fromEntries(TRAIT_KEYS.map((key) => [key, this.value(key)]));
+	}
+	static fromData(data) {
+		const result = new BuddyPersonalityProfile();
+		if (typeof data === "object" && data !== null) {
+			const record = data;
+			const traits = typeof record.traits === "object" && record.traits !== null ? record.traits : record;
+			for (const [key, value] of Object.entries(traits)) if (isTraitKey(key) && typeof value === "number") result.setValue(key, value);
+		}
+		result.ensureDefaults();
+		return result;
+	}
+};
+//#endregion
+//#region packages/buddy-domain/src/creature-state.ts
+/**
+* Parity port of BuddyCreatureState.
+*
+* Donor: prismtek-apps/packages/godot/prismtek-buddy-core/addons/
+*        prismtek_buddy_core/creature/buddy_creature_state.gd
+* Licence: Prismtek Source Available (first-party; reuse authorised by the owner).
+*
+* Durable identity and simulation state. Per the donor's own note, provider and
+* model data are deliberately absent: a model can be replaced without replacing
+* the Buddy's identity, relationships, learned habits, progression or history.
+*
+* DEFAULT_STATS carries the derived combat/progression pools whose arithmetic
+* follows Pigeon Ascent (MIT, (c) 2020 Guilherme Rodrigues Ribeiro, Rafael
+* Pimentel da Silva) via the donor's progression model. See THIRD_PARTY_NOTICES.
+*/
+var CREATURE_SCHEMA = "prismtek-buddy-creature-v1";
+var ID_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789_-";
+var DEFAULT_RELATIONSHIP = Object.freeze({
+	affection: .5,
+	trust: .5,
+	familiarity: .1,
+	respect: .4
+});
+var DEFAULT_STATS = Object.freeze({
+	level: 1,
+	experience: 0,
+	skill_points: 0,
+	rerolls: 1,
+	health: 10,
+	max_health: 10,
+	stamina: 10,
+	max_stamina: 10,
+	strength: 1,
+	defense: 1,
+	speed: 1,
+	focus: 1
+});
+function clamp(value, min, max) {
+	if (!Number.isFinite(value)) return min;
+	return Math.min(max, Math.max(min, value));
+}
+/** Donor `_safe_id`: keep only characters from the allowed alphabet. */
+function safeBuddyId(value) {
+	return [...String(value ?? "").toLowerCase()].filter((ch) => ID_CHARACTERS.includes(ch)).join("");
+}
+var BuddyCreatureState = class BuddyCreatureState {
+	buddyId = "";
+	displayName = "Buddy";
+	createdUnix = 0;
+	revision = 0;
+	currentIntent = "";
+	currentGoal = "";
+	evolutionStage = "base";
+	drives = new BuddyDriveSet();
+	personality = new BuddyPersonalityProfile();
+	relationship = {};
+	stats = {};
+	learnedAssociations = {};
+	actionCounts = {};
+	cooldownUntilUnix = {};
+	lastActions = [];
+	workingMemory = [];
+	episodicMemoryRefs = [];
+	activeTasks = [];
+	inventory = {};
+	customization = {};
+	flags = {};
+	mood = {
+		label: "content",
+		valence: .5,
+		arousal: .3,
+		dominance: .5
+	};
+	constructor(nowUnix = 0, idSeed = "") {
+		if (this.createdUnix <= 0) this.createdUnix = nowUnix;
+		if (!this.buddyId) this.buddyId = idSeed || "buddy";
+		this.ensureDefaults();
+	}
+	/**
+	* Donor `ensure_defaults`. Order matters and is preserved: relationships and
+	* stats are filled, mood is coerced, then the id and name are normalized.
+	*
+	* Note the donor's asymmetry, kept deliberately: relationship values clamp to
+	* [0,1] but mood.valence clamps to [-1,1] even though the mood model only ever
+	* produces [0,1]. Narrowing that here would silently change stored data.
+	*/
+	ensureDefaults() {
+		this.drives.ensureDefaults();
+		this.personality.ensureDefaults();
+		for (const key of Object.keys(DEFAULT_RELATIONSHIP)) {
+			if (!(key in this.relationship)) this.relationship[key] = DEFAULT_RELATIONSHIP[key];
+			this.relationship[key] = clamp(Number(this.relationship[key]), 0, 1);
+		}
+		for (const key of Object.keys(DEFAULT_STATS)) if (!(key in this.stats)) this.stats[key] = DEFAULT_STATS[key];
+		const mood = typeof this.mood === "object" && this.mood !== null ? this.mood : {};
+		this.mood = {
+			label: String(mood.label ?? "content"),
+			valence: clamp(Number(mood.valence ?? .5), -1, 1),
+			arousal: clamp(Number(mood.arousal ?? .3), 0, 1),
+			dominance: clamp(Number(mood.dominance ?? .5), 0, 1),
+			...mood.evaluated_unix === void 0 ? {} : { evaluated_unix: Number(mood.evaluated_unix) }
+		};
+		this.buddyId = safeBuddyId(this.buddyId);
+		if (!this.buddyId) this.buddyId = "buddy";
+		this.displayName = String(this.displayName ?? "").trim().slice(0, 64);
+		if (!this.displayName) this.displayName = "Buddy";
+	}
+	/** Donor `relationship_value`: unknown keys read 0.0, not a neutral default. */
+	relationshipValue(key) {
+		this.ensureDefaults();
+		return Number(this.relationship[key] ?? 0);
+	}
+	/** Donor `adjust_relationship`: unknown keys are ignored and do NOT bump revision. */
+	adjustRelationship(key, delta) {
+		if (!(key in DEFAULT_RELATIONSHIP)) return;
+		this.relationship[key] = clamp(this.relationshipValue(key) + delta, 0, 1);
+		this.revision += 1;
+	}
+	/** Donor `remember_action`: FIFO window, plus a lifetime counter that never trims. */
+	rememberAction(actionId, maximum = 8) {
+		if (!actionId) return;
+		this.lastActions.push(actionId);
+		while (this.lastActions.length > maximum) this.lastActions.shift();
+		this.actionCounts[actionId] = Number(this.actionCounts[actionId] ?? 0) + 1;
+	}
+	addWorkingMemory(entry, maximum = 16) {
+		this.workingMemory.push(structuredClone(entry));
+		while (this.workingMemory.length > maximum) this.workingMemory.shift();
+	}
+	toData() {
+		this.ensureDefaults();
+		return {
+			schema: CREATURE_SCHEMA,
+			buddy_id: this.buddyId,
+			display_name: this.displayName,
+			created_unix: this.createdUnix,
+			revision: this.revision,
+			current_intent: this.currentIntent,
+			current_goal: this.currentGoal,
+			evolution_stage: this.evolutionStage,
+			drives: this.drives.toData(),
+			personality: { traits: this.personality.toData() },
+			relationship: { ...this.relationship },
+			stats: { ...this.stats },
+			learned_associations: structuredClone(this.learnedAssociations),
+			action_counts: { ...this.actionCounts },
+			cooldown_until_unix: { ...this.cooldownUntilUnix },
+			last_actions: [...this.lastActions],
+			working_memory: structuredClone(this.workingMemory),
+			episodic_memory_refs: [...this.episodicMemoryRefs],
+			active_tasks: [...this.activeTasks],
+			inventory: structuredClone(this.inventory),
+			customization: structuredClone(this.customization),
+			flags: structuredClone(this.flags),
+			mood: { ...this.mood }
+		};
+	}
+	/** Malformed or partial payloads degrade to defaults rather than throwing. */
+	static fromData(data, nowUnix = 0) {
+		const state = new BuddyCreatureState(nowUnix);
+		if (typeof data !== "object" || data === null) return state;
+		const record = data;
+		const str = (key, fallback) => typeof record[key] === "string" ? record[key] : fallback;
+		const num = (key, fallback) => typeof record[key] === "number" && Number.isFinite(record[key]) ? record[key] : fallback;
+		const obj = (key) => typeof record[key] === "object" && record[key] !== null && !Array.isArray(record[key]) ? record[key] : {};
+		const arr = (key) => Array.isArray(record[key]) ? record[key] : [];
+		state.buddyId = str("buddy_id", state.buddyId);
+		state.displayName = str("display_name", state.displayName);
+		state.createdUnix = num("created_unix", state.createdUnix);
+		state.revision = num("revision", 0);
+		state.currentIntent = str("current_intent", "");
+		state.currentGoal = str("current_goal", "");
+		state.evolutionStage = str("evolution_stage", "base");
+		state.drives = BuddyDriveSet.fromData(record.drives);
+		state.personality = BuddyPersonalityProfile.fromData(record.personality);
+		state.relationship = Object.fromEntries(Object.entries(obj("relationship")).filter(([, v]) => typeof v === "number"));
+		state.stats = Object.fromEntries(Object.entries(obj("stats")).filter(([, v]) => typeof v === "number"));
+		state.learnedAssociations = obj("learned_associations");
+		state.actionCounts = Object.fromEntries(Object.entries(obj("action_counts")).filter(([, v]) => typeof v === "number"));
+		state.cooldownUntilUnix = Object.fromEntries(Object.entries(obj("cooldown_until_unix")).filter(([, v]) => typeof v === "number"));
+		state.lastActions = arr("last_actions").filter((v) => typeof v === "string");
+		state.workingMemory = arr("working_memory").filter((v) => typeof v === "object" && v !== null);
+		state.episodicMemoryRefs = arr("episodic_memory_refs").filter((v) => typeof v === "string");
+		state.activeTasks = arr("active_tasks").filter((v) => typeof v === "string");
+		state.inventory = obj("inventory");
+		state.customization = obj("customization");
+		state.flags = obj("flags");
+		if (typeof record.mood === "object" && record.mood !== null) state.mood = record.mood;
+		state.ensureDefaults();
+		return state;
+	}
+};
+//#endregion
+//#region packages/buddy-domain/src/mood-model.ts
+function clamp01(value) {
+	if (!Number.isFinite(value)) return 0;
+	return Math.min(1, Math.max(0, value));
+}
+/**
+* Donor `_label`. Evaluated top to bottom; the first satisfied rule wins, so
+* reordering these changes observable behaviour.
+*/
+function moodLabel(valence, arousal, dominance) {
+	if (valence < .3 && arousal > .65) return "distressed";
+	if (valence < .35 && dominance < .4) return "sad";
+	if (arousal > .72 && valence >= .55) return "excited";
+	if (dominance > .7 && valence >= .5) return "confident";
+	if (arousal < .28 && valence >= .5) return "calm";
+	if (valence >= .65) return "happy";
+	if (arousal > .58) return "alert";
+	return "content";
+}
+/**
+* Donor `evaluate`. Mutates the state's mood and returns a copy, matching the
+* donor's contract. `nowUnix` is injected rather than read from the clock so the
+* result is deterministic and comparable against the Godot oracle.
+*/
+function evaluateMood(state, nowUnix = 0) {
+	state.ensureDefaults();
+	const pressure = state.drives.urgencyAverage();
+	const relationshipSupport = (state.relationshipValue("affection") + state.relationshipValue("trust")) * .5;
+	const accomplishment = 1 - state.drives.pressure("accomplishment");
+	const safety = 1 - state.drives.pressure("safety");
+	const valence = clamp01((1 - pressure) * .55 + relationshipSupport * .25 + accomplishment * .2);
+	const arousal = clamp01(state.drives.pressure("safety") * .45 + state.drives.pressure("hunger") * .2 + state.drives.pressure("curiosity") * .2 + state.personality.value("playfulness") * .15);
+	const dominance = clamp01(safety * .35 + relationshipSupport * .2 + accomplishment * .25 + state.personality.value("bravery") * .2);
+	const evaluated = {
+		label: moodLabel(valence, arousal, dominance),
+		valence,
+		arousal,
+		dominance,
+		evaluated_unix: nowUnix
+	};
+	state.mood = { ...evaluated };
+	return evaluated;
+}
+//#endregion
+//#region packages/buddy-domain/src/home/room-document.ts
+/**
+* Canonical Electron-native Home room document.
+*
+* This is intentionally renderer-independent. Godot, Pixi, React and future
+* renderers may present the room differently, but none of them own the room's
+* identity, item placement, surface names or revision history.
+*/
+var HOME_ROOM_SCHEMA = "pocket-buddy-home-room-v1";
+var WORLD_WALLS = [
+	"north",
+	"east",
+	"south",
+	"west"
+];
+var SURFACE_IDS = [
+	"floor",
+	"wall_north",
+	"wall_east",
+	"wall_south",
+	"wall_west"
+];
+var CAMERA_CORNERS = [
+	"SE",
+	"SW",
+	"NW",
+	"NE"
+];
+/**
+* Cutaway modes, aligned to the donor `InteriorWallModel.CUTAWAY_MODES` in
+* prismtek-apps. This originally read "show"; cross-runtime parity found the
+* donor uses "always_show", which means a room saved by one runtime would have
+* been rejected by the other. The donor already has shipped v4 saves and this
+* schema is unreleased, so the TypeScript side moved.
+*/
+var CUTAWAY_MODES = [
+	"auto",
+	"fade",
+	"hide",
+	"always_show"
+];
+var HomeRoomDocumentError = class extends Error {
+	constructor(message) {
+		super(message);
+		this.name = "HomeRoomDocumentError";
+	}
+};
+function isRecord$3(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isOneOf(value, values) {
+	return typeof value === "string" && values.includes(value);
+}
+function integerInRange(value, label, minimum, maximum) {
+	if (!Number.isInteger(value) || value < minimum || value > maximum) throw new HomeRoomDocumentError(`${label} must be an integer from ${minimum} to ${maximum}`);
+	return value;
+}
+function finiteInRange(value, label, minimum, maximum) {
+	if (typeof value !== "number" || !Number.isFinite(value) || value < minimum || value > maximum) throw new HomeRoomDocumentError(`${label} must be a finite number from ${minimum} to ${maximum}`);
+	return value;
+}
+function nonEmptyString(value, label) {
+	if (typeof value !== "string" || value.trim().length === 0) throw new HomeRoomDocumentError(`${label} must be a non-empty string`);
+	return value;
+}
+function parseCell$1(value, label, width, height) {
+	if (!isRecord$3(value)) throw new HomeRoomDocumentError(`${label} must be an object`);
+	return {
+		x: integerInRange(value.x, `${label}.x`, 0, width - 1),
+		y: integerInRange(value.y, `${label}.y`, 0, height - 1)
+	};
+}
+function parseOffset(value, label) {
+	if (!isRecord$3(value)) throw new HomeRoomDocumentError(`${label} must be an object`);
+	return {
+		x: finiteInRange(value.x, `${label}.x`, -4096, 4096),
+		y: finiteInRange(value.y, `${label}.y`, -4096, 4096)
+	};
+}
+function cloneJsonValue(value, label) {
+	if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+	if (typeof value === "number") {
+		if (!Number.isFinite(value)) throw new HomeRoomDocumentError(`${label} contains a non-finite number`);
+		return value;
+	}
+	if (Array.isArray(value)) return value.map((entry, index) => cloneJsonValue(entry, `${label}[${index}]`));
+	if (isRecord$3(value)) return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, cloneJsonValue(entry, `${label}.${key}`)]));
+	throw new HomeRoomDocumentError(`${label} must contain only JSON-safe values`);
+}
+function parseState(value, label) {
+	if (!isRecord$3(value)) throw new HomeRoomDocumentError(`${label} must be an object`);
+	return cloneJsonValue(value, label);
+}
+function parsePlacement(value, label, width, height) {
+	if (!isRecord$3(value)) throw new HomeRoomDocumentError(`${label} must be an object`);
+	if (!isOneOf(value.surface, SURFACE_IDS)) throw new HomeRoomDocumentError(`${label}.surface is not a canonical surface`);
+	const rotation = integerInRange(value.rotationQuarter, `${label}.rotationQuarter`, 0, 3);
+	const footprint = value.footprint;
+	if (!isRecord$3(footprint)) throw new HomeRoomDocumentError(`${label}.footprint must be an object`);
+	const supportItemId = value.supportItemId;
+	if (supportItemId !== null && typeof supportItemId !== "string") throw new HomeRoomDocumentError(`${label}.supportItemId must be a string or null`);
+	return {
+		surface: value.surface,
+		anchor: parseCell$1(value.anchor, `${label}.anchor`, width, height),
+		offset: parseOffset(value.offset, `${label}.offset`),
+		rotationQuarter: rotation,
+		scale: finiteInRange(value.scale, `${label}.scale`, .1, 8),
+		footprint: {
+			width: integerInRange(footprint.width, `${label}.footprint.width`, 1, width),
+			height: integerInRange(footprint.height, `${label}.footprint.height`, 1, height)
+		},
+		supportItemId
+	};
+}
+function parseItem(value, index, width, height) {
+	const label = `items[${index}]`;
+	if (!isRecord$3(value)) throw new HomeRoomDocumentError(`${label} must be an object`);
+	return {
+		id: nonEmptyString(value.id, `${label}.id`),
+		assetId: nonEmptyString(value.assetId, `${label}.assetId`),
+		placement: parsePlacement(value.placement, `${label}.placement`, width, height),
+		state: parseState(value.state, `${label}.state`)
+	};
+}
+function defaultSurfaces() {
+	return {
+		floor: { materialId: null },
+		wall_north: { materialId: null },
+		wall_east: { materialId: null },
+		wall_south: { materialId: null },
+		wall_west: { materialId: null }
+	};
+}
+function createHomeRoomDocument(options) {
+	const width = options.width ?? 4;
+	const height = options.height ?? 3;
+	integerInRange(width, "width", 1, 64);
+	integerInRange(height, "height", 1, 64);
+	return {
+		schema: HOME_ROOM_SCHEMA,
+		roomId: nonEmptyString(options.roomId, "roomId"),
+		revision: 0,
+		width,
+		height,
+		cameraCorner: "SE",
+		cutaway: "auto",
+		surfaces: defaultSurfaces(),
+		items: []
+	};
+}
+/** Strictly validates an untrusted saved document and returns a detached copy. */
+function parseHomeRoomDocument(value) {
+	if (!isRecord$3(value)) throw new HomeRoomDocumentError("room document must be an object");
+	if (value.schema !== "pocket-buddy-home-room-v1") throw new HomeRoomDocumentError(`unsupported room schema: ${String(value.schema)}`);
+	const width = integerInRange(value.width, "width", 1, 64);
+	const height = integerInRange(value.height, "height", 1, 64);
+	if (!isOneOf(value.cameraCorner, CAMERA_CORNERS)) throw new HomeRoomDocumentError("cameraCorner is invalid");
+	if (!isOneOf(value.cutaway, CUTAWAY_MODES)) throw new HomeRoomDocumentError("cutaway is invalid");
+	if (!isRecord$3(value.surfaces)) throw new HomeRoomDocumentError("surfaces must be an object");
+	const unknownSurfaces = Object.keys(value.surfaces).filter((key) => !SURFACE_IDS.includes(key));
+	if (unknownSurfaces.length > 0) throw new HomeRoomDocumentError(`surfaces contain non-canonical keys: ${unknownSurfaces.join(", ")}`);
+	const surfaces = defaultSurfaces();
+	for (const surface of SURFACE_IDS) {
+		const candidate = value.surfaces[surface];
+		if (!isRecord$3(candidate)) throw new HomeRoomDocumentError(`surfaces.${surface} must be an object`);
+		const materialId = candidate.materialId;
+		if (materialId !== null && typeof materialId !== "string") throw new HomeRoomDocumentError(`surfaces.${surface}.materialId must be a string or null`);
+		surfaces[surface] = { materialId };
+	}
+	if (!Array.isArray(value.items)) throw new HomeRoomDocumentError("items must be an array");
+	const items = value.items.map((item, index) => parseItem(item, index, width, height));
+	const ids = /* @__PURE__ */ new Set();
+	for (const item of items) {
+		if (ids.has(item.id)) throw new HomeRoomDocumentError(`duplicate item id: ${item.id}`);
+		ids.add(item.id);
+	}
+	for (const item of items) {
+		const support = item.placement.supportItemId;
+		if (support !== null && (!ids.has(support) || support === item.id)) throw new HomeRoomDocumentError(`item ${item.id} has an invalid supportItemId`);
+	}
+	return {
+		schema: HOME_ROOM_SCHEMA,
+		roomId: nonEmptyString(value.roomId, "roomId"),
+		revision: integerInRange(value.revision, "revision", 0, Number.MAX_SAFE_INTEGER),
+		width,
+		height,
+		cameraCorner: value.cameraCorner,
+		cutaway: value.cutaway,
+		surfaces,
+		items
+	};
+}
+//#endregion
+//#region packages/buddy-domain/src/home/placement.ts
+function integer(value, label) {
+	if (!Number.isInteger(value)) throw new RangeError(`${label} must be an integer`);
+	return value;
+}
+function footprintCells(item) {
+	const width = integer(item.placement.footprint.width, "footprint width");
+	const height = integer(item.placement.footprint.height, "footprint height");
+	const cells = [];
+	for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) cells.push({
+		x: item.placement.anchor.x + x,
+		y: item.placement.anchor.y + y
+	});
+	return cells;
+}
+function isCellInsideRoom(document, cell) {
+	return cell.x >= 0 && cell.y >= 0 && cell.x < document.width && cell.y < document.height;
+}
+function key(cell) {
+	return `${cell.x},${cell.y}`;
+}
+/**
+* Deterministic, renderer-independent floor placement check. Pixel settling and
+* collision hulls belong to the renderer/host; this protects canonical cell
+* occupancy and support references.
+*/
+function canPlaceRoomItem(document, candidate, ignoreItemId = null) {
+	if (document.items.some((item) => item.id === candidate.id && item.id !== ignoreItemId)) return {
+		ok: false,
+		reason: "duplicate-id",
+		blockingItemId: candidate.id
+	};
+	const supportId = candidate.placement.supportItemId;
+	if (supportId !== null && !document.items.some((item) => item.id === supportId)) return {
+		ok: false,
+		reason: "missing-support",
+		blockingItemId: supportId
+	};
+	if (candidate.placement.surface !== "floor") return {
+		ok: true,
+		reason: "ok",
+		blockingItemId: null
+	};
+	const candidateCells = footprintCells(candidate);
+	if (candidateCells.some((cell) => !isCellInsideRoom(document, cell))) return {
+		ok: false,
+		reason: "outside-room",
+		blockingItemId: null
+	};
+	const occupied = /* @__PURE__ */ new Map();
+	for (const item of document.items) {
+		if (item.id === ignoreItemId || item.placement.surface !== "floor") continue;
+		for (const cell of footprintCells(item)) occupied.set(key(cell), item.id);
+	}
+	for (const cell of candidateCells) {
+		const blocker = occupied.get(key(cell));
+		if (blocker !== void 0) return {
+			ok: false,
+			reason: "occupied",
+			blockingItemId: blocker
+		};
+	}
+	return {
+		ok: true,
+		reason: "ok",
+		blockingItemId: null
+	};
+}
+function upsertRoomItem(document, candidate) {
+	const existing = document.items.find((item) => item.id === candidate.id) ?? null;
+	const verdict = canPlaceRoomItem(document, candidate, existing?.id ?? null);
+	if (!verdict.ok) throw new Error(`cannot place ${candidate.id}: ${verdict.reason}${verdict.blockingItemId ? ` (${verdict.blockingItemId})` : ""}`);
+	const nextItems = existing === null ? [...document.items, candidate] : document.items.map((item) => item.id === candidate.id ? candidate : item);
+	return parseHomeRoomDocument({
+		...document,
+		revision: document.revision + 1,
+		items: nextItems
+	});
+}
+function removeRoomItem(document, itemId) {
+	const removed = new Set([itemId]);
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const item of document.items) if (item.placement.supportItemId !== null && removed.has(item.placement.supportItemId) && !removed.has(item.id)) {
+			removed.add(item.id);
+			changed = true;
+		}
+	}
+	if (!document.items.some((item) => removed.has(item.id))) return document;
+	return parseHomeRoomDocument({
+		...document,
+		revision: document.revision + 1,
+		items: document.items.filter((item) => !removed.has(item.id))
+	});
+}
+//#endregion
+//#region packages/buddy-domain/src/home/content-catalog.ts
+/**
+* Public, generated-placeholder catalog used by the open repository.
+*
+* Private release builds may replace only the presentation metadata through a
+* licensed manifest. Canonical ids, footprints, affordances and state keys stay
+* here so a room behaves the same with placeholder or purchased art.
+*/
+var HOME_PUBLIC_ASSETS = Object.freeze([
+	{
+		assetId: "home.bed.basic",
+		label: "Buddy Bed",
+		category: "comfort",
+		color: 9203634,
+		accentColor: 13088232,
+		footprint: {
+			width: 2,
+			height: 1
+		},
+		actions: ["rest"],
+		blocksMovement: true,
+		defaultState: { occupied: false }
+	},
+	{
+		assetId: "home.food-bowl.basic",
+		label: "Food Bowl",
+		category: "food",
+		color: 14254667,
+		accentColor: 16761462,
+		footprint: {
+			width: 1,
+			height: 1
+		},
+		actions: ["feed"],
+		blocksMovement: true,
+		defaultState: { servings: 5 }
+	},
+	{
+		assetId: "home.toy.ball",
+		label: "Play Ball",
+		category: "fun",
+		color: 5217512,
+		accentColor: 12180735,
+		footprint: {
+			width: 1,
+			height: 1
+		},
+		actions: ["play"],
+		blocksMovement: false,
+		defaultState: { bounces: 0 }
+	},
+	{
+		assetId: "home.tv.basic",
+		label: "Television",
+		category: "media",
+		color: 2700106,
+		accentColor: 7397832,
+		footprint: {
+			width: 1,
+			height: 1
+		},
+		actions: ["toggle", "next-channel"],
+		blocksMovement: true,
+		defaultState: {
+			powered: false,
+			channel: "nature"
+		}
+	},
+	{
+		assetId: "home.chair.basic",
+		label: "Chair",
+		category: "comfort",
+		color: 10448973,
+		accentColor: 14264188,
+		footprint: {
+			width: 1,
+			height: 1
+		},
+		actions: ["sit"],
+		blocksMovement: true,
+		defaultState: { occupied: false }
+	},
+	{
+		assetId: "home.table.basic",
+		label: "Table",
+		category: "surface",
+		color: 8345403,
+		accentColor: 12683868,
+		footprint: {
+			width: 2,
+			height: 2
+		},
+		actions: [],
+		blocksMovement: true,
+		defaultState: {}
+	},
+	{
+		assetId: "home.plant.basic",
+		label: "House Plant",
+		category: "decor",
+		color: 4951893,
+		accentColor: 10802799,
+		footprint: {
+			width: 1,
+			height: 1
+		},
+		actions: ["water"],
+		blocksMovement: true,
+		defaultState: { watered: false }
+	}
+]);
+var ASSETS_BY_ID = new Map(HOME_PUBLIC_ASSETS.map((asset) => [asset.assetId, asset]));
+function homeAssetDefinition(assetId) {
+	return ASSETS_BY_ID.get(assetId) ?? null;
+}
+function requireHomeAssetDefinition(assetId) {
+	const definition = homeAssetDefinition(assetId);
+	if (!definition) throw new Error(`unknown Home asset: ${assetId}`);
+	return definition;
+}
+function createHomeRoomItem(options) {
+	const definition = requireHomeAssetDefinition(options.assetId);
+	const rotated = (options.rotationQuarter ?? 0) % 2 !== 0;
+	return {
+		id: options.id,
+		assetId: definition.assetId,
+		placement: {
+			surface: "floor",
+			anchor: { ...options.anchor },
+			offset: {
+				x: 0,
+				y: 0
+			},
+			rotationQuarter: options.rotationQuarter ?? 0,
+			scale: 1,
+			footprint: rotated ? {
+				width: definition.footprint.height,
+				height: definition.footprint.width
+			} : { ...definition.footprint },
+			supportItemId: options.supportItemId ?? null
+		},
+		state: structuredClone(definition.defaultState)
+	};
+}
+function placeHomeCatalogItem(document, options) {
+	return upsertRoomItem(document, createHomeRoomItem(options));
+}
+function applyHomeItemAction(document, itemId, action) {
+	const item = document.items.find((candidate) => candidate.id === itemId);
+	if (!item) throw new Error(`unknown Home item: ${itemId}`);
+	const definition = requireHomeAssetDefinition(item.assetId);
+	if (!definition.actions.includes(action)) throw new Error(`${definition.assetId} does not support ${action}`);
+	let state = item.state;
+	let relief = {};
+	let affectionDelta = 0;
+	let thought = `${definition.label} is ready.`;
+	switch (action) {
+		case "rest":
+			state = {
+				...state,
+				occupied: true
+			};
+			relief = {
+				energy: .55,
+				comfort: .18
+			};
+			affectionDelta = .005;
+			thought = "That nap hit the spot.";
+			break;
+		case "feed": {
+			const servings = Math.max(0, Number(state.servings ?? 0));
+			if (servings <= 0) {
+				thought = "The food bowl is empty.";
+				break;
+			}
+			state = {
+				...state,
+				servings: servings - 1
+			};
+			relief = {
+				hunger: .62,
+				comfort: .08
+			};
+			affectionDelta = .012;
+			thought = "Crunch crunch. Excellent snacks.";
+			break;
+		}
+		case "play":
+			state = {
+				...state,
+				bounces: Math.max(0, Number(state.bounces ?? 0)) + 1
+			};
+			relief = {
+				boredom: .52,
+				social: .1,
+				accomplishment: .05
+			};
+			affectionDelta = .018;
+			thought = "Again! Throw it again!";
+			break;
+		case "sit":
+			state = {
+				...state,
+				occupied: true
+			};
+			relief = {
+				comfort: .2,
+				energy: .04
+			};
+			thought = "This chair is suspiciously comfy.";
+			break;
+		case "toggle": {
+			const powered = state.powered !== true;
+			state = {
+				...state,
+				powered
+			};
+			thought = powered ? `The TV is showing ${String(state.channel ?? "nature")}.` : "Quiet time. TV off.";
+			break;
+		}
+		case "next-channel": {
+			const channels = [
+				"nature",
+				"arcade",
+				"weather",
+				"music"
+			];
+			const channel = channels[(channels.indexOf(String(state.channel ?? "nature")) + 1 + channels.length) % channels.length];
+			state = {
+				...state,
+				powered: true,
+				channel
+			};
+			relief = { boredom: .08 };
+			thought = `Now watching ${channel}.`;
+			break;
+		}
+		case "water":
+			state = {
+				...state,
+				watered: true
+			};
+			relief = {
+				accomplishment: .08,
+				comfort: .03
+			};
+			thought = "The plant looks happier already.";
+			break;
+	}
+	return {
+		room: replaceRoomItemState(document, itemId, state),
+		itemId,
+		action,
+		relief,
+		affectionDelta,
+		thought
+	};
+}
+function replaceRoomItemState(document, itemId, state) {
+	if (!document.items.some((item) => item.id === itemId)) throw new Error(`unknown Home item: ${itemId}`);
+	return parseHomeRoomDocument({
+		...document,
+		revision: document.revision + 1,
+		items: document.items.map((item) => item.id === itemId ? {
+			...item,
+			state: structuredClone(state)
+		} : item)
+	});
+}
+//#endregion
+//#region packages/buddy-domain/src/home/isometric.ts
+var NEAR_WALLS = Object.freeze({
+	SE: ["east", "south"],
+	SW: ["south", "west"],
+	NW: ["west", "north"],
+	NE: ["north", "east"]
+});
+function cornerQuarter(cameraCorner) {
+	return CAMERA_CORNERS.indexOf(cameraCorner);
+}
+function rotateCameraCorner(cameraCorner, deltaQuarter) {
+	return CAMERA_CORNERS[((cornerQuarter(cameraCorner) + Math.trunc(deltaQuarter)) % 4 + 4) % 4];
+}
+/**
+* Rotates a canonical room cell into the current presentation grid without
+* mutating canonical world state. Four quarter-turns return the exact cell.
+*/
+function rotateCanonicalCell(cell, size, cameraCorner) {
+	switch (cornerQuarter(cameraCorner)) {
+		case 0: return {
+			x: cell.x,
+			y: cell.y
+		};
+		case 1: return {
+			x: size.height - 1 - cell.y,
+			y: cell.x
+		};
+		case 2: return {
+			x: size.width - 1 - cell.x,
+			y: size.height - 1 - cell.y
+		};
+		case 3: return {
+			x: cell.y,
+			y: size.width - 1 - cell.x
+		};
+	}
+}
+function projectPresentedCell(cell, tileWidth = 64, tileHeight = 32) {
+	if (!(tileWidth > 0) || !(tileHeight > 0)) throw new RangeError("tile dimensions must be positive");
+	return {
+		x: (cell.x - cell.y) * (tileWidth / 2),
+		y: (cell.x + cell.y) * (tileHeight / 2)
+	};
+}
+function projectCanonicalCell(cell, size, cameraCorner, tileWidth = 64, tileHeight = 32) {
+	return projectPresentedCell(rotateCanonicalCell(cell, size, cameraCorner), tileWidth, tileHeight);
+}
+function nearWalls(cameraCorner) {
+	return NEAR_WALLS[cameraCorner];
+}
+function isNearWall(wall, cameraCorner) {
+	return nearWalls(cameraCorner).includes(wall);
+}
+//#endregion
+//#region packages/buddy-domain/src/home/play-state.ts
+var HOME_PLAY_SCHEMA = "pocket-buddy-home-play-v1";
+var HOME_DIRECTIONS = [
+	"north",
+	"east",
+	"south",
+	"west"
+];
+var DIRECTION_DELTAS = {
+	north: {
+		x: 0,
+		y: -1
+	},
+	east: {
+		x: 1,
+		y: 0
+	},
+	south: {
+		x: 0,
+		y: 1
+	},
+	west: {
+		x: -1,
+		y: 0
+	}
+};
+function isRecord$2(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function finiteNonNegative(value, label) {
+	if (typeof value !== "number" || !Number.isFinite(value) || value < 0) throw new Error(`${label} must be a finite non-negative number`);
+	return value;
+}
+function integerNonNegative(value, label) {
+	if (!Number.isInteger(value) || value < 0) throw new Error(`${label} must be a non-negative integer`);
+	return value;
+}
+function parseCell(value, room, label) {
+	if (!isRecord$2(value) || !Number.isInteger(value.x) || !Number.isInteger(value.y)) throw new Error(`${label} must be an integer cell`);
+	const cell = {
+		x: value.x,
+		y: value.y
+	};
+	if (!isCellInsideRoom(room, cell)) throw new Error(`${label} is outside the room`);
+	return cell;
+}
+function parsePose(value, room, label) {
+	if (!isRecord$2(value)) throw new Error(`${label} must be an object`);
+	if (typeof value.facing !== "string" || !HOME_DIRECTIONS.includes(value.facing)) throw new Error(`${label}.facing is invalid`);
+	return {
+		cell: parseCell(value.cell, room, `${label}.cell`),
+		facing: value.facing
+	};
+}
+function actorAt(state, actor) {
+	return actor === "player" ? state.player : state.buddy;
+}
+function withActor(state, actor, pose) {
+	return {
+		...state,
+		revision: state.revision + 1,
+		...actor === "player" ? { player: pose } : { buddy: pose }
+	};
+}
+function sameCell(a, b) {
+	return a.x === b.x && a.y === b.y;
+}
+function manhattan(a, b) {
+	return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+function blocksMovement(item) {
+	return homeAssetDefinition(item.assetId)?.blocksMovement ?? true;
+}
+function isHomeCellBlocked(room, cell, ignoreItemId = null) {
+	return room.items.some((item) => item.id !== ignoreItemId && item.placement.surface === "floor" && blocksMovement(item) && footprintCells(item).some((occupied) => sameCell(occupied, cell)));
+}
+function isActorDestinationOpen(room, state, actor, cell) {
+	if (!isCellInsideRoom(room, cell) || isHomeCellBlocked(room, cell)) return false;
+	return !sameCell((actor === "player" ? state.buddy : state.player).cell, cell);
+}
+function createHomePlayState(room, nowUnix = 0) {
+	const timestamp = finiteNonNegative(nowUnix, "nowUnix");
+	const creature = new BuddyCreatureState(timestamp, "buddy");
+	evaluateMood(creature, timestamp);
+	const playerCell = firstOpenCell(room, [{
+		x: 0,
+		y: room.height - 1
+	}, {
+		x: 0,
+		y: 0
+	}]);
+	const buddyCell = firstOpenCell(room, [{
+		x: Math.floor(room.width / 2),
+		y: Math.floor(room.height / 2)
+	}, {
+		x: room.width - 1,
+		y: room.height - 1
+	}], playerCell);
+	return {
+		schema: HOME_PLAY_SCHEMA,
+		revision: 0,
+		player: {
+			cell: playerCell,
+			facing: "north"
+		},
+		buddy: {
+			cell: buddyCell,
+			facing: "south"
+		},
+		creature: creature.toData(),
+		thought: "Home smells new. I should investigate everything.",
+		selectedItemId: null,
+		lastAdvancedUnix: timestamp
+	};
+}
+function parseHomePlayState(value, room, nowUnix = 0) {
+	if (!isRecord$2(value)) throw new Error("Home play state must be an object");
+	if (value.schema !== "pocket-buddy-home-play-v1") throw new Error(`unsupported Home play schema: ${String(value.schema)}`);
+	const selectedItemId = value.selectedItemId;
+	if (selectedItemId !== null && typeof selectedItemId !== "string") throw new Error("selectedItemId must be a string or null");
+	const thought = typeof value.thought === "string" ? value.thought.slice(0, 280) : "";
+	const creature = BuddyCreatureState.fromData(value.creature, finiteNonNegative(nowUnix, "nowUnix"));
+	return {
+		schema: HOME_PLAY_SCHEMA,
+		revision: integerNonNegative(value.revision, "revision"),
+		player: parsePose(value.player, room, "player"),
+		buddy: parsePose(value.buddy, room, "buddy"),
+		creature: creature.toData(),
+		thought,
+		selectedItemId: selectedItemId !== null && room.items.some((item) => item.id === selectedItemId) ? selectedItemId : null,
+		lastAdvancedUnix: finiteNonNegative(value.lastAdvancedUnix, "lastAdvancedUnix")
+	};
+}
+function moveHomeActor(room, state, actor, direction) {
+	const current = actorAt(state, actor);
+	const delta = DIRECTION_DELTAS[direction];
+	const target = {
+		x: current.cell.x + delta.x,
+		y: current.cell.y + delta.y
+	};
+	const facingPose = {
+		...current,
+		facing: direction
+	};
+	if (!isActorDestinationOpen(room, state, actor, target)) return current.facing === direction ? state : withActor(state, actor, facingPose);
+	return withActor(state, actor, {
+		cell: target,
+		facing: direction
+	});
+}
+function selectHomeItem(state, itemId) {
+	if (state.selectedItemId === itemId) return state;
+	return {
+		...state,
+		revision: state.revision + 1,
+		selectedItemId: itemId
+	};
+}
+function petHomeBuddy(state, nowUnix = state.lastAdvancedUnix) {
+	const timestamp = Math.max(finiteNonNegative(nowUnix, "nowUnix"), state.lastAdvancedUnix);
+	const creature = BuddyCreatureState.fromData(state.creature, timestamp);
+	creature.drives.applyRelief({
+		social: .18,
+		affection: .2,
+		comfort: .08
+	});
+	creature.adjustRelationship("affection", .025);
+	creature.adjustRelationship("trust", .008);
+	creature.rememberAction("home.pet");
+	evaluateMood(creature, timestamp);
+	return {
+		...state,
+		revision: state.revision + 1,
+		creature: creature.toData(),
+		thought: "Yes. More head pats. This is important work.",
+		lastAdvancedUnix: timestamp
+	};
+}
+function interactHomeItem(room, state, itemId, action, nowUnix = state.lastAdvancedUnix) {
+	const timestamp = Math.max(finiteNonNegative(nowUnix, "nowUnix"), state.lastAdvancedUnix);
+	const outcome = applyHomeItemAction(room, itemId, action);
+	const creature = BuddyCreatureState.fromData(state.creature, timestamp);
+	creature.drives.applyRelief(outcome.relief);
+	if (outcome.affectionDelta !== 0) creature.adjustRelationship("affection", outcome.affectionDelta);
+	creature.rememberAction(`home.${action}`);
+	evaluateMood(creature, timestamp);
+	const interactionCell = nearestInteractionCell(outcome.room, itemId, state.buddy.cell, state.player.cell);
+	return {
+		room: outcome.room,
+		play: {
+			...state,
+			revision: state.revision + 1,
+			buddy: interactionCell ? {
+				cell: interactionCell,
+				facing: facingToward(interactionCell, itemAnchor(outcome.room, itemId))
+			} : state.buddy,
+			creature: creature.toData(),
+			thought: outcome.thought,
+			selectedItemId: itemId,
+			lastAdvancedUnix: timestamp
+		}
+	};
+}
+/**
+* Advances needs and one deterministic Buddy decision. The caller controls the
+* clock, so animation frame rate and hidden-window throttling cannot change the
+* simulation result.
+*/
+function advanceHomeSession(room, state, nowUnix) {
+	const timestamp = Math.max(finiteNonNegative(nowUnix, "nowUnix"), state.lastAdvancedUnix);
+	const elapsed = timestamp - state.lastAdvancedUnix;
+	if (elapsed <= 0) return {
+		room,
+		play: state
+	};
+	const creature = BuddyCreatureState.fromData(state.creature, timestamp);
+	creature.drives.applyDrift(elapsed);
+	evaluateMood(creature, timestamp);
+	let nextRoom = room;
+	let nextBuddy = state.buddy;
+	let thought = thoughtForCreature(creature);
+	const urgent = creature.drives.mostUrgent(1)[0];
+	const target = preferredTarget(room, state, urgent?.drive ?? "curiosity");
+	if (target?.item && target.action && urgent && urgent.pressure >= .45) {
+		const interactionCell = nearestInteractionCell(room, target.item.id, state.buddy.cell, state.player.cell);
+		if (interactionCell && sameCell(interactionCell, state.buddy.cell)) {
+			const outcome = applyHomeItemAction(room, target.item.id, target.action);
+			nextRoom = outcome.room;
+			creature.drives.applyRelief(outcome.relief);
+			if (outcome.affectionDelta !== 0) creature.adjustRelationship("affection", outcome.affectionDelta);
+			creature.rememberAction(`home.auto.${target.action}`);
+			evaluateMood(creature, timestamp);
+			thought = outcome.thought;
+		} else if (interactionCell) {
+			nextBuddy = stepToward(room, state, interactionCell);
+			thought = `I am heading to the ${homeAssetDefinition(target.item.assetId)?.label ?? "thing"}.`;
+		}
+	} else if (target?.cell) nextBuddy = stepToward(room, state, target.cell);
+	else nextBuddy = deterministicWander(room, state, timestamp);
+	return {
+		room: nextRoom,
+		play: {
+			...state,
+			revision: state.revision + 1,
+			buddy: nextBuddy,
+			creature: creature.toData(),
+			thought,
+			lastAdvancedUnix: timestamp
+		}
+	};
+}
+function preferredTarget(room, state, drive) {
+	const action = {
+		hunger: "feed",
+		energy: "rest",
+		comfort: "rest",
+		boredom: "play",
+		accomplishment: "water"
+	}[drive];
+	if (action) {
+		const items = room.items.filter((item) => homeAssetDefinition(item.assetId)?.actions.includes(action)).sort((a, b) => manhattan(state.buddy.cell, a.placement.anchor) - manhattan(state.buddy.cell, b.placement.anchor));
+		if (items[0]) return {
+			item: items[0],
+			action
+		};
+	}
+	if (drive === "social" || drive === "affection" || drive === "safety") return { cell: state.player.cell };
+	return null;
+}
+function stepToward(room, state, target) {
+	const current = state.buddy;
+	const candidates = [];
+	if (target.x > current.cell.x) candidates.push("east");
+	if (target.x < current.cell.x) candidates.push("west");
+	if (target.y > current.cell.y) candidates.push("south");
+	if (target.y < current.cell.y) candidates.push("north");
+	for (const direction of candidates) {
+		const moved = moveHomeActor(room, state, "buddy", direction);
+		if (!sameCell(moved.buddy.cell, current.cell)) return moved.buddy;
+	}
+	return current;
+}
+function deterministicWander(room, state, nowUnix) {
+	const start = (state.revision + Math.floor(nowUnix)) % HOME_DIRECTIONS.length;
+	for (let offset = 0; offset < HOME_DIRECTIONS.length; offset += 1) {
+		const direction = HOME_DIRECTIONS[(start + offset) % HOME_DIRECTIONS.length];
+		const moved = moveHomeActor(room, state, "buddy", direction);
+		if (!sameCell(moved.buddy.cell, state.buddy.cell)) return moved.buddy;
+	}
+	return state.buddy;
+}
+function nearestInteractionCell(room, itemId, from, reserved) {
+	const item = room.items.find((candidate) => candidate.id === itemId);
+	if (!item) return null;
+	const candidates = /* @__PURE__ */ new Map();
+	for (const cell of footprintCells(item)) for (const delta of Object.values(DIRECTION_DELTAS)) {
+		const candidate = {
+			x: cell.x + delta.x,
+			y: cell.y + delta.y
+		};
+		if (!isCellInsideRoom(room, candidate) || isHomeCellBlocked(room, candidate) || sameCell(candidate, reserved)) continue;
+		candidates.set(`${candidate.x},${candidate.y}`, candidate);
+	}
+	return [...candidates.values()].sort((a, b) => manhattan(from, a) - manhattan(from, b) || a.y - b.y || a.x - b.x)[0] ?? null;
+}
+function itemAnchor(room, itemId) {
+	return room.items.find((item) => item.id === itemId)?.placement.anchor ?? {
+		x: 0,
+		y: 0
+	};
+}
+function facingToward(from, target) {
+	const dx = target.x - from.x;
+	const dy = target.y - from.y;
+	if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? "east" : "west";
+	return dy >= 0 ? "south" : "north";
+}
+function thoughtForCreature(creature) {
+	const urgent = creature.drives.mostUrgent(1)[0];
+	if (!urgent || urgent.pressure < .35) return `I feel ${creature.mood.label}. This room is pretty nice.`;
+	return {
+		hunger: "I could absolutely destroy a snack right now.",
+		energy: "A tiny nap would improve the situation dramatically.",
+		boredom: "We need a game. Preferably one with bouncing.",
+		social: "Where did my person go? I require attention.",
+		affection: "I have detected a dangerous shortage of head pats.",
+		cleanliness: "I may have become a little bit gross.",
+		comfort: "Something cozy would be excellent.",
+		safety: "I should stay close to my person for a minute.",
+		accomplishment: "I want to do something useful and impressive.",
+		curiosity: "What happens if I poke everything in here?",
+		focus: "I am trying very hard to remember what I was doing."
+	}[urgent.drive] ?? `I am thinking about ${urgent.drive}.`;
+}
+function firstOpenCell(room, preferred, reserved) {
+	return [...preferred, ...Array.from({ length: room.width * room.height }, (_, index) => ({
+		x: index % room.width,
+		y: Math.floor(index / room.width)
+	}))].find((cell) => isCellInsideRoom(room, cell) && !isHomeCellBlocked(room, cell) && (!reserved || !sameCell(cell, reserved))) ?? {
+		x: 0,
+		y: 0
+	};
+}
+//#endregion
+//#region packages/buddy-domain/src/home/tile-layer.ts
+var HOME_FLOOR_LAYER_SCHEMA = "pocket-buddy-home-floor-v1";
+var HomeFloorTileLayerError = class extends Error {
+	constructor(message) {
+		super(message);
+		this.name = "HomeFloorTileLayerError";
+	}
+};
+function floorCellKey(cell) {
+	return `${cell.x},${cell.y}`;
+}
+function createHomeFloorTileLayer(defaultMaterialId = "floor.wood") {
+	return {
+		schema: HOME_FLOOR_LAYER_SCHEMA,
+		defaultMaterialId: normalizeMaterialId(defaultMaterialId, "defaultMaterialId"),
+		overrides: {}
+	};
+}
+function floorMaterialAt(layer, cell) {
+	return layer.overrides[floorCellKey(cell)] ?? layer.defaultMaterialId;
+}
+function paintHomeFloorTile(room, layer, cell, materialId) {
+	assertCellInRoom(room, cell);
+	const material = normalizeMaterialId(materialId, "materialId");
+	const key = floorCellKey(cell);
+	const next = { ...layer.overrides };
+	if (material === layer.defaultMaterialId) delete next[key];
+	else next[key] = material;
+	return {
+		...layer,
+		overrides: next
+	};
+}
+function resetHomeFloorTile(room, layer, cell) {
+	assertCellInRoom(room, cell);
+	const key = floorCellKey(cell);
+	if (!(key in layer.overrides)) return layer;
+	const next = { ...layer.overrides };
+	delete next[key];
+	return {
+		...layer,
+		overrides: next
+	};
+}
+function parseHomeFloorTileLayer(value, room) {
+	if (!isRecord$1(value) || value.schema !== "pocket-buddy-home-floor-v1") throw new HomeFloorTileLayerError("floor layer schema is invalid");
+	const defaultMaterialId = normalizeMaterialId(value.defaultMaterialId, "defaultMaterialId");
+	if (!isRecord$1(value.overrides)) throw new HomeFloorTileLayerError("overrides must be an object");
+	const overrides = {};
+	for (const [key, materialValue] of Object.entries(value.overrides)) {
+		assertCellInRoom(room, parseCellKey(key));
+		const materialId = normalizeMaterialId(materialValue, `overrides.${key}`);
+		if (materialId !== defaultMaterialId) overrides[key] = materialId;
+	}
+	return {
+		schema: HOME_FLOOR_LAYER_SCHEMA,
+		defaultMaterialId,
+		overrides
+	};
+}
+function assertCellInRoom(room, cell) {
+	if (!Number.isInteger(cell.x) || !Number.isInteger(cell.y)) throw new HomeFloorTileLayerError("tile coordinates must be integers");
+	if (cell.x < 0 || cell.y < 0 || cell.x >= room.width || cell.y >= room.height) throw new HomeFloorTileLayerError(`tile ${floorCellKey(cell)} is outside the room`);
+}
+function parseCellKey(key) {
+	const match = /^(-?\d+),(-?\d+)$/.exec(key);
+	if (!match) throw new HomeFloorTileLayerError(`invalid tile key: ${key}`);
+	return {
+		x: Number(match[1]),
+		y: Number(match[2])
+	};
+}
+function normalizeMaterialId(value, label) {
+	if (typeof value !== "string") throw new HomeFloorTileLayerError(`${label} must be a string`);
+	const normalized = value.trim();
+	if (normalized.length === 0 || normalized.length > 120) throw new HomeFloorTileLayerError(`${label} must contain 1 to 120 characters`);
+	return normalized;
+}
+function isRecord$1(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+//#endregion
+//#region packages/buddy-domain/src/home/parity-scenarios.ts
+/**
+* Canonical Home parity scenarios.
+*
+* This is the TypeScript half of the golden Godot -> TypeScript harness for
+* four-wall room geometry and placement. It emits `prismtek-parity-trace-v1`
+* traces from `@open-pets/buddy-domain` so a Godot emitter can produce the same
+* scenario ids and step inputs, and `compareParityTraces` can diff them.
+*
+* Two rules make these traces comparable across runtimes:
+*
+*  - scenarios are DECLARATIVE. Each step is an input the Godot side can replay
+*    verbatim, not a sequence of TypeScript calls, so neither runtime has to
+*    reimplement the other's control flow.
+*  - snapshots contain only OBSERVABLE canonical state. Nothing renderer-owned
+*    (pixel settling, sprite depth, animation) appears here, because those are
+*    legitimately allowed to differ.
+*/
+function cell(x, y) {
+	return {
+		x,
+		y
+	};
+}
+function item(id, anchor, footprint = {
+	width: 1,
+	height: 1
+}, supportItemId = null) {
+	return {
+		id,
+		assetId: `asset.${id}`,
+		placement: {
+			surface: "floor",
+			anchor,
+			offset: {
+				x: 0,
+				y: 0
+			},
+			rotationQuarter: 0,
+			scale: 1,
+			footprint,
+			supportItemId
+		},
+		state: {}
+	};
+}
+[...CAMERA_CORNERS.map((cameraCorner) => ({
+	op: "setCameraCorner",
+	cameraCorner
+}))], item("rug", cell(0, 0), {
+	width: 2,
+	height: 2
+}), item("lamp", cell(3, 2)), item("table", cell(0, 0), {
+	width: 2,
+	height: 2
+}), item("chair", cell(1, 1)), item("outside", cell(9, 9)), item("table", cell(2, 2)), item("vase", cell(2, 2), {
+	width: 1,
+	height: 1
+}, "ghost"), item("table", cell(1, 1), {
+	width: 2,
+	height: 1
+}), item("plate", cell(1, 1), {
+	width: 1,
+	height: 1
+}, "table");
+//#endregion
+//#region packages/buddy-domain/src/home/wall-model.ts
+/**
+* Alpha used for a camera-facing wall that must stay visible.
+*
+* Donor `FRONT_FADE_ALPHA`. A camera-facing wall draws in front of the floor,
+* so "show it" and "show it opaque" are not the same thing: drawn solid it
+* would cover the room the builder is editing.
+*/
+var FRONT_FADE_ALPHA = .18;
+/**
+* Canonical boundary cells for a rectangular floor, in the donor's order.
+*
+* Corners deliberately belong to two walls: that is real geometry, not
+* duplicate data. Returns empty for a degenerate room, as the donor does.
+*/
+function wallBoundaryCells(width, height, wall) {
+	if (width <= 0 || height <= 0) return [];
+	const cells = [];
+	switch (wall) {
+		case "north":
+			for (let x = 0; x < width; x += 1) cells.push({
+				x,
+				y: 0
+			});
+			break;
+		case "south":
+			for (let x = 0; x < width; x += 1) cells.push({
+				x,
+				y: height - 1
+			});
+			break;
+		case "west":
+			for (let y = 0; y < height; y += 1) cells.push({
+				x: 0,
+				y
+			});
+			break;
+		case "east":
+			for (let y = 0; y < height; y += 1) cells.push({
+				x: width - 1,
+				y
+			});
+			break;
+	}
+	return cells;
+}
+/**
+* Rendering decision only.
+*
+* Collision, placement and persistence stay active even when a wall is hidden.
+* That is the rule that makes cutaway rooms reliable, and it is why this
+* returns a presentation rather than mutating anything.
+*
+* An unrecognised cutaway mode falls back to `auto`, matching the donor rather
+* than throwing: this runs on save data, and a room with a bad mode should
+* still draw.
+*/
+function wallPresentation(wall, cameraCorner, cutawayMode = "auto", buildMode = false) {
+	const cutaway = normalizeCutaway(cutawayMode);
+	if (!isNearWall(wall, cameraCorner)) return {
+		visible: true,
+		alpha: 1,
+		cameraFacing: false
+	};
+	if (buildMode || cutaway === "always_show" || cutaway === "fade") return {
+		visible: true,
+		alpha: FRONT_FADE_ALPHA,
+		cameraFacing: true
+	};
+	return {
+		visible: false,
+		alpha: 0,
+		cameraFacing: true
+	};
+}
+function normalizeCutaway(mode) {
+	const lowered = stringify(mode).toLowerCase();
+	return isCutawayMode(lowered) ? lowered : "auto";
+}
+function isCutawayMode(value) {
+	return value === "auto" || value === "fade" || value === "hide" || value === "always_show";
+}
+/** Mirrors GDScript `str(value)` closely enough for every input the donor accepts. */
+function stringify(value) {
+	if (typeof value === "string") return value;
+	if (value === null || value === void 0) return "";
+	return String(value);
+}
+//#endregion
+//#region plugins/official/openpets.home-builder/src/canvas-engine.ts
+function css(color, alpha) {
+	const value = Math.max(0, Math.min(16777215, Math.trunc(color)));
+	return `rgba(${value >> 16 & 255}, ${value >> 8 & 255}, ${value & 255}, ${Math.max(0, Math.min(1, alpha))})`;
+}
+/** The Phaser `GameObjects.Graphics` surface Home uses. */
+var Graphics = class {
+	ctx;
+	path = new Path2D();
+	constructor(ctx) {
+		this.ctx = ctx;
+	}
+	clear() {
+		const { canvas } = this.ctx;
+		this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+		this.path = new Path2D();
+		return this;
+	}
+	fillStyle(color, alpha = 1) {
+		this.ctx.fillStyle = css(color, alpha);
+		return this;
+	}
+	lineStyle(width, color, alpha = 1) {
+		this.ctx.lineWidth = width;
+		this.ctx.strokeStyle = css(color, alpha);
+		return this;
+	}
+	beginPath() {
+		this.path = new Path2D();
+		return this;
+	}
+	moveTo(x, y) {
+		this.path.moveTo(x, y);
+		return this;
+	}
+	lineTo(x, y) {
+		this.path.lineTo(x, y);
+		return this;
+	}
+	arc(x, y, radius, startAngle, endAngle, anticlockwise = false) {
+		this.path.arc(x, y, radius, startAngle, endAngle, anticlockwise);
+		return this;
+	}
+	closePath() {
+		this.path.closePath();
+		return this;
+	}
+	fillPath() {
+		this.ctx.fill(this.path);
+		return this;
+	}
+	strokePath() {
+		this.ctx.stroke(this.path);
+		return this;
+	}
+	fillRect(x, y, width, height) {
+		this.ctx.fillRect(x, y, width, height);
+		return this;
+	}
+	strokeRect(x, y, width, height) {
+		this.ctx.strokeRect(x, y, width, height);
+		return this;
+	}
+	fillCircle(x, y, radius) {
+		const circle = new Path2D();
+		circle.arc(x, y, Math.max(0, radius), 0, Math.PI * 2);
+		this.ctx.fill(circle);
+		return this;
+	}
+	strokeCircle(x, y, radius) {
+		const circle = new Path2D();
+		circle.arc(x, y, Math.max(0, radius), 0, Math.PI * 2);
+		this.ctx.stroke(circle);
+		return this;
+	}
+};
+var Vector2 = class {
+	x;
+	y;
+	constructor(x, y) {
+		this.x = x;
+		this.y = y;
+	}
+};
+/** Phaser's emitter shape, including the `context` argument `off` needs. */
+var Emitter = class {
+	handlers = /* @__PURE__ */ new Map();
+	on(event, handler, context) {
+		const list = this.handlers.get(event) ?? [];
+		list.push({
+			handler,
+			context
+		});
+		this.handlers.set(event, list);
+	}
+	once(event, handler, context) {
+		const wrapped = ((...args) => {
+			this.off(event, wrapped, context);
+			handler.apply(context, args);
+		});
+		this.on(event, wrapped, context);
+	}
+	off(event, handler, context) {
+		if (!handler) {
+			this.handlers.delete(event);
+			return;
+		}
+		const list = (this.handlers.get(event) ?? []).filter((entry) => entry.handler !== handler || context !== void 0 && entry.context !== context);
+		this.handlers.set(event, list);
+	}
+	emit(event, ...args) {
+		for (const entry of [...this.handlers.get(event) ?? []]) entry.handler.apply(entry.context, args);
+	}
+};
+/** Base class matching the `Phaser.Scene` members Home relies on. */
+var Scene = class {
+	add;
+	input;
+	scale;
+	time;
+	events = new Emitter();
+	game;
+};
+var SHUTDOWN = "shutdown";
+var RESIZE = "resize";
+/**
+* Mount a scene onto a canvas inside `parent`, wiring the input, resize and
+* timer plumbing Phaser used to provide.
+*/
+function mountScene(parent, scene, backgroundColor = "#182033") {
+	const canvas = document.createElement("canvas");
+	canvas.style.cssText = "display:block;width:100%;height:100%;touch-action:none";
+	canvas.tabIndex = 0;
+	parent.append(canvas);
+	const ctx = canvas.getContext("2d");
+	if (!ctx) throw new Error("Home needs a 2D canvas context.");
+	const scaleEvents = new Emitter();
+	const gameEvents = new Emitter();
+	const keyboard = new Emitter();
+	const pointerEvents = new Emitter();
+	const graphics = new Graphics(ctx);
+	const timers = [];
+	let pointerDown = false;
+	let width = 0;
+	let height = 0;
+	const resize = () => {
+		const ratio = window.devicePixelRatio || 1;
+		width = Math.max(320, parent.clientWidth);
+		height = Math.max(320, parent.clientHeight);
+		canvas.width = Math.round(width * ratio);
+		canvas.height = Math.round(height * ratio);
+		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+		ctx.imageSmoothingEnabled = false;
+		scaleEvents.emit(RESIZE);
+	};
+	const scale = {
+		get width() {
+			return width;
+		},
+		get height() {
+			return height;
+		},
+		on(event, handler, context) {
+			scaleEvents.on(event, handler, context);
+		}
+	};
+	function pointerAt(event) {
+		const rect = canvas.getBoundingClientRect();
+		return {
+			x: event.clientX - rect.left,
+			y: event.clientY - rect.top,
+			isDown: pointerDown
+		};
+	}
+	const onPointerMove = (event) => pointerEvents.emit("pointermove", pointerAt(event));
+	const onPointerDown = (event) => {
+		pointerDown = true;
+		canvas.focus();
+		pointerEvents.emit("pointerdown", pointerAt(event));
+	};
+	const onPointerUp = (event) => {
+		pointerDown = false;
+		pointerEvents.emit("pointerup", pointerAt(event));
+	};
+	const onKeyDown = (event) => keyboard.emit("keydown", event);
+	canvas.addEventListener("pointermove", onPointerMove);
+	canvas.addEventListener("pointerdown", onPointerDown);
+	window.addEventListener("pointerup", onPointerUp);
+	canvas.addEventListener("keydown", onKeyDown);
+	const observer = new ResizeObserver(() => resize());
+	observer.observe(parent);
+	scene.add = { graphics: () => {
+		const wrapped = graphics.clear.bind(graphics);
+		graphics.clear = () => {
+			wrapped();
+			ctx.fillStyle = backgroundColor;
+			ctx.fillRect(0, 0, width, height);
+			return graphics;
+		};
+		return graphics;
+	} };
+	scene.input = {
+		on: (event, handler, context) => pointerEvents.on(event, handler, context),
+		keyboard
+	};
+	scene.scale = scale;
+	scene.time = { addEvent: ({ delay, loop, callback }) => {
+		const id = loop === false ? window.setTimeout(callback, delay) : window.setInterval(callback, delay);
+		timers.push(id);
+		return { remove: () => {
+			window.clearInterval(id);
+			window.clearTimeout(id);
+		} };
+	} };
+	scene.game = { events: gameEvents };
+	resize();
+	scene.create();
+	return {
+		events: gameEvents,
+		destroy() {
+			scene.events.emit(SHUTDOWN);
+			for (const id of timers) {
+				window.clearInterval(id);
+				window.clearTimeout(id);
+			}
+			observer.disconnect();
+			canvas.removeEventListener("pointermove", onPointerMove);
+			canvas.removeEventListener("pointerdown", onPointerDown);
+			window.removeEventListener("pointerup", onPointerUp);
+			canvas.removeEventListener("keydown", onKeyDown);
+			canvas.remove();
+		}
+	};
+}
+//#endregion
+//#region plugins/official/openpets.home-builder/src/home-scene.ts
+var store = {
+	read: () => null,
+	write: () => {}
+};
+var HOME_STORAGE_KEY = "pocket-buddy-plus:phaser-home:v2";
+var LEGACY_HOME_STORAGE_KEY = "pocket-buddy-plus:phaser-home:v1";
+var TILE_WIDTH = 72;
+var TILE_HEIGHT = 36;
+var WALL_HEIGHT = 92;
+var HOME_BRUSHES = [
+	"floor.wood",
+	"floor.stone",
+	"floor.grass",
+	"floor.water",
+	"erase"
+];
+var HOME_MODES = [
+	"play",
+	"paint",
+	"place",
+	"remove"
+];
+var HOME_ITEM_ASSETS = HOME_PUBLIC_ASSETS.map((asset) => asset.assetId);
+var MATERIAL_COLORS = {
+	"floor.wood": 13212008,
+	"floor.stone": 9147557,
+	"floor.grass": 7843176,
+	"floor.water": 5614040
+};
+var WALL_COLORS = {
+	north: 9138024,
+	east: 8414559,
+	south: 7560024,
+	west: 9598061
+};
+var PhaserHomeScene = class extends Scene {
+	room = createHomeRoomDocument({
+		roomId: "primary-home",
+		width: 8,
+		height: 6
+	});
+	floor = createHomeFloorTileLayer();
+	play = createHomePlayState(this.room, Math.floor(Date.now() / 1e3));
+	mode = "play";
+	brush = "floor.wood";
+	selectedAssetId = HOME_ITEM_ASSETS[0] ?? "home.bed.basic";
+	graphics;
+	hoverCell = null;
+	lastPaintedKey = null;
+	onStateChange;
+	constructor(onStateChange) {
+		super();
+		this.onStateChange = onStateChange;
+	}
+	create() {
+		const restored = loadHomeState();
+		this.room = restored.room;
+		this.floor = restored.floor;
+		this.play = restored.play;
+		this.graphics = this.add.graphics();
+		this.input.on("pointermove", (pointer) => {
+			this.hoverCell = this.pickCell(pointer.x, pointer.y);
+			if (pointer.isDown && this.mode === "paint") this.paintPickedCell();
+			this.renderRoom();
+		});
+		this.input.on("pointerdown", (pointer) => {
+			this.lastPaintedKey = null;
+			this.hoverCell = this.pickCell(pointer.x, pointer.y);
+			this.handlePointerAction(pointer.x, pointer.y);
+			this.renderRoom();
+		});
+		this.input.on("pointerup", () => {
+			this.lastPaintedKey = null;
+		});
+		this.input.keyboard?.on("keydown", this.handleKeyDown, this);
+		this.scale.on(RESIZE, () => this.renderRoom());
+		this.game.events.on("home:set-mode", this.handleSetMode, this);
+		this.game.events.on("home:set-brush", this.handleSetBrush, this);
+		this.game.events.on("home:set-item-asset", this.handleSetItemAsset, this);
+		this.game.events.on("home:rotate", this.handleRotate, this);
+		this.game.events.on("home:clear-floor", this.handleClearFloor, this);
+		this.game.events.on("home:reset-room", this.handleResetRoom, this);
+		this.game.events.on("home:move-player", this.handleMovePlayer, this);
+		this.game.events.on("home:pet-buddy", this.handlePetBuddy, this);
+		this.game.events.on("home:interact-selected", this.handleInteractSelected, this);
+		this.time.addEvent({
+			delay: 1e3,
+			loop: true,
+			callback: () => this.advanceBuddy()
+		});
+		this.events.once(SHUTDOWN, () => {
+			this.input.keyboard?.off("keydown", this.handleKeyDown, this);
+			this.game.events.off("home:set-mode", this.handleSetMode, this);
+			this.game.events.off("home:set-brush", this.handleSetBrush, this);
+			this.game.events.off("home:set-item-asset", this.handleSetItemAsset, this);
+			this.game.events.off("home:rotate", this.handleRotate, this);
+			this.game.events.off("home:clear-floor", this.handleClearFloor, this);
+			this.game.events.off("home:reset-room", this.handleResetRoom, this);
+			this.game.events.off("home:move-player", this.handleMovePlayer, this);
+			this.game.events.off("home:pet-buddy", this.handlePetBuddy, this);
+			this.game.events.off("home:interact-selected", this.handleInteractSelected, this);
+		});
+		this.persistAndEmit();
+		this.renderRoom();
+	}
+	handleSetMode(mode) {
+		if (!HOME_MODES.includes(mode)) return;
+		this.mode = mode;
+		this.hoverCell = null;
+		this.emitSnapshot();
+		this.renderRoom();
+	}
+	handleSetBrush(brush) {
+		if (!HOME_BRUSHES.includes(brush)) return;
+		this.brush = brush;
+		this.emitSnapshot();
+		this.renderRoom();
+	}
+	handleSetItemAsset(assetId) {
+		if (!homeAssetDefinition(assetId)) return;
+		this.selectedAssetId = assetId;
+		this.emitSnapshot();
+		this.renderRoom();
+	}
+	handleRotate(deltaQuarter) {
+		this.room = {
+			...this.room,
+			cameraCorner: rotateCameraCorner(this.room.cameraCorner, deltaQuarter),
+			revision: this.room.revision + 1
+		};
+		this.hoverCell = null;
+		this.persistAndEmit();
+		this.renderRoom();
+	}
+	handleClearFloor() {
+		this.floor = createHomeFloorTileLayer(this.floor.defaultMaterialId);
+		this.persistAndEmit();
+		this.renderRoom();
+	}
+	handleResetRoom() {
+		const reset = defaultHomeState();
+		this.room = reset.room;
+		this.floor = reset.floor;
+		this.play = reset.play;
+		this.mode = "play";
+		this.hoverCell = null;
+		this.persistAndEmit();
+		this.renderRoom();
+	}
+	handleMovePlayer(direction) {
+		this.play = moveHomeActor(this.room, this.play, "player", direction);
+		this.persistAndEmit();
+		this.renderRoom();
+	}
+	handlePetBuddy() {
+		this.play = petHomeBuddy(this.play, Math.floor(Date.now() / 1e3));
+		this.persistAndEmit();
+		this.renderRoom();
+	}
+	handleInteractSelected(action) {
+		const itemId = this.play.selectedItemId;
+		if (!itemId) return;
+		const item = this.room.items.find((candidate) => candidate.id === itemId);
+		const definition = item ? homeAssetDefinition(item.assetId) : null;
+		if (!item || !definition || definition.actions.length === 0) return;
+		const chosen = action && definition.actions.includes(action) ? action : definition.actions[0];
+		if (!chosen) return;
+		try {
+			const result = interactHomeItem(this.room, this.play, itemId, chosen, Math.floor(Date.now() / 1e3));
+			this.room = result.room;
+			this.play = result.play;
+			this.persistAndEmit();
+			this.renderRoom();
+		} catch (error) {
+			console.warn("[home/phaser] Home item interaction rejected", error);
+		}
+	}
+	handleKeyDown(event) {
+		if (this.mode !== "play") return;
+		const direction = directionForKey(event.key);
+		if (!direction) return;
+		event.preventDefault();
+		this.handleMovePlayer(direction);
+	}
+	handlePointerAction(pointerX, pointerY) {
+		if (this.mode === "paint") {
+			this.paintPickedCell();
+			return;
+		}
+		if (this.mode === "place") {
+			this.placePickedItem();
+			return;
+		}
+		if (this.mode === "remove") {
+			this.removePickedItem();
+			return;
+		}
+		if (this.isPointNearActor(pointerX, pointerY, this.play.buddy.cell, -28)) {
+			this.handlePetBuddy();
+			return;
+		}
+		const item = this.hoverCell ? this.itemAtCell(this.hoverCell) : null;
+		this.play = selectHomeItem(this.play, item?.id ?? null);
+		if (item && homeAssetDefinition(item.assetId)?.actions.length) this.handleInteractSelected();
+		else this.persistAndEmit();
+	}
+	paintPickedCell() {
+		if (!this.hoverCell) return;
+		const key = `${this.hoverCell.x},${this.hoverCell.y}`;
+		if (key === this.lastPaintedKey) return;
+		this.lastPaintedKey = key;
+		this.floor = this.brush === "erase" ? resetHomeFloorTile(this.room, this.floor, this.hoverCell) : paintHomeFloorTile(this.room, this.floor, this.hoverCell, this.brush);
+		this.persistAndEmit();
+	}
+	placePickedItem() {
+		if (!this.hoverCell) return;
+		try {
+			const id = `home-item-${this.room.revision + 1}`;
+			this.room = placeHomeCatalogItem(this.room, {
+				id,
+				assetId: this.selectedAssetId,
+				anchor: this.hoverCell
+			});
+			this.play = selectHomeItem(this.play, id);
+			this.persistAndEmit();
+		} catch (error) {
+			console.info("[home/phaser] Home item placement rejected", {
+				assetId: this.selectedAssetId,
+				cell: this.hoverCell,
+				error
+			});
+		}
+	}
+	removePickedItem() {
+		if (!this.hoverCell) return;
+		const item = this.itemAtCell(this.hoverCell);
+		if (!item) return;
+		this.room = removeRoomItem(this.room, item.id);
+		this.play = selectHomeItem(this.play, null);
+		this.persistAndEmit();
+	}
+	advanceBuddy() {
+		const result = advanceHomeSession(this.room, this.play, Math.floor(Date.now() / 1e3));
+		if (result.room === this.room && result.play === this.play) return;
+		this.room = result.room;
+		this.play = result.play;
+		this.persistAndEmit();
+		this.renderRoom();
+	}
+	persistAndEmit() {
+		persistHomeState({
+			version: 2,
+			room: this.room,
+			floor: this.floor,
+			play: this.play
+		});
+		this.emitSnapshot();
+	}
+	emitSnapshot() {
+		const creature = this.play.creature;
+		const mood = isRecord(creature.mood) && typeof creature.mood.label === "string" ? creature.mood.label : "content";
+		const name = typeof creature.display_name === "string" ? creature.display_name : "Buddy";
+		this.onStateChange?.({
+			cameraCorner: this.room.cameraCorner,
+			mode: this.mode,
+			brush: this.brush,
+			paintedTiles: Object.keys(this.floor.overrides).length,
+			itemCount: this.room.items.length,
+			selectedAssetId: this.selectedAssetId,
+			selectedItemId: this.play.selectedItemId,
+			buddyName: name,
+			buddyMood: mood,
+			thought: this.play.thought
+		});
+	}
+	renderRoom() {
+		if (!this.graphics) return;
+		const graphics = this.graphics;
+		graphics.clear();
+		const origin = this.roomOrigin();
+		this.drawWalls(graphics, origin, false);
+		const cells = this.sortedCells();
+		for (const cell of cells) {
+			const point = projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+			const centerX = origin.x + point.x;
+			const centerY = origin.y + point.y;
+			const material = floorMaterialAt(this.floor, cell);
+			const hovered = this.hoverCell?.x === cell.x && this.hoverCell?.y === cell.y;
+			drawDiamond(graphics, centerX, centerY, MATERIAL_COLORS[material] ?? 13212008, hovered ? 16777215 : 2700106, hovered ? 3 : 1);
+		}
+		const drawables = [
+			...this.room.items.map((item) => ({
+				kind: "item",
+				y: this.projectedY(item.placement.anchor),
+				item
+			})),
+			{
+				kind: "player",
+				y: this.projectedY(this.play.player.cell),
+				item: null
+			},
+			{
+				kind: "buddy",
+				y: this.projectedY(this.play.buddy.cell),
+				item: null
+			}
+		].sort((a, b) => a.y - b.y || drawableOrder(a.kind) - drawableOrder(b.kind));
+		for (const drawable of drawables) if (drawable.kind === "item" && drawable.item) this.drawItem(graphics, origin, drawable.item);
+		else if (drawable.kind === "player") this.drawPlayer(graphics, origin);
+		else if (drawable.kind === "buddy") this.drawBuddy(graphics, origin);
+		this.drawWalls(graphics, origin, true);
+	}
+	sortedCells() {
+		const cells = [];
+		for (let y = 0; y < this.room.height; y += 1) for (let x = 0; x < this.room.width; x += 1) cells.push({
+			x,
+			y
+		});
+		cells.sort((a, b) => {
+			const pa = projectCanonicalCell(a, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+			const pb = projectCanonicalCell(b, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+			return pa.y - pb.y || pa.x - pb.x;
+		});
+		return cells;
+	}
+	drawWalls(graphics, origin, cameraFacing) {
+		for (const wall of WORLD_WALLS) {
+			const presentation = wallPresentation(wall, this.room.cameraCorner, this.room.cutaway, this.mode !== "play");
+			if (!presentation.visible || presentation.cameraFacing !== cameraFacing) continue;
+			const points = wallBoundaryCells(this.room.width, this.room.height, wall).map((cell) => projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT)).map((point) => ({
+				x: origin.x + point.x,
+				y: origin.y + point.y
+			})).sort((a, b) => a.x - b.x || a.y - b.y);
+			if (points.length === 0) continue;
+			const color = WALL_COLORS[wall];
+			graphics.lineStyle(cameraFacing ? 3 : 5, color, presentation.alpha);
+			for (const point of points) {
+				graphics.beginPath();
+				graphics.moveTo(point.x, point.y);
+				graphics.lineTo(point.x, point.y - WALL_HEIGHT);
+				graphics.strokePath();
+			}
+			graphics.beginPath();
+			graphics.moveTo(points[0].x, points[0].y - WALL_HEIGHT);
+			for (const point of points.slice(1)) graphics.lineTo(point.x, point.y - WALL_HEIGHT);
+			graphics.strokePath();
+		}
+	}
+	drawItem(graphics, origin, item) {
+		const definition = homeAssetDefinition(item.assetId);
+		if (!definition) return;
+		const point = projectCanonicalCell(item.placement.anchor, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+		const x = origin.x + point.x;
+		const y = origin.y + point.y;
+		const selected = this.play.selectedItemId === item.id;
+		const width = Math.max(22, definition.footprint.width * 25);
+		const height = Math.max(16, definition.footprint.height * 15);
+		graphics.fillStyle(725024, .24);
+		graphics.fillCircle(x, y + 8, Math.max(width, height) * .42);
+		if (definition.assetId === "home.toy.ball") {
+			graphics.fillStyle(definition.color, 1);
+			graphics.fillCircle(x, y - 8, 11);
+			graphics.lineStyle(3, definition.accentColor, 1);
+			graphics.strokeCircle(x, y - 8, 11);
+		} else if (definition.assetId === "home.plant.basic") {
+			graphics.lineStyle(5, 8016696, 1);
+			graphics.beginPath();
+			graphics.moveTo(x, y + 4);
+			graphics.lineTo(x, y - 22);
+			graphics.strokePath();
+			graphics.fillStyle(definition.color, 1);
+			graphics.fillCircle(x - 8, y - 22, 9);
+			graphics.fillCircle(x + 8, y - 18, 9);
+			graphics.fillStyle(definition.accentColor, 1);
+			graphics.fillCircle(x, y - 28, 8);
+		} else {
+			graphics.fillStyle(definition.color, 1);
+			graphics.fillRect(x - width / 2, y - height - 9, width, height + 9);
+			graphics.lineStyle(selected ? 4 : 2, selected ? 16767053 : definition.accentColor, 1);
+			graphics.strokeRect(x - width / 2, y - height - 9, width, height + 9);
+			if (definition.assetId === "home.tv.basic") {
+				const powered = item.state.powered === true;
+				graphics.fillStyle(powered ? definition.accentColor : 1120295, 1);
+				graphics.fillRect(x - width / 2 + 5, y - height - 4, width - 10, Math.max(6, height - 4));
+			}
+		}
+		if (selected) {
+			graphics.lineStyle(2, 16767053, .9);
+			graphics.strokeCircle(x, y - 8, Math.max(width, height) * .7);
+		}
+	}
+	drawPlayer(graphics, origin) {
+		const point = projectCanonicalCell(this.play.player.cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+		const x = origin.x + point.x;
+		const y = origin.y + point.y - 25;
+		graphics.fillStyle(5148392, 1);
+		graphics.fillRect(x - 10, y - 1, 20, 26);
+		graphics.fillStyle(15779496, 1);
+		graphics.fillCircle(x, y - 8, 10);
+		graphics.lineStyle(2, 1515576, 1);
+		graphics.strokeCircle(x, y - 8, 10);
+	}
+	drawBuddy(graphics, origin) {
+		const point = projectCanonicalCell(this.play.buddy.cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+		const x = origin.x + point.x;
+		const y = origin.y + point.y - 28;
+		graphics.fillStyle(16767053, 1);
+		graphics.fillCircle(x, y, 19);
+		graphics.lineStyle(2, 4337455, 1);
+		graphics.strokeCircle(x, y, 19);
+		graphics.fillStyle(4337455, 1);
+		graphics.fillCircle(x - 6, y - 3, 2.5);
+		graphics.fillCircle(x + 6, y - 3, 2.5);
+		graphics.lineStyle(2, 4337455, 1);
+		graphics.beginPath();
+		graphics.arc(x, y + 1, 8, .2, Math.PI - .2, false);
+		graphics.strokePath();
+	}
+	roomOrigin() {
+		const minX = -(this.room.height - 1) * (TILE_WIDTH / 2);
+		const roomPixelWidth = (this.room.width - 1) * (TILE_WIDTH / 2) - minX + TILE_WIDTH;
+		return new Vector2((this.scale.width - roomPixelWidth) / 2 - minX + TILE_WIDTH / 2, Math.max(150, this.scale.height * .24));
+	}
+	pickCell(pointerX, pointerY) {
+		const origin = this.roomOrigin();
+		let best = null;
+		for (let y = 0; y < this.room.height; y += 1) for (let x = 0; x < this.room.width; x += 1) {
+			const cell = {
+				x,
+				y
+			};
+			const point = projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+			const distance = Math.abs(pointerX - (origin.x + point.x)) / (TILE_WIDTH / 2) + Math.abs(pointerY - (origin.y + point.y)) / (TILE_HEIGHT / 2);
+			if (distance <= 1 && (!best || distance < best.distance)) best = {
+				cell,
+				distance
+			};
+		}
+		return best?.cell ?? null;
+	}
+	itemAtCell(cell) {
+		return [...this.room.items].reverse().find((item) => item.placement.surface === "floor" && footprintCells(item).some((occupied) => occupied.x === cell.x && occupied.y === cell.y)) ?? null;
+	}
+	projectedY(cell) {
+		return projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT).y;
+	}
+	isPointNearActor(pointerX, pointerY, cell, yOffset) {
+		const origin = this.roomOrigin();
+		const point = projectCanonicalCell(cell, this.room, this.room.cameraCorner, TILE_WIDTH, TILE_HEIGHT);
+		return Math.hypot(pointerX - (origin.x + point.x), pointerY - (origin.y + point.y + yOffset)) <= 28;
+	}
+};
+function mountPhaserHome(parent, options = {}) {
+	if (options.store) store = options.store;
+	const game = mountScene(parent, new PhaserHomeScene(options.onStateChange), "#182033");
+	return {
+		setMode(mode) {
+			game.events.emit("home:set-mode", mode);
+		},
+		setBrush(brush) {
+			game.events.emit("home:set-brush", brush);
+		},
+		setItemAsset(assetId) {
+			game.events.emit("home:set-item-asset", assetId);
+		},
+		rotate(deltaQuarter) {
+			game.events.emit("home:rotate", deltaQuarter);
+		},
+		clearFloor() {
+			game.events.emit("home:clear-floor");
+		},
+		resetRoom() {
+			game.events.emit("home:reset-room");
+		},
+		movePlayer(direction) {
+			game.events.emit("home:move-player", direction);
+		},
+		petBuddy() {
+			game.events.emit("home:pet-buddy");
+		},
+		interactSelected(action) {
+			game.events.emit("home:interact-selected", action);
+		},
+		destroy() {
+			game.destroy();
+		}
+	};
+}
+function drawDiamond(graphics, centerX, centerY, fill, stroke, strokeWidth) {
+	graphics.fillStyle(fill, 1);
+	graphics.lineStyle(strokeWidth, stroke, 1);
+	graphics.beginPath();
+	graphics.moveTo(centerX, centerY - TILE_HEIGHT / 2);
+	graphics.lineTo(centerX + TILE_WIDTH / 2, centerY);
+	graphics.lineTo(centerX, centerY + TILE_HEIGHT / 2);
+	graphics.lineTo(centerX - TILE_WIDTH / 2, centerY);
+	graphics.closePath();
+	graphics.fillPath();
+	graphics.strokePath();
+}
+function seedStarterRoom() {
+	let room = createHomeRoomDocument({
+		roomId: "primary-home",
+		width: 8,
+		height: 6
+	});
+	for (const starter of [
+		{
+			id: "starter-bed",
+			assetId: "home.bed.basic",
+			anchor: {
+				x: 1,
+				y: 1
+			}
+		},
+		{
+			id: "starter-tv",
+			assetId: "home.tv.basic",
+			anchor: {
+				x: 6,
+				y: 1
+			}
+		},
+		{
+			id: "starter-bowl",
+			assetId: "home.food-bowl.basic",
+			anchor: {
+				x: 2,
+				y: 4
+			}
+		},
+		{
+			id: "starter-toy",
+			assetId: "home.toy.ball",
+			anchor: {
+				x: 5,
+				y: 4
+			}
+		},
+		{
+			id: "starter-plant",
+			assetId: "home.plant.basic",
+			anchor: {
+				x: 7,
+				y: 4
+			}
+		}
+	]) room = placeHomeCatalogItem(room, starter);
+	return room;
+}
+function defaultHomeState() {
+	const room = seedStarterRoom();
+	return {
+		version: 2,
+		room,
+		floor: createHomeFloorTileLayer("floor.wood"),
+		play: createHomePlayState(room, Math.floor(Date.now() / 1e3))
+	};
+}
+function loadHomeState() {
+	const fallback = defaultHomeState();
+	try {
+		const raw = store.read(HOME_STORAGE_KEY);
+		if (raw) {
+			const parsed = JSON.parse(raw);
+			if (!isRecord(parsed) || parsed.version !== 2) return fallback;
+			const room = parseHomeRoomDocument(parsed.room);
+			return {
+				version: 2,
+				room,
+				floor: parseHomeFloorTileLayer(parsed.floor, room),
+				play: parseHomePlayState(parsed.play, room, Math.floor(Date.now() / 1e3))
+			};
+		}
+		const legacyRaw = store.read(LEGACY_HOME_STORAGE_KEY);
+		if (!legacyRaw) return fallback;
+		const legacy = JSON.parse(legacyRaw);
+		if (!isRecord(legacy) || legacy.version !== 1) return fallback;
+		const room = parseHomeRoomDocument(legacy.room);
+		const migrated = {
+			version: 2,
+			room,
+			floor: parseHomeFloorTileLayer(legacy.floor, room),
+			play: createHomePlayState(room, Math.floor(Date.now() / 1e3))
+		};
+		persistHomeState(migrated);
+		return migrated;
+	} catch (error) {
+		console.warn("[home] Ignoring invalid Home save", error);
+		return fallback;
+	}
+}
+function persistHomeState(state) {
+	store.write(HOME_STORAGE_KEY, JSON.stringify(state));
+}
+function directionForKey(key) {
+	switch (key.toLowerCase()) {
+		case "arrowup":
+		case "w": return "north";
+		case "arrowright":
+		case "d": return "east";
+		case "arrowdown":
+		case "s": return "south";
+		case "arrowleft":
+		case "a": return "west";
+		default: return null;
+	}
+}
+function drawableOrder(kind) {
+	if (kind === "item") return 0;
+	if (kind === "player") return 1;
+	return 2;
+}
+function isRecord(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+//#endregion
+//#region plugins/official/openpets.home-builder/src/home.ts
+var controller = null;
+var selectedMode = "play";
+var selectedBrush = "floor.wood";
+var selectedAssetId = HOME_ITEM_ASSETS[0] ?? "home.bed.basic";
+var root;
+var bridge = globalThis.openPetsPanel;
+function modeButton(mode) {
+	return `<button type="button" data-home-mode="${mode}" class="${mode === selectedMode ? "active" : ""}">${{
+		play: "Play",
+		paint: "Paint",
+		place: "Place",
+		remove: "Remove"
+	}[mode]}</button>`;
+}
+function brushButton(brush) {
+	return `<button type="button" data-home-brush="${brush}" class="${brush === selectedBrush ? "active" : ""}">
+    <span class="pb-home-swatch ${brush.replace("floor.", "")}" aria-hidden="true"></span>${{
+		"floor.wood": "Wood",
+		"floor.stone": "Stone",
+		"floor.grass": "Grass",
+		"floor.water": "Water",
+		erase: "Erase"
+	}[brush]}
+  </button>`;
+}
+function itemButton(asset) {
+	return `<button type="button" data-home-item-asset="${asset.assetId}" class="${asset.assetId === selectedAssetId ? "active" : ""}" title="${asset.label}">
+    <span class="pb-home-item-dot" aria-hidden="true"></span>
+    ${asset.label}
+  </button>`;
+}
+function renderShell() {
+	root.innerHTML = `
+    <header class="pb-home-header">
+      <div>
+        <p class="pb-home-eyebrow">Pocket Buddy+ · Home</p>
+        <h1>Buddy Home</h1>
+        <p>Live with Buddy, decorate the room, use objects, and keep one canonical world state.</p>
+      </div>
+      <button type="button" class="pb-home-close" data-home-close aria-label="Close Home">×</button>
+    </header>
+    <div class="pb-home-toolbar" aria-label="Home tools">
+      <div class="pb-home-tool-section">
+        <span class="pb-home-tool-label">Mode</span>
+        <div class="pb-home-mode-buttons" role="group" aria-label="Home mode">${HOME_MODES.map(modeButton).join("")}</div>
+      </div>
+      <div class="pb-home-tool-section" data-home-floor-tools>
+        <span class="pb-home-tool-label">Floor</span>
+        <div class="pb-home-brushes" role="group" aria-label="Floor brush">${HOME_BRUSHES.map(brushButton).join("")}</div>
+      </div>
+      <div class="pb-home-tool-section pb-home-furniture-section" data-home-furniture-tools>
+        <span class="pb-home-tool-label">Furniture</span>
+        <div class="pb-home-items" role="group" aria-label="Furniture item">${HOME_PUBLIC_ASSETS.map(itemButton).join("")}</div>
+      </div>
+      <div class="pb-home-actions">
+        <button type="button" data-home-pet>Pet Buddy</button>
+        <button type="button" data-home-use>Use selected</button>
+        <button type="button" data-home-channel>Next TV channel</button>
+        <button type="button" data-home-rotate="-1" title="Rotate room left">↶ Rotate</button>
+        <button type="button" data-home-rotate="1" title="Rotate room right">Rotate ↷</button>
+        <button type="button" data-home-clear-floor>Reset floor</button>
+        <button type="button" data-home-reset-room>Reset room</button>
+      </div>
+      <div class="pb-home-movement" role="group" aria-label="Move player">
+        <button type="button" data-home-move="north" aria-label="Move north">↑</button>
+        <button type="button" data-home-move="west" aria-label="Move west">←</button>
+        <button type="button" data-home-move="south" aria-label="Move south">↓</button>
+        <button type="button" data-home-move="east" aria-label="Move east">→</button>
+      </div>
+    </div>
+    <div class="pb-home-stage" data-home-stage tabindex="0" aria-label="Playable Buddy Home"></div>
+    <footer class="pb-home-footer">
+      <span data-home-status>Camera SE · Play mode · 0 items</span>
+      <span data-home-thought>Buddy is taking in the new room.</span>
+      <span class="pb-home-help">WASD or arrows move the player. Click Buddy to pet. Click usable furniture to interact.</span>
+    </footer>
+  `;
+	root.addEventListener("click", handleClick);
+}
+function updateHomeStatus(snapshot) {
+	selectedMode = snapshot.mode;
+	selectedAssetId = snapshot.selectedAssetId;
+	const status = root.querySelector("[data-home-status]");
+	const thought = root.querySelector("[data-home-thought]");
+	if (status) {
+		const brush = snapshot.brush === "erase" ? "Erase" : snapshot.brush.replace("floor.", "").replace(/^./, (letter) => letter.toUpperCase());
+		const selected = snapshot.selectedItemId ? ` · selected ${snapshot.selectedItemId}` : "";
+		status.textContent = `Camera ${snapshot.cameraCorner} · ${capitalize(snapshot.mode)} mode · ${snapshot.itemCount} items · ${snapshot.buddyName} feels ${snapshot.buddyMood}${snapshot.mode === "paint" ? ` · ${brush} brush · ${snapshot.paintedTiles} painted` : ""}${selected}`;
+	}
+	if (thought) thought.textContent = `“${snapshot.thought}”`;
+	syncActiveControls();
+}
+function handleClick(event) {
+	const target = event.target;
+	if (target.closest("[data-home-close]")) {
+		bridge?.close();
+		return;
+	}
+	const mode = target.closest("[data-home-mode]");
+	if (mode) {
+		const value = mode.dataset.homeMode;
+		if (!HOME_MODES.includes(value)) return;
+		selectedMode = value;
+		controller?.setMode(value);
+		syncActiveControls();
+		return;
+	}
+	const brush = target.closest("[data-home-brush]");
+	if (brush) {
+		const value = brush.dataset.homeBrush;
+		if (!HOME_BRUSHES.includes(value)) return;
+		selectedBrush = value;
+		selectedMode = "paint";
+		controller?.setBrush(value);
+		controller?.setMode("paint");
+		syncActiveControls();
+		return;
+	}
+	const item = target.closest("[data-home-item-asset]");
+	if (item) {
+		const assetId = item.dataset.homeItemAsset ?? "";
+		if (!HOME_ITEM_ASSETS.includes(assetId)) return;
+		selectedAssetId = assetId;
+		selectedMode = "place";
+		controller?.setItemAsset(assetId);
+		controller?.setMode("place");
+		syncActiveControls();
+		return;
+	}
+	const move = target.closest("[data-home-move]");
+	if (move) {
+		controller?.movePlayer(move.dataset.homeMove);
+		return;
+	}
+	const rotate = target.closest("[data-home-rotate]");
+	if (rotate) {
+		controller?.rotate(Number(rotate.dataset.homeRotate));
+		return;
+	}
+	if (target.closest("[data-home-pet]")) controller?.petBuddy();
+	else if (target.closest("[data-home-use]")) controller?.interactSelected();
+	else if (target.closest("[data-home-channel]")) controller?.interactSelected("next-channel");
+	else if (target.closest("[data-home-clear-floor]")) controller?.clearFloor();
+	else if (target.closest("[data-home-reset-room]")) controller?.resetRoom();
+}
+function syncActiveControls() {
+	for (const entry of root.querySelectorAll("[data-home-mode]")) entry.classList.toggle("active", entry.dataset.homeMode === selectedMode);
+	for (const entry of root.querySelectorAll("[data-home-brush]")) entry.classList.toggle("active", entry.dataset.homeBrush === selectedBrush);
+	for (const entry of root.querySelectorAll("[data-home-item-asset]")) entry.classList.toggle("active", entry.dataset.homeItemAsset === selectedAssetId);
+}
+function capitalize(value) {
+	return value.replace(/^./, (letter) => letter.toUpperCase());
+}
+/** Ask the host for the saved room, giving up rather than hanging on a silent host. */
+function requestSavedState(timeoutMs = 4e3) {
+	if (!bridge) return Promise.resolve({});
+	return new Promise((resolve) => {
+		const done = (values) => {
+			window.clearTimeout(timer);
+			resolve(values);
+		};
+		const timer = window.setTimeout(() => done({}), timeoutMs);
+		bridge.onMessage((message) => {
+			if (typeof message === "object" && message !== null && message.type === "home-state") {
+				const values = message.values;
+				done(typeof values === "object" && values !== null ? values : {});
+			}
+		});
+		bridge.postMessage({ type: "home-state-request" });
+	});
+}
+async function start() {
+	const container = document.getElementById("home-root");
+	if (!container) return;
+	root = container;
+	renderShell();
+	const stage = root.querySelector("[data-home-stage]");
+	if (!stage) return;
+	const saved = await requestSavedState();
+	controller = mountPhaserHome(stage, {
+		onStateChange: updateHomeStatus,
+		store: {
+			read: (key) => saved[key] ?? null,
+			write: (key, value) => {
+				saved[key] = value;
+				bridge?.postMessage({
+					type: "home-state-write",
+					key,
+					value
+				});
+			}
+		}
+	});
+	controller.setMode(selectedMode);
+	controller.setBrush(selectedBrush);
+	controller.setItemAsset(selectedAssetId);
+	requestAnimationFrame(() => stage.focus());
+}
+start();
+//#endregion
+
+</script>
+</body>
+</html>
