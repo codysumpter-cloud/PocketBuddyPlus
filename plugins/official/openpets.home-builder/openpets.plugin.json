@@ -1,0 +1,19 @@
+{
+  "manifestVersion": 3,
+  "id": "openpets.home-builder",
+  "name": "$t:plugin.name",
+  "description": "$t:plugin.description",
+  "version": "1.0.0",
+  "runtime": "javascript",
+  "icon": "home",
+  "sdkVersion": "3.0.0",
+  "entry": "index.js",
+  "permissions": [
+    "commands",
+    "storage",
+    "ui:panel"
+  ],
+  "panels": {
+    "home": "home.html"
+  }
+}
