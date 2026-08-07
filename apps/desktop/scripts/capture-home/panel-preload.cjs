@@ -1,3 +1,5 @@
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = "true";
+
 const { contextBridge, ipcRenderer } = require("electron");
 
 const PANEL_CHANNEL = "pbp-home-capture:panel-message";
