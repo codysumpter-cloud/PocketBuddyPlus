@@ -27,4 +27,12 @@ test = test.replace(
 )
 test_path.write_text(test)
 
-print("Home panel and sprite-test fixups applied")
+sdk_testing_path = ROOT / "packages/sdk/src/testing.ts"
+sdk_testing = sdk_testing_path.read_text()
+sdk_testing = sdk_testing.replace(
+    '    getState: async () => { requirePermission("pets:read"); return { ...petState, position: { ...petState.position }, bounds: { ...petState.bounds } }; },\n',
+    '    getState: async () => { requirePermission("pets:read"); return { ...petState, position: { ...petState.position }, bounds: { ...petState.bounds } }; },\n    getAppearance: async () => {\n      requirePermission("pets:read");\n      return {\n        petHandleId: petId, installedPetId: "builtin:default", displayName: "Default pet",\n        frameDataUrl: "data:image/png;base64,", width: 64, height: 64, animationId: "idle", direction: "south", source: "legacy-sheet" as const,\n      };\n    },\n',
+)
+sdk_testing_path.write_text(sdk_testing)
+
+print("Home panel, sprite-test, and SDK mock fixups applied")
