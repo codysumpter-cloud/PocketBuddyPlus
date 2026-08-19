@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Buddy Cloud</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1020;--panel:#151b31;--line:#33405f;--ink:#f5f7ff;--muted:#aab4d0;--blue:#72c7ff;--green:#7be4ad;--red:#ff8295;--amber:#ffd27a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,rgba(114,199,255,.14),transparent 28rem),var(--bg);color:var(--ink);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:20px}.shell{max-width:480px;margin:auto;display:grid;gap:14px}.card{background:var(--panel);border:2px solid var(--line);padding:16px;box-shadow:0 5px 0 rgba(0,0,0,.22)}h1{font-size:22px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.06em}h2{font-size:14px;color:var(--blue);margin:0 0 12px}.muted{color:var(--muted)}label{display:block;color:var(--blue);font-size:12px;margin:10px 0 4px}input,button{font:inherit}input{width:100%;background:#090d18;color:var(--ink);border:2px solid var(--line);padding:10px;border-radius:3px}button{border:2px solid var(--line);background:#202b49;color:var(--ink);padding:10px 12px;cursor:pointer;border-radius:3px}button:hover{border-color:var(--blue)}button.primary{background:#173b55;border-color:#397ca3}.row{display:flex;gap:8px;flex-wrap:wrap}.status{padding:10px;border:1px solid var(--line);color:var(--muted);white-space:pre-wrap}.good{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}small{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="card">
+    <h1>Buddy Cloud</h1>
+    <p class="muted">Back up your canonical Pocket Buddy+ profile, keep durable memories, and access your missions through your private Supabase account.</p>
+    <div id="status" class="status">Checking this device…</div>
+  </div>
+  <div class="card">
+    <h2>Account</h2>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="email" spellcheck="false" placeholder="you@example.com">
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="At least 6 characters">
+    <p><small>Your password is sent only to Supabase Auth for this request and is never stored by Pocket Buddy+. The returned access and rotating refresh tokens are encrypted by the host secret store.</small></p>
+    <div class="row">
+      <button id="signin" class="primary">Sign In</button>
+      <button id="signup">Create Account</button>
+      <button id="disconnect">Disconnect</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>What gets synced</h2>
+    <p class="muted">Buddy Cloud backs up the host-owned Buddy profile and gives the plugin durable memory, recall, missions, and append-only operation receipts. Other local files and plugin-private data stay local unless a feature explicitly opts in.</p>
+  </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+function setStatus(text,tone=""){const el=$("status");el.textContent=text;el.className=`status ${tone}`}
+function credentials(){return{email:$("email").value.trim(),password:$("password").value}}
+function submit(type){const {email,password}=credentials();if(!email.includes("@")||password.length<6){setStatus("Enter a valid email and password.","bad");return}setStatus(type==="sign-up"?"Creating account…":"Signing in…");window.openPetsPanel.postMessage({type,email,password});$("password").value=""}
+$("signin").onclick=()=>submit("sign-in");
+$("signup").onclick=()=>submit("sign-up");
+$("disconnect").onclick=()=>{setStatus("Disconnecting…");window.openPetsPanel.postMessage({type:"disconnect"})};
+window.openPetsPanel.onMessage(message=>{
+  if(message?.type==="session-status"){
+    if(message.email)$("email").value=message.email;
+    setStatus(message.linked?`Linked${message.email?` as ${message.email}`:""}.`:"Not linked on this device.",message.linked?"good":"warn");
+  }
+  if(message?.type==="auth-result"){
+    if(!message.ok){setStatus(message.error||"Buddy Cloud request failed.","bad");return}
+    if(message.disconnected){setStatus("Disconnected from this device.","warn");return}
+    if(message.confirmationRequired){setStatus(`Account created for ${message.email}. Confirm the email, then return here and sign in.`,"warn");return}
+    setStatus(`Buddy Cloud linked${message.email?` as ${message.email}`:""} and the current Buddy profile was backed up.`,"good");
+  }
+});
+</script>
+</body>
+</html>
