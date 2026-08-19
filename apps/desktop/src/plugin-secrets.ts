@@ -1,16 +1,23 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { safeStorage } from "electron";
-
 /**
  * Encrypted per-plugin credential store (§13.3): values are encrypted with
- * Electron `safeStorage` (OS keychain-backed where available) and persisted as
- * base64 ciphertext, scoped per plugin id. Values are returned only to the
- * owning plugin (the bridge passes the plugin id).
+ * Electron `safeStorage` and persisted as base64 ciphertext, scoped per plugin
+ * id. Electron is loaded lazily so merely starting Pocket Buddy+ does not touch
+ * the OS credential store; keychain/DPAPI access happens only when a secret is
+ * actually read or written.
+ *
+ * Do not enable Chromium's mock keychain in production. It is a test facility,
+ * not a secure replacement for the real OS credential backend.
  */
 
 type SecretsFile = Record<string, Record<string, string>>;
+
+async function loadSafeStorage() {
+  const { safeStorage } = await import("electron");
+  return safeStorage;
+}
 
 export class PluginSecretsStore {
   readonly #path: string;
@@ -25,6 +32,7 @@ export class PluginSecretsStore {
     const encrypted = this.#data[pluginId]?.[key];
     if (encrypted === undefined) return undefined;
     try {
+      const safeStorage = await loadSafeStorage();
       return safeStorage.decryptString(Buffer.from(encrypted, "base64"));
     } catch {
       return undefined;
@@ -32,6 +40,7 @@ export class PluginSecretsStore {
   }
 
   async set(pluginId: string, key: string, value: string): Promise<void> {
+    const safeStorage = await loadSafeStorage();
     if (!safeStorage.isEncryptionAvailable()) throw new Error("Secret storage encryption is unavailable on this system.");
     const encrypted = safeStorage.encryptString(value).toString("base64");
     this.#data = { ...this.#data, [pluginId]: { ...(this.#data[pluginId] ?? {}), [key]: encrypted } };
