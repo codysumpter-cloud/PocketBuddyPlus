@@ -1,0 +1,294 @@
+name: Pocket Buddy+ Release
+
+on:
+  # Releases are downstream of the exact main commit that already passed the
+  # normal Pocket Buddy+ CI workflow. This keeps "green main" and "shipped
+  # build" tied together instead of treating a merge as delivery.
+  workflow_run:
+    workflows:
+      - Pocket Buddy+ CI
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pocket-buddy-plus-release-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Resolve release version
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+    outputs:
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      skip: ${{ steps.release.outputs.skip }}
+    steps:
+      - name: Checkout exact green commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0
+
+      - name: Resolve monotonic Pocket Buddy+ version
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+
+          EXISTING_TAG="$(git tag --points-at "$RELEASE_SHA" --list 'v[0-9]*.[0-9]*.[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+          if [[ -n "$EXISTING_TAG" ]]; then
+            echo "Exact commit already has release tag $EXISTING_TAG; skipping duplicate release."
+            echo "version=${EXISTING_TAG#v}" >> "$GITHUB_OUTPUT"
+            echo "tag=$EXISTING_TAG" >> "$GITHUB_OUTPUT"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          WORKSPACE_VERSION="$(node -p "require('./package.json').version")"
+          DESKTOP_VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+          if [[ "$WORKSPACE_VERSION" != "$DESKTOP_VERSION" ]]; then
+            echo "Workspace version ($WORKSPACE_VERSION) and desktop version ($DESKTOP_VERSION) must match." >&2
+            exit 1
+          fi
+          if [[ ! "$WORKSPACE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Pocket Buddy+ base version is not plain semver: $WORKSPACE_VERSION" >&2
+            exit 1
+          fi
+
+          LATEST_TAG="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+          NEXT_VERSION="$(node - "$WORKSPACE_VERSION" "$LATEST_TAG" <<'NODE'
+          const baseText = process.argv[2];
+          const latestText = (process.argv[3] || '').replace(/^v/, '');
+          const parse = (value) => {
+            const match = String(value || '').match(/^(\d+)\.(\d+)\.(\d+)$/);
+            return match ? match.slice(1).map(Number) : null;
+          };
+          const compare = (left, right) => {
+            for (let index = 0; index < 3; index += 1) {
+              if (left[index] !== right[index]) return left[index] - right[index];
+            }
+            return 0;
+          };
+          const base = parse(baseText);
+          const latest = parse(latestText);
+          if (!base) process.exit(2);
+          let next = base;
+          if (latest && compare(latest, base) >= 0) {
+            next = [latest[0], latest[1], latest[2] + 1];
+          }
+          process.stdout.write(next.join('.'));
+          NODE
+          )"
+
+          TAG="v$NEXT_VERSION"
+          if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+            echo "Refusing to overwrite existing tag $TAG." >&2
+            exit 1
+          fi
+
+          echo "Releasing $TAG from $RELEASE_SHA (source floor $WORKSPACE_VERSION, previous ${LATEST_TAG:-none})."
+          echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: prepare
+    if: ${{ needs.prepare.outputs.skip != 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            platform: macos
+            os: macos-latest
+          - name: Windows
+            platform: windows
+            os: windows-latest
+          - name: Linux
+            platform: linux
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
+    steps:
+      - name: Checkout exact green commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Enable Corepack
+        shell: bash
+        run: corepack enable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Stamp release version into package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - "$RELEASE_VERSION" <<'NODE'
+          const fs = require('node:fs');
+          const version = process.argv[2];
+          for (const path of ['package.json', 'apps/desktop/package.json']) {
+            const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+            manifest.version = version;
+            fs.writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+          }
+          NODE
+          test "$(node -p "require('./apps/desktop/package.json').version")" = "$RELEASE_VERSION"
+
+      - name: Install dependencies
+        shell: bash
+        run: pnpm install --frozen-lockfile
+
+      - name: Package Pocket Buddy+
+        shell: bash
+        run: pnpm package:desktop:plus
+
+      - name: Verify macOS release bundle
+        if: ${{ matrix.platform == 'macos' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find apps/desktop/dist-electron-plus -type d -name 'Pocket Buddy+.app' -print -quit)"
+          test -n "$APP_PATH"
+          PLIST_PATH="$APP_PATH/Contents/Info.plist"
+          test -f "$PLIST_PATH"
+          BUNDLE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST_PATH")"
+          test "$BUNDLE_VERSION" = "$RELEASE_VERSION"
+
+          BUNDLE_EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST_PATH")"
+          EXECUTABLE_PATH="$APP_PATH/Contents/MacOS/$BUNDLE_EXECUTABLE"
+          LOG_PATH="$RUNNER_TEMP/pocket-buddy-plus-release-smoke.log"
+          OPENPETS_DISABLE_PLUGIN_CATALOG=1 "$EXECUTABLE_PATH" >"$LOG_PATH" 2>&1 &
+          APP_PID=$!
+          sleep 12
+          if ! kill -0 "$APP_PID" 2>/dev/null; then
+            cat "$LOG_PATH"
+            exit 1
+          fi
+          kill "$APP_PID" || true
+          wait "$APP_PID" || true
+
+      - name: Collect release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUTPUT_DIR="apps/desktop/dist-electron-plus"
+          mkdir -p release-assets
+
+          case "${{ matrix.platform }}" in
+            macos)
+              find "$OUTPUT_DIR" -maxdepth 1 -type f \( -name '*.dmg' -o -name '*.zip' \) -print -exec cp {} release-assets/ \;
+              ;;
+            windows)
+              find "$OUTPUT_DIR" -maxdepth 1 -type f -name '*.exe' -print -exec cp {} release-assets/ \;
+              ;;
+            linux)
+              find "$OUTPUT_DIR" -maxdepth 1 -type f \( -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' -o -name '*.tar.gz' \) -print -exec cp {} release-assets/ \;
+              ;;
+          esac
+
+          COUNT="$(find release-assets -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          if [[ "$COUNT" -lt 1 ]]; then
+            echo "No ${{ matrix.platform }} release assets were produced." >&2
+            find "$OUTPUT_DIR" -maxdepth 2 -type f -print || true
+            exit 1
+          fi
+
+      - name: Upload ${{ matrix.name }} release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocket-buddy-plus-release-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    needs:
+      - prepare
+      - build
+    if: ${{ needs.prepare.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - name: Download packaged release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pocket-buddy-plus-release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Build release receipt and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find release-assets -maxdepth 1 -type f | wc -l | tr -d ' ')" -ge 3
+          (
+            cd release-assets
+            sha256sum * > SHA256SUMS.txt
+          )
+          jq -n \
+            --arg product 'Pocket Buddy+' \
+            --arg version "$RELEASE_VERSION" \
+            --arg tag "$RELEASE_TAG" \
+            --arg source_sha "$RELEASE_SHA" \
+            --arg ci_run "${{ github.event.workflow_run.html_url || '' }}" \
+            '{product: $product, version: $version, tag: $tag, source_sha: $source_sha, ci_run: $ci_run}' \
+            > release-assets/release-manifest.json
+          ls -lah release-assets
+
+      - name: Publish immutable release from exact green main commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RELEASE_SHA" \
+            --title "Pocket Buddy+ $RELEASE_VERSION" \
+            --generate-notes \
+            --latest
+
+      - name: Verify updater-visible latest release
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_TAG="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"
+          test "$ACTUAL_TAG" = "$RELEASE_TAG"
+          gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json tagName,url,assets \
+            --jq '{tagName: .tagName, url: .url, assets: [.assets[].name]}'
