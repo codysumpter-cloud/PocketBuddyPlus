@@ -11,6 +11,7 @@
   "permissions": [
     "pets:read",
     "schedule",
+    "storage",
     "secrets",
     "commands",
     "status",
