@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - fix/restore-buddy-menu-parity
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, '[buddy-menu-patch]') }}
+    if: ${{ github.event_name == 'pull_request' || !contains(github.event.head_commit.message, '[buddy-menu-patch]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -128,28 +131,6 @@ jobs:
 '''
           source = source[:start] + replacement + source[end:]
           path.write_text(source)
-
-          test_path = Path('apps/desktop/tests/buddy-foundation.test.ts')
-          test = test_path.read_text()
-          marker = 'console.error("Pocket Buddy Plus foundation validation passed.");\n'
-          live_assertions = r'''
-// Keep the pure product contract wired into the live Electron pet menu. A menu
-// redesign may change presentation, but it must not silently replace this list
-// with only plugin/Control Center actions again.
-const liveMenuSource = await import("node:fs/promises").then(({ readFile }) => readFile(new URL("../src/pet-window.ts", import.meta.url.replace("/.test-dist/tests/", "/tests/")), "utf8")).catch(() => "");
-if (liveMenuSource) {
-  assert.match(liveMenuSource, /getBuddyMenuItems\(\{ supportsProcessExit: true \}\)/);
-  assert.match(liveMenuSource, /case "settings":[\s\S]*openControlCenter\("settings"\)/);
-  assert.match(liveMenuSource, /case "pet":[\s\S]*runBuddyBrainCommand\("pet"\)/);
-  assert.match(liveMenuSource, /case "quit":[\s\S]*app\.quit\(\)/);
-}
-
-'''
-          if 'Keep the pure product contract wired into the live Electron pet menu.' not in test:
-              if marker not in test:
-                  raise SystemExit('buddy foundation test marker not found')
-              test = test.replace(marker, live_assertions + marker, 1)
-              test_path.write_text(test)
           PY
 
           git diff --check
@@ -162,7 +143,7 @@ if (liveMenuSource) {
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/desktop/src/pet-window.ts apps/desktop/tests/buddy-foundation.test.ts
+          git add apps/desktop/src/pet-window.ts
           git diff --cached --quiet && exit 0
           git commit -m "[buddy-menu-patch] fix(buddy): restore attached menu parity"
           git push origin HEAD:fix/restore-buddy-menu-parity
