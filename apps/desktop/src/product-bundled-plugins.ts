@@ -2,6 +2,7 @@ export const pocketBuddyPlusBundledPluginIds = [
   "openpets.prismpixel-rig-studio",
   "openpets.prismcade-creator",
   "openpets.music-buddy",
+  "openpets.buddy-cloud",
   "openpets.buddy-training",
   "openpets.buddy-battles",
   "openpets.buddy-trading-post",

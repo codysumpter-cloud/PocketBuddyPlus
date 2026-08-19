@@ -30,10 +30,12 @@ import { createAppTray, refreshTrayMenu } from "./tray.js";
 import { checkForGitHubReleaseUpdate } from "./update-checker.js";
 import { installInternalUiHandlers, installInternalUiProtocol } from "./windows.js";
 
-// Pocket Buddy Plus stores plugin secrets through Electron safeStorage, which requires
-// a real encryption backend. Linux uses the system keyring; macOS and Windows keep
-// Chromium from prompting during startup/profile initialization.
-app.commandLine.appendSwitch("use-mock-keychain");
+// Plugin secrets use Electron safeStorage. Production must use the real OS
+// credential backend (Keychain on macOS, DPAPI on Windows, a supported secret
+// service on Linux). Chromium's mock keychain is a testing facility and must
+// never be enabled by the shipping runtime. `password-store` is Linux-specific;
+// the non-Linux fallback preserves the established packaging contract without
+// replacing the native macOS/Windows credential backend.
 if (process.platform === "linux") {
   app.commandLine.appendSwitch("password-store", "gnome-libsecret");
 } else {
