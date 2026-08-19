@@ -13,6 +13,7 @@ First-party SDK v3 plugin product source. These plugins are the reviewed default
 - **Shared Buddy Contracts**: Approved plugins read the public host Buddy profile and use the host inventory/equipment ledger rather than cloning identity or maintaining incompatible item stores.
 - **Retry-Safe Transactions**: Rewards and exchanges persist stable transaction ids before host settlement so restart retries cannot duplicate items.
 - **Sandboxed Creator Panels**: Explicit tool plugins may declare package-local HTML panels. Panels cannot navigate or download directly; exports flow through permission-gated host file surfaces.
+- **Encrypted Cloud Sessions**: Buddy Cloud keeps Supabase access/refresh tokens in the host `secrets` capability; passwords are request-only and are never persisted by the plugin.
 
 ## Data & Control Flow
 
@@ -38,6 +39,7 @@ First-party SDK v3 plugin product source. These plugins are the reviewed default
 | `openpets.mood-check-in` | Mood logging/check-in companion with configurable prompts and command entry points. | `schedule`, `storage`, `commands`, `pet`, `config` |
 | `openpets.fortune-cookie` | Periodic or command-triggered fortune messages. | `schedule`, `storage`, `commands`, `pet.speak` |
 | `openpets.virtual-pet` | Unified Buddy Brain and virtual-pet lifecycle, including care, needs, affection, growth, memory, management UI, and restart-safe migration. | `events`, `schedule`, `storage`, `ui`, `commands`, `pet`, `assets`, `audio`, `config` |
+| `openpets.buddy-cloud` | Canonical BMO Supabase connection for encrypted self-service auth, scheduled Buddy profile backup, durable memory/recall, missions, and cloud receipts. | `pets:read`, `schedule`, `storage`, `secrets`, `network`, `network:write`, `commands`, `status`, `ui.panel`, `ui.toast` |
 | `openpets.buddy-training` | Selects drills from the public Buddy profile and issues retry-safe shared apple rewards. | `pets`, `inventory`, `storage`, `commands`, `status`, `ui.toast`, `pet.react` |
 | `openpets.buddy-battles` | Deterministic local sparring with profile-derived stats, equipment bonuses, scaling opponents, records, and retry-safe rewards. | `pets`, `inventory`, `storage`, `commands`, `status`, `ui.toast`, `pet.react` |
 | `openpets.buddy-trading-post` | Fixed local barter offers executed through one atomic host inventory exchange with pending retry recovery. | `pets`, `inventory`, `storage`, `commands`, `status`, `ui.toast`, `pet.react` |
@@ -52,6 +54,14 @@ First-party SDK v3 plugin product source. These plugins are the reviewed default
 - **Release validation**: runs from the openpets.dev site repo, not here - `scripts/validate-plugin-release.mjs` needs a `web/` catalog tree this repo does not have. Locally, `pnpm plugins:build:check`, `pnpm plugins:locales` and `pnpm plugins:test` are the gates.
 - **Shared state boundary**: Buddy identity and inventory are host-owned; plugins own only experience-specific progress, pending operations, and presentation state.
 - **Network boundary**: Local Battles and Trading Post do not imply remote PvP or player-to-player settlement. Those require separate authenticated and server-authoritative contracts.
+
+### `openpets.buddy-cloud` persistence runtime
+- Connects only to the canonical BMO Supabase project; it does not create a competing Buddy backend.
+- Account/password entry lives in a sandboxed local panel. The password is used only for the immediate Supabase Auth request and is never written to plugin storage or secrets.
+- Access and rotating refresh tokens use encrypted host `secrets`; normal plugin storage keeps only non-secret metadata such as the last successful backup timestamp.
+- Every 15 minutes, when linked, the plugin reads the host-owned canonical Buddy profile through `pets:read` and upserts it into the owner-scoped `buddy_state` document `pocketbuddyplus/profile`.
+- Durable notes go to `buddy_memories`; recall uses the owner-scoped `search_buddy_memories` RPC; mission display reads `buddy_missions`; material cloud operations append immutable `buddy_receipts`.
+- The plugin deliberately does not replace the host Buddy profile from arbitrary remote/plugin data. Cloud restore should be added only through a validated host-owned profile import contract so identity/staleness invariants remain authoritative.
 
 ### `openpets.home-builder` presence runtime
 - Canonical Control Center Home entry point is the official plugin, not the legacy renderer modal.
