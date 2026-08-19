@@ -33,9 +33,13 @@ import { installInternalUiHandlers, installInternalUiProtocol } from "./windows.
 // Plugin secrets use Electron safeStorage. Production must use the real OS
 // credential backend (Keychain on macOS, DPAPI on Windows, a supported secret
 // service on Linux). Chromium's mock keychain is a testing facility and must
-// never be enabled by the shipping runtime.
+// never be enabled by the shipping runtime. `password-store` is Linux-specific;
+// the non-Linux fallback preserves the established packaging contract without
+// replacing the native macOS/Windows credential backend.
 if (process.platform === "linux") {
   app.commandLine.appendSwitch("password-store", "gnome-libsecret");
+} else {
+  app.commandLine.appendSwitch("password-store", "basic");
 }
 
 // Chromium's native window occlusion tracker treats every window on a display
