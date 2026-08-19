@@ -30,14 +30,16 @@ import { createAppTray, refreshTrayMenu } from "./tray.js";
 import { checkForGitHubReleaseUpdate } from "./update-checker.js";
 import { installInternalUiHandlers, installInternalUiProtocol } from "./windows.js";
 
-// Pocket Buddy Plus stores plugin secrets through Electron safeStorage, which requires
-// a real encryption backend. Linux uses the system keyring; macOS and Windows keep
-// Chromium from prompting during startup/profile initialization.
-app.commandLine.appendSwitch("use-mock-keychain");
+// Plugin secrets use Electron safeStorage. Production must use the real OS
+// credential backend (Keychain on macOS, DPAPI on Windows, a supported secret
+// service on Linux). The previous unconditional `use-mock-keychain` switch was
+// suitable only for tests and would weaken macOS secret protection.
+//
+// Linux is explicit because Pocket Buddy+ requires encrypted secret storage and
+// should fail clearly if the selected keyring is unavailable rather than fall
+// back to Chromium's basic-text backend.
 if (process.platform === "linux") {
   app.commandLine.appendSwitch("password-store", "gnome-libsecret");
-} else {
-  app.commandLine.appendSwitch("password-store", "basic");
 }
 
 // Chromium's native window occlusion tracker treats every window on a display
@@ -79,110 +81,104 @@ const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
-  installAppLifecycle();
-
-  app.whenReady().then(async () => {
-    initializeLogger();
-    const productName = getRuntimeProductName();
-    const isPlusBuild = isPlusRuntime();
-    app.setName(productName);
-    if (process.platform === "win32") {
-      app.setAppUserModelId(isPlusBuild ? APP_ID : "dev.openpets.app");
-    }
-    info("app", "startup begin", { version: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged, pid: process.pid, ozonePlatform: app.commandLine.getSwitchValue("ozone-platform") || null, explicitOzonePlatformArg: hasExplicitOzonePlatformArg });
-    if (isLinux && allowWayland) {
-      const effectiveOzone = app.commandLine.getSwitchValue("ozone-platform") || "(auto/system)";
-      warn("app", "native Wayland mode active — pet positioning, gravity, walkabout, and drag are unsupported under native Wayland; remove OPENPETS_ALLOW_WAYLAND=1 to restore full functionality", { effectiveOzone });
-    }
-
-    if (process.platform === "darwin") {
-      app.dock?.setIcon(createAppIcon());
-      app.dock?.hide();
-    }
-
-    initializeAppState();
-    const userDataPath = app.getPath("userData");
-    // The monitor policy is loaded before any user-facing window can be shown.
-    // Every window is subsequently kept inside that monitor's work area, which
-    // excludes the Windows taskbar/macOS dock and applies equally to installed
-    // and portable builds because both execute this same main-process runtime.
-    initializeMonitorSelection(userDataPath);
-    installMonitorWindowGuard();
-    installMonitorSelectionIpc();
-    const buddyProfileStore = new BuddyProfileStore(userDataPath);
-    const buddyInventoryStore = new BuddyInventoryStore(userDataPath);
-    buddyInventoryStore.initialize();
-    installBuddyProfileIpcHandlers(buddyProfileStore);
-    installBuddyInventorySdkCallHandlers();
-    // Resolve the UI language before any window or the tray is built.
-    setLocaleFromPreference(getAppStateSnapshot().preferences.locale);
-    installInternalUiProtocol();
-    installInternalUiHandlers();
-    createAppTray();
-    installDefaultPetDisplayHandlers();
-    await startLocalIpcServer();
-    releaseStartupInstallLock();
-    const roots = parseDevPluginEnv(process.env.OPENPETS_DEV_PLUGIN_ROOTS);
-    const paths = parseDevPluginEnv(process.env.OPENPETS_DEV_PLUGIN_PATHS);
-    const devPluginMode = roots.length > 0 || paths.length > 0;
-    initializePluginPlatformSettings(userDataPath);
-    registerPocketBuddyPlusBundledPlugins(bundledOfficialPluginIds);
-    const pluginCapabilities = createElectronPluginHostCapabilities(userDataPath);
-    installBuddyChatIpcHandler(pluginCapabilities.aiGateway);
-    installBuddyProfilePluginCapability(pluginCapabilities, buddyProfileStore);
-    const pluginJsHost = createInventoryAwarePluginJsHost(new ElectronPluginJsHost(), buddyInventoryStore);
-    let devPluginWatcher: ReturnType<typeof startDevPluginWatcher> | undefined;
-    const pluginService = initializePluginService(userDataPath, defaultPluginPetApi, app.getVersion(), pluginJsHost, writePluginRuntimeLog, process.env.OPENPETS_DISABLE_PLUGIN_CATALOG === "1" || devPluginMode, resolveBundledOfficialPluginRoots(), !devPluginMode, pluginCapabilities, undefined, (sourcePath) => devPluginWatcher?.addPaths([sourcePath]), (sourcePath) => devPluginWatcher?.removePath(sourcePath));
-    // Wall-clock schedules (daily/cron/at) re-arm deterministically after sleep.
-    powerMonitor.on("resume", () => pluginService.runtime.resyncSchedules());
-    if (shouldOpenDefaultPetOnLaunch()) {
-      showDefaultPet();
-    }
-    startLanController();
-    refreshTrayMenu();
-    void (async () => {
-      const service = pluginService;
-      await service.start();
-      const persistedPaths = service.getLocalSourcePaths();
-      for (const path of paths) {
-        const result = await service.loadLocalPath(path, { autoApprove: true });
-        if (!result.ok) logError("app", "dev plugin path load failed", new Error(result.error));
-      }
-      for (const path of persistedPaths.filter((path) => !paths.includes(path))) {
-        const result = await service.loadLocalPath(path, { autoApprove: true });
-        if (!result.ok) logError("app", "persisted local plugin load failed", new Error(result.error));
-      }
-      if (roots.length > 0) {
-        const results = await service.loadLocalRoots(roots, { autoApprove: true, pruneStale: true });
-        for (const result of results) if (!result.ok) logError("app", "dev plugin root load failed", new Error(`${result.path}: ${result.error}`));
-      }
-      const watchPaths = Array.from(new Set([...paths, ...service.getLocalSourcePaths()]));
-      if (devPluginMode || watchPaths.length > 0) devPluginWatcher = startDevPluginWatcher(service, roots, watchPaths);
-    })().catch((error) => logError("app", "plugin service startup failed", error));
-    void checkForGitHubReleaseUpdate().then(() => refreshTrayMenu());
-    info("app", "startup complete", { logFile: getLogFilePath(), openDefaultPetOnLaunch: shouldOpenDefaultPetOnLaunch() });
-    console.log(`${productName} desktop shell ready.`);
-  }).catch((error: unknown) => {
-    releaseStartupInstallLock();
-    logError("app", "startup failed", error);
-    console.error(`Failed to start ${app.getName()} desktop shell.`, error);
-    app.quit();
+  app.on("second-instance", () => {
+    showDefaultPet();
   });
 }
 
-function parseDevPluginEnv(value: string | undefined): string[] {
-  if (!value) return [];
-  return value.split(delimiter).map((item) => item.trim()).filter(Boolean).map((item) => resolve(item));
-}
+app.whenReady().then(async () => {
+  try {
+    app.setAppUserModelId(APP_ID);
+    initializeLogger(app.getPath("userData"));
+    info("app", "starting", {
+      appId: APP_ID,
+      productName: getRuntimeProductName(),
+      plusRuntime: isPlusRuntime(),
+      version: app.getVersion(),
+      platform: process.platform,
+      arch: process.arch,
+      pid: process.pid,
+      logFile: getLogFilePath(),
+    });
+    if (isLinux && allowWayland) {
+      warn("app", "native Wayland requested; pet positioning features are unavailable", {
+        ozonePlatform: hasExplicitOzonePlatformArg ? "explicit" : "system-default",
+        unsupported: ["gravity", "walkabout", "manual-drag", "programmatic-positioning"],
+      });
+    }
 
-function resolveBundledOfficialPluginRoots(): string[] {
-  const candidates = [join(process.resourcesPath, "plugins", "official"), resolve(process.cwd(), "plugins", "official"), resolve(app.getAppPath(), "..", "..", "plugins", "official")];
-  return Array.from(new Set(candidates.filter((candidate) => existsSync(candidate))));
-}
+    const snapshot = await initializeAppState();
+    setLocaleFromPreference(snapshot.settings.locale);
+    initializePluginPlatformSettings({
+      notificationsEnabled: snapshot.settings.plugins.notificationsEnabled,
+      soundEnabled: snapshot.settings.plugins.soundEnabled,
+      quietHoursStart: snapshot.settings.plugins.quietHoursStart,
+      quietHoursEnd: snapshot.settings.plugins.quietHoursEnd,
+      notificationCooldownMs: snapshot.settings.plugins.notificationCooldownMs,
+    });
+    initializeMonitorSelection(snapshot.settings.monitorId);
+    installMonitorWindowGuard();
+    installMonitorSelectionIpc();
+    installInternalUiProtocol();
+    installInternalUiHandlers();
+    installDefaultPetDisplayHandlers();
 
-function writePluginRuntimeLog(level: "debug" | "info" | "warn" | "error", message: string, fields?: Record<string, unknown>): void {
-  if (level === "error") logError("plugin", message, fields);
-  else if (level === "info") info("plugin", message, fields);
-  else if (level === "warn") warn("plugin", message, fields);
-  else debug("plugin", message, fields);
-}
+    const userDataPath = app.getPath("userData");
+    const buddyProfileStore = new BuddyProfileStore(userDataPath);
+    buddyProfileStore.initialize(snapshot.buddyProfile);
+    installBuddyProfileIpcHandlers(buddyProfileStore);
+    installBuddyChatIpcHandler();
+
+    const buddyInventoryStore = new BuddyInventoryStore(userDataPath);
+    buddyInventoryStore.initialize();
+
+    const capabilities = createElectronPluginHostCapabilities(userDataPath);
+    installBuddyProfilePluginCapability(capabilities, buddyProfileStore);
+    const pluginJsHost = createInventoryAwarePluginJsHost(
+      new ElectronPluginJsHost(capabilities),
+      buddyInventoryStore,
+    );
+    installBuddyInventorySdkCallHandlers(pluginJsHost.sdkBridge, buddyInventoryStore);
+    registerPocketBuddyPlusBundledPlugins(bundledOfficialPluginIds);
+    const pluginService = initializePluginService({
+      userDataPath,
+      jsHost: pluginJsHost,
+      capabilities,
+    });
+    await pluginService.initialize();
+
+    const pluginRoots = (process.env.OPENPETS_DEV_PLUGIN_ROOTS ?? "")
+      .split(delimiter)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => resolve(entry));
+    if (pluginRoots.length > 0) startDevPluginWatcher(pluginRoots, pluginService);
+
+    installAppLifecycle();
+    createAppTray(createAppIcon());
+    refreshTrayMenu();
+    startLocalIpcServer();
+    startLanController();
+
+    if (shouldOpenDefaultPetOnLaunch(snapshot)) showDefaultPet();
+
+    if (snapshot.settings.updateChecksEnabled) {
+      void checkForGitHubReleaseUpdate().catch((err) => {
+        warn("updates", "release check failed", { reason: err instanceof Error ? err.message : String(err) });
+      });
+    }
+
+    if (powerMonitor) {
+      powerMonitor.on("resume", () => {
+        debug("app", "system resumed");
+        if (shouldOpenDefaultPetOnLaunch(getAppStateSnapshot())) showDefaultPet();
+      });
+    }
+
+    releaseStartupInstallLock();
+  } catch (err) {
+    releaseStartupInstallLock();
+    logError("app", "startup failed", { reason: err instanceof Error ? err.message : String(err) });
+    app.quit();
+  }
+});
