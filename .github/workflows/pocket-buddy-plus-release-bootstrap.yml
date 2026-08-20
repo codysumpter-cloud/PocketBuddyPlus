@@ -1,0 +1,34 @@
+name: Bootstrap Pocket Buddy+ Release
+
+# One-time-safe bootstrap for the release workflow itself. A workflow_run-based
+# release cannot prove its own first handoff until it has already existed on the
+# default branch. Landing or intentionally editing this file dispatches the
+# normal release workflow on main. Future product merges continue to use the
+# regular green-main workflow_run path.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/pocket-buddy-plus-release-bootstrap.yml
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch-release:
+    name: Dispatch canonical Pocket Buddy+ release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch release workflow on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run pocket-buddy-plus-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main
+          echo "Dispatched canonical Pocket Buddy+ Release workflow on main."
